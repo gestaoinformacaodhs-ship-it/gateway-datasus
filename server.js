@@ -99,13 +99,17 @@ app.post('/api/forgot-password', (req, res) => {
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
             
-            try {
-                await enviarEmailReal(email, link);
-                res.json({ message: "E-mail enviado!" });
-            } catch (mailErr) {
-                console.error("❌ Erro detalhado SMTP:", mailErr);
-                res.status(500).json({ error: "O servidor de e-mail recusou a conexão. Verifique os logs." });
-            }
+            // --- MODO DE EMERGÊNCIA (PARA NÃO DAR ERRO 502) ---
+            console.log("------------------------------------------");
+            console.log(`🔗 LINK DE RECUPERAÇÃO PARA: ${email}`);
+            console.log(link);
+            console.log("------------------------------------------");
+
+            // Tenta enviar o e-mail, mas não trava se falhar
+            enviarEmailReal(email, link).catch(e => console.log("⚠️ E-mail real falhou, use o link acima no log."));
+
+            // Responde sucesso para o navegador imediatamente
+            res.json({ message: "Se o e-mail não chegar em 1 min, o link foi gerado no log do servidor." });
         });
     });
 });
