@@ -7,21 +7,25 @@ function trocar(id) {
     });
     
     const alvo = document.getElementById(`${id}-container`);
-    if (alvo) alvo.style.display = 'block';
+    if (alvo) {
+        alvo.style.display = 'block';
+    }
 }
 
 // --- SUPORTE: CHAT WIDGET ---
 function toggleChat() {
     const chatWin = document.getElementById('c-win');
     if (chatWin) {
-        chatWin.classList.toggle('hidden');
-        chatWin.style.display = chatWin.classList.contains('hidden') ? 'none' : 'flex';
+        // Alterna entre flex e none para manter o layout centralizado do chat
+        const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden');
+        chatWin.style.display = isHidden ? 'flex' : 'none';
+        chatWin.classList.toggle('hidden', !isHidden);
     }
 }
 
 // --- AUTENTICAÇÃO: LOGIN ---
 async function entrar() {
-    const email = document.getElementById('l-email')?.value;
+    const email = document.getElementById('l-email')?.value.trim();
     const senha = document.getElementById('l-pass')?.value;
 
     if (!email || !senha) return alert("Por favor, preencha todos os campos.");
@@ -42,14 +46,15 @@ async function entrar() {
             alert(data.error || "E-mail ou senha incorretos.");
         }
     } catch (err) {
-        alert("Erro de conexão com o servidor.");
+        console.error("Erro no login:", err);
+        alert("Erro de conexão com o servidor. Verifique se o back-end está rodando.");
     }
 }
 
 // --- AUTENTICAÇÃO: REGISTRO ---
 async function registar() {
-    const nome = document.getElementById('r-nome')?.value;
-    const email = document.getElementById('r-email')?.value;
+    const nome = document.getElementById('r-nome')?.value.trim();
+    const email = document.getElementById('r-email')?.value.trim();
     const senha = document.getElementById('r-pass')?.value;
 
     if (!nome || !email || !senha) return alert("Preencha todos os campos.");
@@ -75,13 +80,14 @@ async function registar() {
 
 // --- AUTENTICAÇÃO: RECUPERAÇÃO DE SENHA (SOLICITAR TOKEN) ---
 async function solicitarRecuperacao() {
-    const email = document.getElementById('f-email')?.value;
+    const email = document.getElementById('f-email')?.value.trim();
     const btn = document.getElementById('btn-forgot');
 
     if (!email) return alert("Por favor, digite seu e-mail.");
 
-    // Muda o estado do botão para o usuário saber que está processando
-    btn.innerText = "Enviando e-mail real...";
+    // Feedback visual de processamento
+    const textoOriginal = btn.innerText;
+    btn.innerText = "Processando...";
     btn.disabled = true;
     btn.style.opacity = "0.7";
 
@@ -95,15 +101,15 @@ async function solicitarRecuperacao() {
         const data = await res.json();
 
         if (res.ok) {
-            alert("SUCESSO! O link foi enviado para o seu Gmail.");
+            alert("Sucesso! Verifique seu e-mail para recuperar a senha.");
             trocar('login');
         } else {
-            alert(data.error || "Erro: E-mail não cadastrado.");
+            alert(data.error || "E-mail não encontrado.");
         }
     } catch (err) {
-        alert("Erro técnico: Não foi possível conectar ao servidor.");
+        alert("Não foi possível conectar ao servidor de e-mail.");
     } finally {
-        btn.innerText = "Enviar Instruções Real";
+        btn.innerText = textoOriginal;
         btn.disabled = false;
         btn.style.opacity = "1";
     }
@@ -121,11 +127,10 @@ async function abrirEListar(sistema) {
     if (listContainer) {
         listContainer.innerHTML = `
             <div style="text-align:center; padding:40px;">
-                <div class="spinner" style="border: 4px solid rgba(255,255,255,0.1); border-left-color: #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
-                <p style="color:#3b82f6; font-weight:bold; margin:0;">Conectando ao DATASUS...</p>
-                <small style="color:#64748b;">Aguarde a resposta do servidor FTP</small>
+                <div class="spinner"></div>
+                <p style="color:#3b82f6; font-weight:bold; margin-top:15px;">Conectando ao DATASUS...</p>
+                <small style="color:#64748b;">Isso pode levar alguns segundos</small>
             </div>
-            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         `;
     }
 
@@ -136,51 +141,48 @@ async function abrirEListar(sistema) {
         const files = await res.json();
 
         if (!files || files.length === 0) {
-            listContainer.innerHTML = "<p style='text-align:center; padding:40px; color:#64748b;'>Nenhum arquivo encontrado neste diretório.</p>";
+            listContainer.innerHTML = "<p style='text-align:center; padding:40px; color:#64748b;'>Nenhum arquivo encontrado.</p>";
             return;
         }
 
         listContainer.innerHTML = files.map(f => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div class="file-item" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid rgba(255,255,255,0.05);">
                 <div style="text-align:left;">
-                    <span style="color:white; font-size:0.9rem; font-weight:500; display:block;">${f.name}</span>
+                    <span style="color:white; font-size:0.85rem; font-weight:500; display:block;">${f.name}</span>
                     <small style="color:#64748b;">${f.size}</small>
                 </div>
                 <button onclick="baixarDireto('${sistema}', '${f.name}', this)" 
-                        class="btn-download"
-                        style="background:#3b82f6; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; transition: 0.2s;">
+                        style="background:#3b82f6; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:0.8rem;">
                     Baixar
                 </button>
             </div>
         `).join('');
     } catch (err) {
-        listContainer.innerHTML = "<p style='color:#ef4444; text-align:center; padding:40px;'>Erro ao carregar arquivos do FTP. Tente novamente.</p>";
+        listContainer.innerHTML = "<p style='color:#ef4444; text-align:center; padding:40px;'>Falha ao conectar ao FTP. Tente novamente mais tarde.</p>";
     }
 }
 
-// --- DASHBOARD: DOWNLOAD (CORREÇÃO DEFINITIVA) ---
+// --- DASHBOARD: DOWNLOAD ---
 function baixarDireto(sistema, arquivo, btn) {
     const url = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
     
     const originalText = btn.innerText;
-    btn.innerText = "Iniciando...";
-    btn.style.opacity = "0.6";
+    btn.innerText = "Baixando...";
     btn.disabled = true;
 
-    let iframe = document.getElementById('download-iframe');
-    if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'download-iframe';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-    }
-    iframe.src = url;
+    // Criar um link invisível para disparar o download sem sair da página
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = arquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
+    // Reativar botão após um delay
     setTimeout(() => {
         btn.innerText = originalText;
-        btn.style.opacity = "1";
         btn.disabled = false;
-    }, 10000);
+    }, 3000);
 }
 
 function fecharModal() {
@@ -190,14 +192,17 @@ function fecharModal() {
 
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Verificar exibição do nome do usuário
     const display = document.getElementById('user-display');
+    const usuarioLogado = localStorage.getItem('usuario');
+
     if (display) {
-        const user = localStorage.getItem('usuario');
-        display.innerText = user ? `Olá, ${user}` : "Olá, Usuário";
+        display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
     }
 
+    // Proteção de rota para Dashboard
     if (window.location.pathname.includes('dashboard.html')) {
-        if (!localStorage.getItem('usuario')) {
+        if (!usuarioLogado) {
             window.location.href = 'index.html'; 
         }
     }
