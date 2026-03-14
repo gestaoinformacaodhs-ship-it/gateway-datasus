@@ -44,14 +44,34 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i class="fa-solid fa-lock"></i>
                     </span>
-                    <input type="password" id="senha" placeholder="••••••••" 
+                    <input type="password" id="senha" placeholder="••••••••" oninput="validarFormulario()"
                         class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                </div>
+                
+                <div class="w-full h-1.5 bg-slate-900 rounded-full mt-3 overflow-hidden">
+                    <div id="barra-forca" class="w-0 h-full transition-all duration-300 bg-red-500"></div>
+                </div>
+                <div class="flex justify-between mt-1 px-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-500">Segurança:</span>
+                    <span id="status-forca" class="text-[10px] uppercase font-bold text-slate-500">Insegura</span>
                 </div>
             </div>
 
-            <button onclick="finalizarCadastro()" id="btn-cadastro"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300 shadow-lg shadow-blue-900/20 mt-4 flex justify-center items-center">
-                <span>Criar Conta</span>
+            <div>
+                <label class="block text-slate-300 mb-1 ml-1 text-sm">Confirmar Senha</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-check-double"></i>
+                    </span>
+                    <input type="password" id="confirmar_senha" placeholder="Repita a senha" oninput="validarFormulario()"
+                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                </div>
+                <p id="erro-confirmacao" class="text-red-500 text-[10px] mt-1 ml-1 hidden">As senhas não coincidem.</p>
+            </div>
+
+            <button onclick="finalizarCadastro()" id="btn-cadastro" disabled
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all duration-300 shadow-lg shadow-blue-900/20 mt-4 flex justify-center items-center opacity-50 cursor-not-allowed">
+                <span id="btn-label">Criar Conta</span>
             </button>
         </div>
 
@@ -62,28 +82,86 @@
     </div>
 
     <script>
+        // Função unificada para validar força e igualdade
+        function validarFormulario() {
+            const senha = document.getElementById('senha').value;
+            const confirma = document.getElementById('confirmar_senha').value;
+            const barra = document.getElementById('barra-forca');
+            const status = document.getElementById('status-forca');
+            const erroMsg = document.getElementById('erro-confirmacao');
+            const btn = document.getElementById('btn-cadastro');
+            
+            let forca = 0;
+
+            // 1. Cálculo da Força
+            if (senha.length >= 6) forca += 25;
+            if (senha.match(/[a-z]/) && senha.match(/[A-Z]/)) forca += 25;
+            if (senha.match(/[0-9]/)) forca += 25;
+            if (senha.match(/[^a-zA-Z0-9]/)) forca += 25;
+
+            barra.style.width = forca + "%";
+
+            // 2. Cores da Barra e Status
+            if (forca <= 25) {
+                barra.className = "w-full h-full bg-red-500 transition-all";
+                status.innerText = "Fraca";
+                status.className = "text-[10px] uppercase font-bold text-red-500";
+            } else if (forca <= 50) {
+                barra.className = "w-full h-full bg-yellow-500 transition-all";
+                status.innerText = "Média";
+                status.className = "text-[10px] uppercase font-bold text-yellow-500";
+            } else if (forca <= 75) {
+                barra.className = "w-full h-full bg-blue-500 transition-all";
+                status.innerText = "Forte";
+                status.className = "text-[10px] uppercase font-bold text-blue-500";
+            } else {
+                barra.className = "w-full h-full bg-emerald-500 transition-all";
+                status.innerText = "Excelente";
+                status.className = "text-[10px] uppercase font-bold text-emerald-500";
+            }
+
+            // 3. Validação de Igualdade e Habilitação do Botão
+            const senhasIguais = (senha === confirma && senha !== "");
+            const forcaAceitavel = (forca >= 50);
+
+            // Mostrar erro de confirmação apenas se o usuário já começou a digitar no segundo campo
+            if (confirma.length > 0 && !senhasIguais) {
+                erroMsg.classList.remove('hidden');
+            } else {
+                erroMsg.classList.add('hidden');
+            }
+
+            if (senhasIguais && forcaAceitavel) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                btn.classList.add('hover:scale-[1.02]');
+            } else {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.classList.remove('hover:scale-[1.02]');
+            }
+        }
+
         async function finalizarCadastro() {
             const nome = document.getElementById('nome').value;
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
             const btn = document.getElementById('btn-cadastro');
 
-            // Validação
             if (!nome || !email || !senha) {
                 return alert("⚠️ Preencha todos os campos obrigatórios.");
             }
 
             // UI: Feedback visual
-            const textoOriginal = btn.innerHTML;
+            const conteudoOriginal = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `
                 <svg class="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Enviando e-mail...
+                Cadastrando...
             `;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
 
             try {
                 const res = await fetch('/api/register', {
@@ -95,23 +173,23 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("✅ Sucesso!\n" + data.message);
+                    alert("✅ Conta criada com sucesso!\nVerifique seu e-mail para ativar.");
                     window.location.href = 'index.html'; 
                 } else {
-                    alert("❌ Erro: " + data.error);
-                    resetarBotao(btn, textoOriginal);
+                    alert("❌ Erro: " + (data.error || "Erro ao cadastrar."));
+                    resetarBotao(btn, conteudoOriginal);
                 }
             } catch (err) {
                 console.error("Erro:", err);
-                alert("❌ Erro técnico ao conectar com o servidor.");
-                resetarBotao(btn, textoOriginal);
+                alert("❌ Servidor indisponível ou erro de rede.");
+                resetarBotao(btn, conteudoOriginal);
             }
         }
 
-        function resetarBotao(btn, texto) {
+        function resetarBotao(btn, conteudo) {
             btn.disabled = false;
-            btn.innerHTML = texto;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.innerHTML = conteudo;
+            validarFormulario();
         }
     </script>
 
