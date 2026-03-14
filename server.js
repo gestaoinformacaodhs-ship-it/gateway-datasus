@@ -34,12 +34,20 @@ try {
     apiInstance = { sendTransacEmail: () => Promise.reject("Serviço de e-mail indisponível") };
 }
 
-// --- BANCO DE DADOS ---
+// --- BANCO DE DADOS (ATUALIZADO) ---
 const dbPath = path.join(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (!err) {
         db.serialize(() => {
-            db.run(`CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT)`);
+            // Adicionado campos 'ativo' e 'token_ativacao'
+            db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                nome TEXT, 
+                email TEXT UNIQUE, 
+                senha TEXT, 
+                ativo INTEGER DEFAULT 0, 
+                token_ativacao TEXT
+            )`);
             db.run(`CREATE TABLE IF NOT EXISTS tokens (email TEXT, token TEXT PRIMARY KEY, expiracao DATETIME)`);
         });
         console.log("✔️ Banco de Dados pronto.");
@@ -48,12 +56,13 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
-// --- FUNÇÃO DE ENVIO DE E-MAIL ---
-async function enviarEmailReal(emailDestino, link) {
+// --- FUNÇÕES DE ENVIO DE E-MAIL ---
+
+// E-mail de Recuperação de Senha
+async function enviarEmailRecuperacao(emailDestino, link) {
     try {
         const EmailClass = Brevo.SendSmtpEmail || (Brevo.default && Brevo.default.SendSmtpEmail);
         const sendSmtpEmail = new EmailClass();
-
         sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
         sendSmtpEmail.htmlContent = `
             <div style="font-family:sans-serif; padding:20px; border:1px solid #3b82f6; border-radius:10px;">
@@ -66,28 +75,83 @@ async function enviarEmailReal(emailDestino, link) {
             </div>`;
         sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ "email": emailDestino }];
-
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log("✅ E-mail de recuperação enviado!");
-    } catch (error) {
-        console.error("❌ Erro ao disparar e-mail:", error.message || error);
-    }
+    } catch (error) { console.error("❌ Erro e-mail recuperação:", error.message); }
+}
+
+// NOVO: E-mail de Ativação de Conta
+async function enviarEmailAtivacao(emailDestino, nome, link) {
+    try {
+        const EmailClass = Brevo.SendSmtpEmail || (Brevo.default && Brevo.default.SendSmtpEmail);
+        const sendSmtpEmail = new EmailClass();
+        sendSmtpEmail.subject = "Ative sua conta - Gateway DATASUS";
+        sendSmtpEmail.htmlContent = `
+            <div style="font-family:sans-serif; padding:20px; border:1px solid #10b981; border-radius:10px;">
+                <h2 style="color:#10b981;">Olá, ${nome}!</h2>
+                <p>Para concluir seu cadastro e acessar o Gateway DATASUS, clique no botão abaixo para ativar sua conta:</p>
+                <div style="text-align:center; margin:30px 0;">
+                    <a href="${link}" style="background:#10b981; color:white; padding:12px 25px; text-decoration:none; border-radius:5px; font-weight:bold;">ATIVAR MINHA CONTA</a>
+                </div>
+                <p><small>Se você não solicitou este cadastro, ignore este e-mail.</small></p>
+            </div>`;
+        sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
+        sendSmtpEmail.to = [{ "email": emailDestino }];
+        await apiInstance.sendTransacEmail(sendSmtpEmail);
+        console.log("✅ E-mail de ativação enviado!");
+    } catch (error) { console.error("❌ Erro e-mail ativação:", error.message); }
 }
 
 // --- ROTAS DA API ---
 
+// Registro atualizado para incluir ativação
 app.post('/api/register', (req, res) => {
     const { nome, email, senha } = req.body;
-    db.run(`INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?)`, [nome, email, senha], (err) => {
+    const tokenAtivacao = crypto.randomBytes(20).toString('hex');
+
+    db.run(`INSERT INTO usuarios (nome, email, senha, token_ativacao, ativo) VALUES (?, ?, ?, ?, 0)`, 
+    [nome, email, senha, tokenAtivacao], function(err) {
         if (err) return res.status(400).json({ error: "E-mail já cadastrado." });
-        res.status(201).json({ message: "Usuário criado" });
+
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const host = req.get('host');
+        const link = `${protocol}://${host}/api/activate?token=${tokenAtivacao}`;
+
+        enviarEmailAtivacao(email, nome, link);
+        res.status(201).json({ message: "Cadastro realizado! Verifique seu e-mail para ativar a conta." });
     });
 });
 
+// NOVO: Rota de ativação de conta
+app.get('/api/activate', (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(400).send("Token ausente.");
+
+    db.run(`UPDATE usuarios SET ativo = 1, token_ativacao = NULL WHERE token_ativacao = ?`, [token], function(err) {
+        if (err || this.changes === 0) {
+            return res.status(400).send("<h1>Link inválido ou conta já ativada.</h1>");
+        }
+        // Redireciona para o login após ativar ou exibe mensagem
+        res.send(`
+            <div style="font-family:sans-serif; text-align:center; margin-top:50px;">
+                <h1 style="color:#10b981;">Conta Ativada!</h1>
+                <p>Sua conta foi confirmada com sucesso. Você já pode fazer login no sistema.</p>
+                <a href="/index.html" style="color:#3b82f6;">Ir para a tela de Login</a>
+            </div>
+        `);
+    });
+});
+
+// Login atualizado para verificar se a conta está ativa
 app.post('/api/login', (req, res) => {
     const { email, senha } = req.body;
-    db.get(`SELECT nome FROM usuarios WHERE email = ? AND senha = ?`, [email, senha], (err, row) => {
+    db.get(`SELECT nome, ativo FROM usuarios WHERE email = ? AND senha = ?`, [email, senha], (err, row) => {
         if (err || !row) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+        
+        if (row.ativo === 0) {
+            return res.status(403).json({ error: "Sua conta ainda não foi ativada. Verifique seu e-mail." });
+        }
+        
         res.json({ user: row.nome });
     });
 });
@@ -104,24 +168,19 @@ app.post('/api/forgot-password', (req, res) => {
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const host = req.get('host');
             const link = `${protocol}://${host}/reset-password.html?token=${token}`;
-            enviarEmailReal(email, link);
+            enviarEmailRecuperacao(email, link);
             res.json({ message: "Link enviado!" });
         });
     });
 });
 
-// --- ROTA DE REDEFINIÇÃO DE SENHA ---
 app.post('/api/reset-password', (req, res) => {
     const { token, novaSenha } = req.body;
-    
     db.get(`SELECT email FROM tokens WHERE token = ? AND expiracao > DATETIME('now')`, [token], (err, row) => {
-        if (err || !row) {
-            return res.status(400).json({ error: "Link inválido ou expirado." });
-        }
+        if (err || !row) return res.status(400).json({ error: "Link inválido ou expirado." });
         
         db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], (updateErr) => {
             if (updateErr) return res.status(500).json({ error: "Erro ao atualizar a senha." });
-            
             db.run(`DELETE FROM tokens WHERE token = ?`, [token]);
             res.json({ message: "Senha atualizada com sucesso!" });
         });
