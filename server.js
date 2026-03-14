@@ -26,7 +26,7 @@ try {
         apiInstance = { sendTransacEmail: () => Promise.reject("Chave de API ausente") };
     }
 } catch (error) {
-    console.error("❌ Erro ao iniciar Brevo:", error.message);
+    console.error("❌ Erro ao iniciar Brevo:", error);
     apiInstance = { sendTransacEmail: () => Promise.reject("Serviço de e-mail indisponível") };
 }
 
@@ -51,7 +51,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
-// --- FUNÇÕES DE ENVIO DE E-MAIL ---
+// --- FUNÇÕES DE ENVIO DE E-MAIL (COM TRATAMENTO DE ERRO MELHORADO) ---
 
 async function enviarEmailRecuperacao(emailDestino, link) {
     try {
@@ -70,7 +70,11 @@ async function enviarEmailRecuperacao(emailDestino, link) {
         sendSmtpEmail.to = [{ "email": emailDestino }];
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log(`✅ E-mail de recuperação enviado para: ${emailDestino}`);
-    } catch (error) { console.error("❌ Erro e-mail recuperação:", error.message); }
+    } catch (error) { 
+        // Se o erro tiver uma resposta do Brevo, mostra o erro real, senão mostra o erro comum
+        const erroReal = error.response ? JSON.stringify(error.response.body) : error.message;
+        console.error("❌ Erro e-mail recuperação:", erroReal); 
+    }
 }
 
 async function enviarEmailAtivacao(emailDestino, nome, link) {
@@ -90,7 +94,10 @@ async function enviarEmailAtivacao(emailDestino, nome, link) {
         sendSmtpEmail.to = [{ "email": emailDestino }];
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log(`✅ E-mail de ativação enviado para: ${emailDestino}`);
-    } catch (error) { console.error("❌ Erro e-mail ativação:", error.message); }
+    } catch (error) { 
+        const erroReal = error.response ? JSON.stringify(error.response.body) : error.message;
+        console.error("❌ Erro e-mail ativação:", erroReal); 
+    }
 }
 
 // --- ROTAS DA API ---
