@@ -19,13 +19,17 @@ if (process.env.BREVO_API_KEY) {
     console.warn("⚠️ BREVO_API_KEY não encontrada.");
 }
 
-// --- CONFIGURAÇÃO SUPABASE (CORRIGIDA) ---
+// --- CONFIGURAÇÃO SUPABASE (VERSÃO FINAL COMPATÍVEL) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { 
-        // Isso ignora a verificação do certificado autoassinado e resolve o erro
-        rejectUnauthorized: false 
+    ssl: {
+        rejectUnauthorized: false
     }
+});
+
+// Listener para evitar queda do servidor por erros de conexão inativos
+pool.on('error', (err) => {
+    console.error('❌ Erro inesperado no cliente PostgreSQL:', err.message);
 });
 
 // Inicialização das tabelas no Supabase
@@ -128,7 +132,6 @@ app.post('/api/forgot-password', async (req, res) => {
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + 3600000); 
 
-        // Uso do ON CONFLICT para atualizar o token se o usuário pedir reset várias vezes
         await pool.query(
             `INSERT INTO tokens (email, token, expiracao) VALUES ($1, $2, $3) 
              ON CONFLICT (token) DO UPDATE SET expiracao = $3`,
