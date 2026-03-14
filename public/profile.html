@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - Gateway DATASUS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-200 min-h-screen">
+
+    <nav class="bg-slate-800 border-b border-slate-700 p-4 mb-8">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-blue-500">GATEWAY <span class="text-white">SUS</span></h1>
+            <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-sm">
+                <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto p-4">
+        <div class="bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+            <div class="bg-blue-600 p-6">
+                <h2 class="text-2xl font-bold text-white">Configurações de Perfil</h2>
+                <p class="text-blue-100 opacity-80 text-sm">Mantenha seus dados de acesso governamental atualizados.</p>
+            </div>
+
+            <form id="form-perfil" class="p-8 space-y-6">
+                <div>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1">Nome Completo</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="nome" value="Marcos Souza Monteiro" 
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1">E-mail de Acesso</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-envelope"></i>
+                        </span>
+                        <input type="email" id="email" placeholder="seu@email.com"
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                    </div>
+                </div>
+
+                <hr class="border-slate-700 my-4">
+
+                <div>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1">Alterar Senha (deixe em branco para manter)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" id="senha" placeholder="Nova senha" oninput="avaliarForca()"
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-900 rounded-full mt-3 overflow-hidden">
+                        <div id="barra-forca" class="w-0 h-full transition-all duration-300 bg-red-500"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1">Confirmar Nova Senha</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-check-double"></i>
+                        </span>
+                        <input type="password" id="confirmar_senha" placeholder="Repita a nova senha"
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" id="btn-salvar"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-lg shadow-blue-900/30 flex justify-center items-center">
+                        <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function avaliarForca() {
+            const senha = document.getElementById('senha').value;
+            const barra = document.getElementById('barra-forca');
+            let forca = 0;
+
+            if (senha.length > 0) {
+                if (senha.length >= 6) forca += 25;
+                if (senha.match(/[a-z]/) && senha.match(/[A-Z]/)) forca += 25;
+                if (senha.match(/[0-9]/)) forca += 25;
+                if (senha.match(/[^a-zA-Z0-9]/)) forca += 25;
+            }
+
+            barra.style.width = forca + "%";
+            if (forca <= 25) barra.className = "w-full h-full bg-red-500 transition-all";
+            else if (forca <= 50) barra.className = "w-full h-full bg-yellow-500 transition-all";
+            else if (forca <= 75) barra.className = "w-full h-full bg-blue-500 transition-all";
+            else barra.className = "w-full h-full bg-emerald-500 transition-all";
+        }
+
+        const form = document.getElementById('form-perfil');
+        const btn = document.getElementById('btn-salvar');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const nome = document.getElementById('nome').value;
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const confirma = document.getElementById('confirmar_senha').value;
+
+            if (senha && senha !== confirma) {
+                return alert("⚠️ As senhas não coincidem!");
+            }
+
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Atualizando...`;
+
+            try {
+                const res = await fetch('/api/update-profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email, senha: senha || undefined })
+                });
+
+                if (res.ok) {
+                    alert("✅ Perfil atualizado com sucesso!");
+                } else {
+                    const data = await res.json();
+                    alert("❌ Erro ao salvar: " + (data.error || "Tente novamente mais tarde."));
+                }
+            } catch (err) {
+                alert("❌ Erro técnico ao conectar com o servidor.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    </script>
+</body>
+</html>

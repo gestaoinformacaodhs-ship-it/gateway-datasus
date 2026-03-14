@@ -19,20 +19,16 @@ if (process.env.BREVO_API_KEY) {
     console.warn("⚠️ BREVO_API_KEY não encontrada.");
 }
 
-// --- CONFIGURAÇÃO SUPABASE (VERSÃO FINAL COMPATÍVEL) ---
+// --- CONFIGURAÇÃO SUPABASE ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
 });
 
-// Listener para evitar queda do servidor por erros de conexão inativos
 pool.on('error', (err) => {
     console.error('❌ Erro inesperado no cliente PostgreSQL:', err.message);
 });
 
-// Inicialização das tabelas no Supabase
 async function initDB() {
     try {
         await pool.query(`
@@ -109,7 +105,7 @@ app.post('/api/login', async (req, res) => {
 
     try {
         const result = await pool.query(
-            `SELECT nome, ativo FROM usuarios WHERE email = $1 AND senha = $2`,
+            `SELECT nome, email, ativo FROM usuarios WHERE email = $1 AND senha = $2`,
             [emailLower, senha]
         );
         const row = result.rows[0];
@@ -117,9 +113,47 @@ app.post('/api/login', async (req, res) => {
         if (!row) return res.status(401).json({ error: "E-mail ou senha incorretos." });
         if (row.ativo === 0) return res.status(403).json({ error: "Ative sua conta primeiro." });
         
-        res.json({ user: row.nome });
+        // Retornamos e-mail e nome para o front-end salvar no localStorage
+        res.json({ user: row.nome, email: row.email, token: 'fake-jwt-token' });
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
+
+// --- NOVA ROTA: ATUALIZAÇÃO DE PERFIL ---
+app.put('/api/update-profile', async (req, res) => {
+    const { nome, email, senha } = req.body;
+    // Em um cenário real, você pegaria o e-mail atual da sessão/token do usuário
+    // Para simplificar seu teste, usaremos o e-mail enviado no corpo
+    
+    try {
+        let query = "UPDATE usuarios SET nome = $1";
+        let params = [nome];
+
+        if (senha) {
+            query += ", senha = $2 WHERE email = $3";
+            params.push(senha, email);
+        } else {
+            query += " WHERE email = $2";
+            params.push(email);
+        }
+
+        const result = await pool.query(query, params);
+        
+        if (result.rowCount > 0) {
+            res.json({ message: "Perfil atualizado com sucesso!" });
+        } else {
+            res.status(404).json({ error: "Usuário não encontrado." });
+        }
+    } catch (err) {
+        console.error("Erro ao atualizar perfil:", err.message);
+        res.status(500).json({ error: "Erro interno ao atualizar." });
+    }
+});
+
+app.post('/api/logout', (req, res) => {
+    res.json({ message: "Sessão encerrada." });
+});
+
+// --- RECUPERAÇÃO DE SENHA ---
 
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
@@ -147,27 +181,16 @@ app.post('/api/forgot-password', async (req, res) => {
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
-        // Buscamos o email associado ao token. 
-        // Removi a trava de NOW() para evitar erros de fuso horário durante o seu teste.
-        const result = await pool.query(
-            `SELECT email FROM tokens WHERE token = $1`,
-            [token.trim()]
-        );
+        const result = await pool.query(`SELECT email FROM tokens WHERE token = $1`, [token.trim()]);
         const row = result.rows[0];
 
-        if (!row) {
-            return res.status(400).json({ error: "Link inválido ou expirado." });
-        }
+        if (!row) return res.status(400).json({ error: "Link inválido ou expirado." });
         
-        // Atualiza a senha na tabela de usuários
         await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [novaSenha, row.email]);
-        
-        // Remove o token para que não possa ser usado novamente
         await pool.query(`DELETE FROM tokens WHERE email = $1`, [row.email]);
         
         res.json({ message: "Senha atualizada com sucesso!" });
     } catch (err) { 
-        console.error("❌ Erro no Reset de Senha:", err.message);
         res.status(500).json({ error: "Erro ao salvar nova senha." }); 
     }
 });
@@ -182,7 +205,10 @@ app.get('/api/list/:sistema', async (req, res) => {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
+        res.json(list.filter(f => f.isFile).map(f => ({ 
+            name: f.name, 
+            size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
+        })));
     } catch (e) { res.status(500).send("Erro FTP"); } 
     finally { client.close(); }
 });

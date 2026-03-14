@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Gateway DATASUS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Grid de Cards */
         .grid { 
@@ -92,6 +94,12 @@
             transform: scale(1.05);
         }
     </style>
+    <script>
+        // SEGURANÇA: Verifica se há token de acesso antes de carregar a página
+        if (!localStorage.getItem('token') && !sessionStorage.getItem('token')) {
+            window.location.href = 'index.html';
+        }
+    </script>
 </head>
 <body style="background: #0f172a; color: white; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;">
 
@@ -101,10 +109,12 @@
         <div style="display: flex; align-items: center; gap: 20px;">
             <div style="text-align: right;">
                 <span id="user-display" style="color: #f8fafc; font-weight: 600; display: block; font-size: 0.9rem;">Olá, Usuário</span>
-                <small style="color: #64748b;">Acesso Governamental</small>
+                <a href="profile.html" style="color: #3b82f6; text-decoration: none; font-size: 0.75rem; font-weight: bold;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                    <i class="fa-solid fa-user-gear mr-1"></i> Editar Perfil
+                </a>
             </div>
             <button onclick="logout()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'">
-                Sair
+                <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair
             </button>
         </div>
     </header>
@@ -144,25 +154,22 @@
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 25px; background: rgba(15, 23, 42, 0.5); border-bottom: 1px solid #334155;">
                 <div>
                     <h3 id="modal-title" style="margin: 0; color: white; font-size: 1.2rem;">Arquivos</h3>
-                    <small id="modal-subtitle" style="color: #64748b;">Conectando ao Arpoador...</small>
+                    <small id="modal-subtitle" style="color: #94a3b8;">Conectando ao Arpoador...</small>
                 </div>
                 <button onclick="fecharModal()" style="background: #334155; border: none; color: white; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">✕</button>
             </div>
             
             <div id="file-list" style="max-height: 500px; overflow-y: auto; min-height: 300px; padding: 20px; background: #1e293b;">
-                </div>
+                <div style="text-align:center; padding:50px; color: #94a3b8;">Iniciando conexão...</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Carrega nome do usuário
+        // Carrega informações do usuário
         document.addEventListener('DOMContentLoaded', () => {
-            const usuario = localStorage.getItem('usuario');
-            if (!usuario) {
-                window.location.href = 'index.html';
-            } else {
-                document.getElementById('user-display').innerText = `Olá, ${usuario}`;
-            }
+            const usuario = localStorage.getItem('usuario') || 'Marcos Souza';
+            document.getElementById('user-display').innerText = `Olá, ${usuario}`;
         });
 
         // Função para Listar Arquivos do Backend
@@ -175,20 +182,27 @@
             modal.style.display = 'flex';
             title.innerText = `Repositório ${sistema}`;
             subtitle.innerText = "Buscando lista de arquivos...";
-            fileList.innerHTML = '<div style="text-align:center; padding:50px;">Buscando arquivos no Arpoador...</div>';
+            fileList.innerHTML = `
+                <div style="text-align:center; padding:50px; color: #3b82f6;">
+                    <i class="fa-solid fa-circle-notch animate-spin text-3xl mb-3"></i>
+                    <p style="color: #94a3b8;">Acessando servidor FTP DATASUS...</p>
+                </div>`;
 
             try {
                 const res = await fetch(`/api/list/${sistema}`);
+                
+                if (!res.ok) throw new Error("Falha na resposta do servidor");
+                
                 const arquivos = await res.json();
 
-                if (arquivos.length === 0) {
-                    fileList.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8;">Nenhum arquivo encontrado.</div>';
+                if (!arquivos || arquivos.length === 0) {
+                    fileList.innerHTML = '<div style="text-align:center; padding:50px; color:#94a3b8;">Nenhum arquivo encontrado para este sistema.</div>';
                     subtitle.innerText = "Pasta vazia.";
                     return;
                 }
 
-                subtitle.innerText = `${arquivos.length} arquivos encontrados.`;
-                fileList.innerHTML = ''; // Limpa o loading
+                subtitle.innerText = `${arquivos.length} arquivos encontrados no Arpoador.`;
+                fileList.innerHTML = ''; 
 
                 arquivos.forEach(file => {
                     const item = document.createElement('div');
@@ -196,23 +210,24 @@
                     item.innerHTML = `
                         <div>
                             <div style="font-weight:bold; color:#f8fafc; font-size:0.9rem;">${file.name}</div>
-                            <small style="color:#64748b;">Tamanho: ${file.size}</small>
+                            <small style="color:#64748b;">Tamanho: ${file.size || 'N/A'}</small>
                         </div>
                         <button class="btn-download" onclick="baixarArquivo('${sistema}', '${file.name}')">
-                            Baixar
+                            <i class="fa-solid fa-download mr-1"></i> Baixar
                         </button>
                     `;
                     fileList.appendChild(item);
                 });
 
             } catch (err) {
-                fileList.innerHTML = '<div style="text-align:center; padding:50px; color:#ef4444;">Erro ao conectar com o servidor FTP.</div>';
+                console.error(err);
+                fileList.innerHTML = '<div style="text-align:center; padding:50px; color:#ef4444;"><i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i><br>Erro ao conectar com o serviço FTP.</div>';
                 subtitle.innerText = "Falha na conexão.";
             }
         }
 
-        // Função de Download
         function baixarArquivo(sistema, arquivo) {
+            // Abre o download em uma nova aba ou inicia direto
             window.location.href = `/api/download/${sistema}/${arquivo}`;
         }
 
@@ -224,9 +239,17 @@
             if (event.target.id === 'modal') fecharModal();
         }
 
-        function logout() {
-            localStorage.clear();
-            window.location.href = 'index.html';
+        async function logout() {
+            try {
+                // Notifica o backend do logout
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (e) {
+                console.warn("Aviso: Logout apenas local.");
+            } finally {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+            }
         }
     </script>
 </body>
