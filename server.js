@@ -17,18 +17,15 @@ const GMAIL_PASS = process.env.GMAIL_PASS || 'itgh dwtt nexb sqka';
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, 
+    port: 587,
+    secure: false, // Para a porta 587, secure deve ser false
     auth: {
         user: GMAIL_USER,
         pass: GMAIL_PASS
     },
     tls: {
-        rejectUnauthorized: false 
-    },
-    // Adicionado para evitar que a requisição fique "presa"
-    connectionTimeout: 10000, 
-    greetingTimeout: 10000
+        rejectUnauthorized: false
+    }
 });
 
 // Teste de conexão imediato ao iniciar
