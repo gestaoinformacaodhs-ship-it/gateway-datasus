@@ -1,7 +1,7 @@
 const express = require('express');
 const ftp = require("basic-ftp");
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg'); // Biblioteca para o Supabase
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
 const Brevo = require('@getbrevo/brevo');
@@ -19,25 +19,36 @@ if (process.env.BREVO_API_KEY) {
     console.warn("⚠️ BREVO_API_KEY não encontrada.");
 }
 
-// --- BANCO DE DADOS (PERSISTÊNCIA) ---
-// Se você configurar um Disk no Render, mude o caminho abaixo para o ponto de montagem
-const dbPath = path.join(__dirname, 'database.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (!err) {
-        db.serialize(() => {
-            db.run(`CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                nome TEXT, 
-                email TEXT UNIQUE, 
-                senha TEXT, 
-                ativo INTEGER DEFAULT 0, 
-                token_ativacao TEXT
-            )`);
-            db.run(`CREATE TABLE IF NOT EXISTS tokens (email TEXT, token TEXT PRIMARY KEY, expiracao DATETIME)`);
-            console.log("✔️ Banco de Dados pronto.");
-        });
-    }
+// --- CONFIGURAÇÃO SUPABASE (POSTGRESQL) ---
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL, // Pegaremos do Render
+    ssl: { rejectUnauthorized: false }
 });
+
+// Inicialização das tabelas no Supabase
+async function initDB() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                nome TEXT,
+                email TEXT UNIQUE,
+                senha TEXT,
+                ativo INTEGER DEFAULT 0,
+                token_ativacao TEXT
+            );
+            CREATE TABLE IF NOT EXISTS tokens (
+                email TEXT,
+                token TEXT PRIMARY KEY,
+                expiracao TIMESTAMP
+            );
+        `);
+        console.log("✔️ Banco de Dados Supabase conectado e tabelas prontas.");
+    } catch (err) {
+        console.error("❌ Erro ao conectar ao Supabase:", err.message);
+    }
+}
+initDB();
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
@@ -53,68 +64,98 @@ async function enviarEmail(emailDestino, assunto, html) {
     } catch (e) { console.error("Erro e-mail:", e.message); }
 }
 
-// --- ROTAS ---
+// --- ROTAS DE AUTENTICAÇÃO ---
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
-    const emailLower = email.toLowerCase().trim(); // Padronização
+    const emailLower = email.toLowerCase().trim();
     const token = crypto.randomBytes(20).toString('hex');
 
-    db.run(`INSERT INTO usuarios (nome, email, senha, token_ativacao) VALUES (?, ?, ?, ?)`, 
-    [nome, emailLower, senha, token], function(err) {
-        if (err) return res.status(400).json({ error: "E-mail já cadastrado." });
-        
+    try {
+        await pool.query(
+            `INSERT INTO usuarios (nome, email, senha, token_ativacao) VALUES ($1, $2, $3, $4)`,
+            [nome, emailLower, senha, token]
+        );
         const link = `${req.protocol}://${req.get('host')}/api/activate?token=${token}`;
-        enviarEmail(emailLower, "Ative sua conta", `<a href="${link}">Clique para ativar</a>`);
+        await enviarEmail(emailLower, "Ative sua conta", `<a href="${link}">Clique aqui para ativar sua conta</a>`);
         res.status(201).json({ message: "Verifique seu e-mail para ativar." });
-    });
+    } catch (err) {
+        res.status(400).json({ error: "E-mail já cadastrado ou erro no banco." });
+    }
 });
 
-app.post('/api/login', (req, res) => {
+app.get('/api/activate', async (req, res) => {
+    const { token } = req.query;
+    try {
+        const result = await pool.query(
+            `UPDATE usuarios SET ativo = 1, token_ativacao = NULL WHERE token_ativacao = $1`,
+            [token]
+        );
+        if (result.rowCount === 0) return res.status(400).send("Link inválido.");
+        res.send("<h1>Conta Ativada!</h1><meta http-equiv='refresh' content='3;url=/index.html'>");
+    } catch (err) { res.status(500).send("Erro na ativação."); }
+});
+
+app.post('/api/login', async (req, res) => {
     const { email, senha } = req.body;
     const emailLower = email.toLowerCase().trim();
 
-    db.get(`SELECT nome, ativo FROM usuarios WHERE email = ? AND senha = ?`, [emailLower, senha], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    try {
+        const result = await pool.query(
+            `SELECT nome, ativo FROM usuarios WHERE email = $1 AND senha = $2`,
+            [emailLower, senha]
+        );
+        const row = result.rows[0];
+
+        if (!row) return res.status(401).json({ error: "E-mail ou senha incorretos." });
         if (row.ativo === 0) return res.status(403).json({ error: "Ative sua conta primeiro." });
+        
         res.json({ user: row.nome });
-    });
+    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-app.post('/api/forgot-password', (req, res) => {
+app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     const emailLower = email.toLowerCase().trim();
 
-    db.get(`SELECT email FROM usuarios WHERE email = ?`, [emailLower], (err, user) => {
-        if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
+    try {
+        const user = await pool.query(`SELECT email FROM usuarios WHERE email = $1`, [emailLower]);
+        if (user.rowCount === 0) return res.status(404).json({ error: "E-mail não encontrado." });
         
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000).toISOString(); 
+        const expiracao = new Date(Date.now() + 3600000); 
 
-        db.run(`INSERT OR REPLACE INTO tokens (email, token, expiracao) VALUES (?, ?, ?)`, [emailLower, token, expiracao], () => {
-            const link = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
-            enviarEmail(emailLower, "Recuperar Senha", `<a href="${link}">Redefinir Senha</a>`);
-            res.json({ message: "E-mail enviado!" });
-        });
-    });
+        await pool.query(
+            `INSERT INTO tokens (email, token, expiracao) VALUES ($1, $2, $3) 
+             ON CONFLICT (token) DO UPDATE SET expiracao = $3`,
+            [emailLower, token, expiracao]
+        );
+
+        const link = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
+        await enviarEmail(emailLower, "Recuperar Senha", `<a href="${link}">Redefinir Senha</a>`);
+        res.json({ message: "E-mail enviado!" });
+    } catch (err) { res.status(500).json({ error: "Erro ao processar." }); }
 });
 
-app.post('/api/reset-password', (req, res) => {
+app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
-    
-    // Verificação rigorosa do token e data
-    db.get(`SELECT email FROM tokens WHERE token = ? AND expiracao > DATETIME('now')`, [token.trim()], (err, row) => {
-        if (err || !row) return res.status(400).json({ error: "Link inválido ou expirado." });
+    try {
+        const result = await pool.query(
+            `SELECT email FROM tokens WHERE token = $1 AND expiracao > NOW()`,
+            [token.trim()]
+        );
+        const row = result.rows[0];
+
+        if (!row) return res.status(400).json({ error: "Link inválido ou expirado." });
         
-        db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], (err) => {
-            if (err) return res.status(500).json({ error: "Erro ao salvar." });
-            db.run(`DELETE FROM tokens WHERE email = ?`, [row.email]); // Limpa todos os tokens desse user
-            res.json({ message: "Senha atualizada com sucesso!" });
-        });
-    });
+        await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [novaSenha, row.email]);
+        await pool.query(`DELETE FROM tokens WHERE email = $1`, [row.email]);
+        res.json({ message: "Senha atualizada com sucesso!" });
+    } catch (err) { res.status(500).json({ error: "Erro ao salvar nova senha." }); }
 });
 
-// --- FTP E LISTAGEM ---
+// --- FTP E LISTAGEM (DATASUS) ---
+
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).send("Inválido");
@@ -143,4 +184,4 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Gateway rodando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`));
