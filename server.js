@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SOLUÇÃO ROBUSTA) ---
+// --- CONFIGURAÇÃO BREVO API ---
 let apiInstance;
 
 try {
@@ -27,11 +27,11 @@ try {
         } else {
             apiInstance.setApiKey(0, process.env.BREVO_API_KEY);
         }
-        console.log("✔️ API Brevo conectada.");
+        console.log("✔️ API Brevo configurada com sucesso.");
     }
 } catch (error) {
     console.error("❌ Erro ao iniciar Brevo:", error.message);
-    apiInstance = { sendTransacEmail: () => Promise.reject("E-mail offline") };
+    apiInstance = { sendTransacEmail: () => Promise.reject("Serviço de e-mail indisponível") };
 }
 
 // --- BANCO DE DADOS ---
@@ -68,9 +68,9 @@ async function enviarEmailReal(emailDestino, link) {
         sendSmtpEmail.to = [{ "email": emailDestino }];
 
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("✅ E-mail enviado!");
+        console.log("✅ E-mail de recuperação enviado!");
     } catch (error) {
-        console.error("❌ Erro e-mail:", error.message || error);
+        console.error("❌ Erro ao disparar e-mail:", error.message || error);
     }
 }
 
@@ -110,15 +110,20 @@ app.post('/api/forgot-password', (req, res) => {
     });
 });
 
-// --- ROTA DE REDEFINIÇÃO DE SENHA (ADICIONADA) ---
+// --- ROTA DE REDEFINIÇÃO DE SENHA ---
 app.post('/api/reset-password', (req, res) => {
     const { token, novaSenha } = req.body;
+    
     db.get(`SELECT email FROM tokens WHERE token = ? AND expiracao > DATETIME('now')`, [token], (err, row) => {
-        if (err || !row) return res.status(400).json({ error: "Link inválido ou expirado." });
+        if (err || !row) {
+            return res.status(400).json({ error: "Link inválido ou expirado." });
+        }
         
-        db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], () => {
+        db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: "Erro ao atualizar a senha." });
+            
             db.run(`DELETE FROM tokens WHERE token = ?`, [token]);
-            res.json({ message: "Senha atualizada!" });
+            res.json({ message: "Senha atualizada com sucesso!" });
         });
     });
 });
