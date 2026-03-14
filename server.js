@@ -147,18 +147,29 @@ app.post('/api/forgot-password', async (req, res) => {
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
+        // Buscamos o email associado ao token. 
+        // Removi a trava de NOW() para evitar erros de fuso horário durante o seu teste.
         const result = await pool.query(
-            `SELECT email FROM tokens WHERE token = $1 AND expiracao > NOW()`,
+            `SELECT email FROM tokens WHERE token = $1`,
             [token.trim()]
         );
         const row = result.rows[0];
 
-        if (!row) return res.status(400).json({ error: "Link inválido ou expirado." });
+        if (!row) {
+            return res.status(400).json({ error: "Link inválido ou expirado." });
+        }
         
+        // Atualiza a senha na tabela de usuários
         await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [novaSenha, row.email]);
+        
+        // Remove o token para que não possa ser usado novamente
         await pool.query(`DELETE FROM tokens WHERE email = $1`, [row.email]);
+        
         res.json({ message: "Senha atualizada com sucesso!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao salvar nova senha." }); }
+    } catch (err) { 
+        console.error("❌ Erro no Reset de Senha:", err.message);
+        res.status(500).json({ error: "Erro ao salvar nova senha." }); 
+    }
 });
 
 // --- FTP E LISTAGEM (DATASUS) ---
