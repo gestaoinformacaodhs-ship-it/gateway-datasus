@@ -1,7 +1,7 @@
 const express = require('express');
 const ftp = require("basic-ftp");
 const path = require('path');
-const { Pool } = require('pg'); // Biblioteca para o Supabase
+const { Pool } = require('pg'); 
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
 const Brevo = require('@getbrevo/brevo');
@@ -21,8 +21,11 @@ if (process.env.BREVO_API_KEY) {
 
 // --- CONFIGURAÇÃO SUPABASE (POSTGRESQL) ---
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, // Pegaremos do Render
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: { 
+        // Esta configuração evita o erro de 'self-signed certificate' no Render
+        rejectUnauthorized: false 
+    }
 });
 
 // Inicialização das tabelas no Supabase
@@ -125,6 +128,7 @@ app.post('/api/forgot-password', async (req, res) => {
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + 3600000); 
 
+        // Uso do ON CONFLICT para atualizar o token se o usuário pedir reset várias vezes
         await pool.query(
             `INSERT INTO tokens (email, token, expiracao) VALUES ($1, $2, $3) 
              ON CONFLICT (token) DO UPDATE SET expiracao = $3`,
