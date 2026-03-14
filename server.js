@@ -13,7 +13,7 @@ app.use(express.static('public'));
 
 // --- CONFIGURAÇÃO RESEND API ---
 // Prioriza a variável de ambiente do Render para segurança
-const resend = new Resend(process.env.RESEND_API_KEY || 're_SUA_CHAVE_AQUI');
+const resend = new Resend(process.env.RESEND_API_KEY || 're_98kVnZxz_78KQ6SYsVG9Uy6Bm4nPR1Dep');
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
