@@ -11,15 +11,20 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO GMAIL (SENHA DE APP) ---
-const GMAIL_USER = 'gestaoinformacaodhs@gmail.com'; 
-const GMAIL_PASS = 'itgh dwtt nexb sqka'; // Insira aqui os 16 dígitos gerados no Google
+// --- CONFIGURAÇÃO GMAIL (USANDO VARIÁVEIS DE AMBIENTE PARA SEGURANÇA) ---
+const GMAIL_USER = process.env.GMAIL_USER || 'gestaoinformacaodhs@gmail.com'; 
+const GMAIL_PASS = process.env.GMAIL_PASS || 'itgh dwtt nexb sqka'; 
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Porta 465 exige secure: true
     auth: {
         user: GMAIL_USER,
         pass: GMAIL_PASS
+    },
+    tls: {
+        rejectUnauthorized: false // Ajuda a evitar bloqueios em servidores de hospedagem
     }
 });
 
@@ -105,7 +110,9 @@ app.post('/api/forgot-password', (req, res) => {
             [email, token, expiracao], async (err) => {
                 if (err) return res.status(500).json({ error: "Erro no servidor." });
 
-                const link = `http://localhost:3000/reset-password.html?token=${token}`;
+                // AJUSTE: O link agora detecta se está no Render ou Localhost automaticamente
+                const protocol = req.headers['x-forwarded-proto'] || 'http';
+                const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
                 
                 try {
                     await enviarEmailReal(email, link);
@@ -113,7 +120,7 @@ app.post('/api/forgot-password', (req, res) => {
                     res.json({ message: "E-mail enviado com sucesso!" });
                 } catch (mailErr) {
                     console.error("❌ Erro SMTP:", mailErr);
-                    res.status(500).json({ error: "Erro ao enviar e-mail. Verifique a Senha de App." });
+                    res.status(500).json({ error: "Erro ao enviar e-mail. Tente novamente em instantes." });
                 }
         });
     });
@@ -122,7 +129,7 @@ app.post('/api/forgot-password', (req, res) => {
 app.post('/api/reset-password', (req, res) => {
     const { token, novaSenha } = req.body;
 
-    // Usamos datetime('now') para garantir que a comparação seja feita no fuso horário correto do banco
+    // Ajuste na query para lidar com fuso horário do SQLite no Render
     const query = `
         SELECT email FROM tokens 
         WHERE token = ? AND expiracao > datetime('now', '-3 hours')
@@ -139,12 +146,9 @@ app.post('/api/reset-password', (req, res) => {
         }
 
         db.serialize(() => {
-            // 1. Atualiza a senha do usuário
             db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email]);
-            // 2. Remove o token para ele não ser usado de novo
             db.run(`DELETE FROM tokens WHERE token = ?`, [token]);
-            
-            console.log(`✔️ Senha atualizada para o usuário: ${row.email}`);
+            console.log(`✔️ Senha atualizada para: ${row.email}`);
             res.json({ message: "Senha atualizada com sucesso!" });
         });
     });
@@ -207,8 +211,9 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log("\x1b[32m%s\x1b[0m", "-----------------------------------------");
-    console.log("\x1b[32m%s\x1b[0m", "    GATEWAY DATASUS - ONLINE (PORTA 3000)");
-    console.log("\x1b[32m%s\x1b[0m", "-----------------------------------------");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log("-----------------------------------------");
+    console.log(`  GATEWAY DATASUS - RODANDO NA PORTA ${PORT}`);
+    console.log("-----------------------------------------");
 });
