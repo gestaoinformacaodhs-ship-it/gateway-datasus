@@ -16,7 +16,6 @@ function trocar(id) {
 function toggleChat() {
     const chatWin = document.getElementById('c-win');
     if (chatWin) {
-        // Alterna entre flex e none para manter o layout centralizado do chat
         const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden');
         chatWin.style.display = isHidden ? 'flex' : 'none';
         chatWin.classList.toggle('hidden', !isHidden);
@@ -27,8 +26,11 @@ function toggleChat() {
 async function entrar() {
     const email = document.getElementById('l-email')?.value.trim();
     const senha = document.getElementById('l-pass')?.value;
+    const btn = document.getElementById('btn-entrar');
 
     if (!email || !senha) return alert("Por favor, preencha todos os campos.");
+
+    if (btn) btn.disabled = true;
 
     try {
         const res = await fetch('/api/login', {
@@ -43,11 +45,14 @@ async function entrar() {
             localStorage.setItem('usuario', data.user);
             window.location.href = 'dashboard.html';
         } else {
+            // Melhora o alerta para conta não ativada
             alert(data.error || "E-mail ou senha incorretos.");
         }
     } catch (err) {
         console.error("Erro no login:", err);
-        alert("Erro de conexão com o servidor. Verifique se o back-end está rodando.");
+        alert("Erro de conexão com o servidor.");
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -56,8 +61,14 @@ async function registar() {
     const nome = document.getElementById('r-nome')?.value.trim();
     const email = document.getElementById('r-email')?.value.trim();
     const senha = document.getElementById('r-pass')?.value;
+    const btn = document.getElementById('btn-registrar');
 
     if (!nome || !email || !senha) return alert("Preencha todos os campos.");
+
+    if (btn) {
+        btn.innerText = "Enviando e-mail...";
+        btn.disabled = true;
+    }
 
     try {
         const res = await fetch('/api/register', {
@@ -66,30 +77,34 @@ async function registar() {
             body: JSON.stringify({ nome, email, senha })
         });
 
+        const data = await res.json();
+
         if (res.ok) {
-            alert("Conta criada com sucesso!");
+            alert("✅ " + data.message); // Exibe a mensagem de sucesso do servidor
             trocar('login');
         } else {
-            const data = await res.json();
-            alert(data.error || "Erro ao criar conta.");
+            alert("❌ " + (data.error || "Erro ao criar conta."));
         }
     } catch (err) {
         alert("Erro ao processar registro.");
+    } finally {
+        if (btn) {
+            btn.innerText = "Finalizar Cadastro";
+            btn.disabled = false;
+        }
     }
 }
 
-// --- AUTENTICAÇÃO: RECUPERAÇÃO DE SENHA (SOLICITAR TOKEN) ---
+// --- AUTENTICAÇÃO: RECUPERAÇÃO DE SENHA ---
 async function solicitarRecuperacao() {
     const email = document.getElementById('f-email')?.value.trim();
     const btn = document.getElementById('btn-forgot');
 
     if (!email) return alert("Por favor, digite seu e-mail.");
 
-    // Feedback visual de processamento
     const textoOriginal = btn.innerText;
     btn.innerText = "Processando...";
     btn.disabled = true;
-    btn.style.opacity = "0.7";
 
     try {
         const res = await fetch('/api/forgot-password', {
@@ -101,17 +116,16 @@ async function solicitarRecuperacao() {
         const data = await res.json();
 
         if (res.ok) {
-            alert("Sucesso! Verifique seu e-mail para recuperar a senha.");
+            alert("✅ Sucesso! Verifique seu e-mail para recuperar a senha.");
             trocar('login');
         } else {
             alert(data.error || "E-mail não encontrado.");
         }
     } catch (err) {
-        alert("Não foi possível conectar ao servidor de e-mail.");
+        alert("Erro de conexão.");
     } finally {
         btn.innerText = textoOriginal;
         btn.disabled = false;
-        btn.style.opacity = "1";
     }
 }
 
@@ -127,8 +141,7 @@ async function abrirEListar(sistema) {
     if (listContainer) {
         listContainer.innerHTML = `
             <div style="text-align:center; padding:40px;">
-                <div class="spinner"></div>
-                <p style="color:#3b82f6; font-weight:bold; margin-top:15px;">Conectando ao DATASUS...</p>
+                <p style="color:#3b82f6; font-weight:bold;">Conectando ao DATASUS...</p>
                 <small style="color:#64748b;">Isso pode levar alguns segundos</small>
             </div>
         `;
@@ -136,9 +149,9 @@ async function abrirEListar(sistema) {
 
     try {
         const res = await fetch(`/api/list/${sistema}`);
-        if (!res.ok) throw new Error("Erro na lista");
-
         const files = await res.json();
+
+        if (!res.ok) throw new Error(files.error);
 
         if (!files || files.length === 0) {
             listContainer.innerHTML = "<p style='text-align:center; padding:40px; color:#64748b;'>Nenhum arquivo encontrado.</p>";
@@ -158,27 +171,21 @@ async function abrirEListar(sistema) {
             </div>
         `).join('');
     } catch (err) {
-        listContainer.innerHTML = "<p style='color:#ef4444; text-align:center; padding:40px;'>Falha ao conectar ao FTP. Tente novamente mais tarde.</p>";
+        listContainer.innerHTML = `<p style='color:#ef4444; text-align:center; padding:40px;'>${err.message || "Falha ao conectar ao FTP."}</p>`;
     }
 }
 
 // --- DASHBOARD: DOWNLOAD ---
 function baixarDireto(sistema, arquivo, btn) {
     const url = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-    
     const originalText = btn.innerText;
+    
     btn.innerText = "Baixando...";
     btn.disabled = true;
 
-    // Criar um link invisível para disparar o download sem sair da página
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = arquivo;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Dispara o download
+    window.location.href = url;
 
-    // Reativar botão após um delay
     setTimeout(() => {
         btn.innerText = originalText;
         btn.disabled = false;
@@ -190,9 +197,8 @@ function fecharModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// --- INICIALIZAÇÃO ---
+// --- INICIALIZAÇÃO E PROTEÇÃO DE ROTA ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Verificar exibição do nome do usuário
     const display = document.getElementById('user-display');
     const usuarioLogado = localStorage.getItem('usuario');
 
@@ -200,11 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
         display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
     }
 
-    // Proteção de rota para Dashboard
-    if (window.location.pathname.includes('dashboard.html')) {
-        if (!usuarioLogado) {
-            window.location.href = 'index.html'; 
-        }
+    // Se estiver no dashboard e não tiver usuário, volta pro login
+    if (window.location.pathname.includes('dashboard.html') && !usuarioLogado) {
+        window.location.href = 'index.html'; 
     }
 });
 
