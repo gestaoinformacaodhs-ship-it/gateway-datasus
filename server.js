@@ -10,23 +10,15 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API ---
-let apiInstance;
+// --- CONFIGURAÇÃO BREVO API (CORRIGIDA) ---
+let apiInstance = new Brevo.TransactionalEmailsApi();
 
-try {
-    const defaultClient = Brevo.ApiClient.instance;
-    const apiKey = defaultClient.authentications['api-key'];
-    
-    if (process.env.BREVO_API_KEY) {
-        apiKey.apiKey = process.env.BREVO_API_KEY;
-        apiInstance = new Brevo.TransactionalEmailsApi();
-        console.log("✔️ API Brevo configurada com sucesso.");
-    } else {
-        console.warn("⚠️ BREVO_API_KEY não encontrada. Verifique as variáveis de ambiente.");
-        apiInstance = { sendTransacEmail: () => Promise.reject("Chave de API ausente") };
-    }
-} catch (error) {
-    console.error("❌ Erro fatal ao iniciar Brevo:", error);
+if (process.env.BREVO_API_KEY) {
+    // Forma correta de setar a chave na versão nova
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+    console.log("✔️ API Brevo configurada com sucesso.");
+} else {
+    console.warn("⚠️ BREVO_API_KEY não encontrada nas variáveis de ambiente.");
 }
 
 // --- BANCO DE DADOS ---
@@ -70,6 +62,7 @@ async function enviarEmailRecuperacao(emailDestino, link) {
             </div>`;
         sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ "email": emailDestino }];
+        
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log(`✅ E-mail de recuperação enviado para: ${emailDestino}`);
     } catch (error) { 
@@ -93,6 +86,7 @@ async function enviarEmailAtivacao(emailDestino, nome, link) {
             </div>`;
         sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ "email": emailDestino }];
+        
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log(`✅ E-mail de ativação enviado para: ${emailDestino}`);
     } catch (error) { 
