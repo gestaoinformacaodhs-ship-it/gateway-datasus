@@ -4,19 +4,19 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-// Alteração aqui: Importando especificamente o que precisamos
 const Brevo = require('@getbrevo/brevo');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SINTAXE GARANTIDA) ---
-let apiInstance = new Brevo.TransactionalEmailsApi();
+// --- CONFIGURAÇÃO BREVO API (SINTAXE INFALÍVEL) ---
+// Em algumas versões, a classe fica dentro de 'TransactionalEmailsApi' diretamente
+// Em outras, você precisa acessar via instância. Esta forma cobre ambas:
+const apiInstance = new (Brevo.TransactionalEmailsApi || Brevo.TransactionalEmailsApiApiKeys)();
 
-// Configura a chave de API
 if (process.env.BREVO_API_KEY) {
-    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+    apiInstance.setApiKey(0, process.env.BREVO_API_KEY); // 0 é o índice da chave de API
 }
 
 // --- BANCO DE DADOS ---
@@ -34,7 +34,7 @@ const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus
 
 // --- FUNÇÃO DE ENVIO ---
 async function enviarEmailReal(emailDestino, link) {
-    let sendSmtpEmail = new Brevo.SendSmtpEmail();
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
 
     sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
     sendSmtpEmail.htmlContent = `
@@ -44,6 +44,7 @@ async function enviarEmailReal(emailDestino, link) {
             <div style="text-align: center; margin: 30px 0;">
                 <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
             </div>
+            <p style="font-size: 0.8rem; color: #666;">Link: ${link}</p>
         </div>`;
     
     sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
@@ -114,4 +115,4 @@ app.get('/api/list/:sistema', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor Online na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`));
