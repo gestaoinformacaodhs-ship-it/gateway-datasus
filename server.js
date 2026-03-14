@@ -10,12 +10,15 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SINTAXE ATUALIZADA) ---
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
-
+// --- CONFIGURAÇÃO BREVO API (VERSÃO RESILIENTE) ---
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+// Configura a chave diretamente na instância para evitar erro de 'instance' undefined
+if (process.env.BREVO_API_KEY) {
+    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+} else {
+    console.error("⚠️ Alerta: BREVO_API_KEY não encontrada nas variáveis de ambiente!");
+}
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
@@ -24,7 +27,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
     else {
         db.run(`CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS tokens (email TEXT, token TEXT PRIMARY KEY, expiracao DATETIME)`, 
-        () => console.log("✔️ Banco de Dados pronto e tabelas verificadas."));
+        () => console.log("✔️ Banco de Dados pronto."));
     }
 });
 
@@ -38,12 +41,11 @@ async function enviarEmailReal(emailDestino, link) {
     sendSmtpEmail.htmlContent = `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
             <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
-            <p>Você solicitou a alteração de senha no sistema Gateway SUS.</p>
             <p>Clique no botão abaixo para definir sua nova senha:</p>
             <div style="text-align: center; margin: 30px 0;">
                 <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">CRIAR NOVA SENHA</a>
             </div>
-            <p style="font-size: 0.8rem; color: #666;">Se o botão não funcionar, copie este link: <br> ${link}</p>
+            <p style="font-size: 0.8rem; color: #666;">Link: ${link}</p>
         </div>`;
     
     sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
@@ -51,88 +53,74 @@ async function enviarEmailReal(emailDestino, link) {
 
     try {
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("✅ E-mail de recuperação enviado com sucesso para:", emailDestino);
+        console.log("✅ E-mail enviado com sucesso!");
     } catch (error) {
-        console.error("❌ Erro na API do Brevo:", error.response ? error.response.body : error.message);
+        console.error("❌ Erro na API do Brevo:", error.message);
     }
 }
 
-// --- ROTAS DE AUTENTICAÇÃO ---
+// --- ROTAS ---
 
 app.post('/api/register', (req, res) => {
     const { nome, email, senha } = req.body;
     db.run(`INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?)`, [nome, email, senha], (err) => {
         if (err) return res.status(400).json({ error: "E-mail já cadastrado." });
-        res.status(201).json({ message: "Usuário criado com sucesso" });
+        res.status(201).json({ message: "Usuário criado" });
     });
 });
 
 app.post('/api/login', (req, res) => {
     const { email, senha } = req.body;
     db.get(`SELECT nome FROM usuarios WHERE email = ? AND senha = ?`, [email, senha], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+        if (err || !row) return res.status(401).json({ error: "Credenciais inválidas." });
         res.json({ user: row.nome });
     });
 });
 
 app.post('/api/forgot-password', (req, res) => {
     const { email } = req.body;
-    db.get(`SELECT email FROM usuarios WHERE email = ?`, [email], async (err, user) => {
-        if (err || !user) return res.status(404).json({ error: "Este e-mail não está cadastrado." });
+    db.get(`SELECT email FROM usuarios WHERE email = ?`, [email], (err, user) => {
+        if (err || !user) return res.status(404).json({ error: "E-mail não encontrado." });
 
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + 3600000).toISOString(); 
 
-        db.run(`INSERT OR REPLACE INTO tokens (email, token, expiracao) VALUES (?, ?, ?)`, [email, token, expiracao], async (err) => {
-            if (err) return res.status(500).json({ error: "Erro interno ao gerar token." });
+        db.run(`INSERT OR REPLACE INTO tokens (email, token, expiracao) VALUES (?, ?, ?)`, [email, token, expiracao], (err) => {
+            if (err) return res.status(500).json({ error: "Erro no servidor." });
 
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
             
-            console.log(`🔗 Link gerado: ${link}`);
-
-            // Envia o e-mail real
+            console.log(`🔗 Link: ${link}`);
             enviarEmailReal(email, link);
 
-            res.json({ message: "Link de recuperação enviado para o seu e-mail!" });
+            res.json({ message: "Instruções enviadas para seu e-mail!" });
         });
     });
 });
 
 app.post('/api/reset-password', (req, res) => {
     const { token, novaSenha } = req.body;
-    const query = `SELECT email FROM tokens WHERE token = ? AND expiracao > datetime('now')`;
-
-    db.get(query, [token], (err, row) => {
-        if (err || !row) return res.status(400).json({ error: "O link de recuperação é inválido ou já expirou." });
-        db.serialize(() => {
-            db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email]);
+    db.get(`SELECT email FROM tokens WHERE token = ? AND expiracao > datetime('now')`, [token], (err, row) => {
+        if (err || !row) return res.status(400).json({ error: "Link inválido ou expirado." });
+        db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], () => {
             db.run(`DELETE FROM tokens WHERE token = ?`, [token]);
-            res.json({ message: "Sua senha foi atualizada com sucesso!" });
+            res.json({ message: "Senha atualizada!" });
         });
     });
 });
 
-// --- ROTAS FTP (DATASUS) ---
-
+// --- FTP ---
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
-    if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido" });
-
     const client = new ftp.Client();
     try {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        res.json(list.filter(f => f.isFile).map(f => ({ 
-            name: f.name, 
-            size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
-        })));
-    } catch (err) { 
-        res.status(500).json({ error: "Erro ao conectar ao FTP do DATASUS." }); 
-    } finally { 
-        client.close(); 
-    }
+        res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
+    } catch (err) { res.status(500).json({ error: "Erro FTP" }); }
+    finally { client.close(); }
 });
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
@@ -141,18 +129,13 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     try {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema.toUpperCase()]);
-        
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(arquivo)}"`);
         const tunnel = new PassThrough();
         tunnel.pipe(res);
-        
         await client.downloadTo(tunnel, arquivo);
-    } catch (err) { 
-        res.status(500).send("Erro ao processar o download do arquivo."); 
-    } finally { 
-        client.close(); 
-    }
+    } catch (err) { res.status(500).send("Erro download"); }
+    finally { client.close(); }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor Gateway DATASUS rodando com sucesso na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
