@@ -16,20 +16,14 @@ const GMAIL_USER = process.env.GMAIL_USER || 'gestaoinformacaodhs@gmail.com';
 const GMAIL_PASS = process.env.GMAIL_PASS || 'itgh dwtt nexb sqka'; 
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp-relay.gmail.com', // Servidor de relay (mais flexível)
-    port: 587,
-    secure: false, // TLS
-    auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false,
-        minVersion: "TLSv1.2"
-    },
-    connectionTimeout: 20000, // Aumentado para 20 segundos
-    greetingTimeout: 20000
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, 
+    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+    connectionTimeout: 5000 // Desiste rápido para não travar o site
 });
+
+// REMOVEMOS o transporter.verify daqui para o site ligar sem erros!
 
 // Teste de conexão imediato ao iniciar
 transporter.verify((error) => {
