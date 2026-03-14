@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Gateway DATASUS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Grid de Cards */
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 20px; 
+            padding: 40px; 
+        }
+        
+        .card { 
+            background: rgba(30, 41, 59, 0.7); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            padding: 30px; 
+            border-radius: 20px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover { 
+            border-color: #3b82f6; 
+            transform: translateY(-5px); 
+            background: rgba(30, 41, 59, 0.9);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Modal Estilizado */
+        #modal { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.85); 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 9999; 
+            backdrop-filter: blur(5px);
+        }
+
+        /* Scrollbar Personalizada para a Lista de Arquivos */
+        #file-list::-webkit-scrollbar { width: 8px; }
+        #file-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        #file-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        #file-list::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .glass-card { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Estilo para os botões de download dentro do modal */
+        .btn-download:hover {
+            background: #2563eb !important;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body style="background: #0f172a; color: white; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+
+    <header style="padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); background: #1e293b; position: sticky; top: 0; z-index: 100;">
+        <h2 style="font-weight: 800; margin: 0; cursor: pointer;" onclick="location.reload()">GATEWAY <span style="color: #3b82f6;">SUS</span></h2>
+        
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="text-align: right;">
+                <span id="user-display" style="color: #f8fafc; font-weight: 600; display: block; font-size: 0.9rem;">Olá, Usuário</span>
+                <small style="color: #64748b;">Acesso Governamental</small>
+            </div>
+            <button onclick="logout()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'">
+                Sair
+            </button>
+        </div>
+    </header>
+
+    <main style="padding: 40px;">
+        <div style="margin-bottom: 30px;">
+            <h3 style="margin: 0; color: #3b82f6; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px; font-weight: 700;">Bases de Dados</h3>
+            <p style="color: #94a3b8; font-size: 1.1rem; margin-top: 5px;">Selecione um repositório para gerenciar os arquivos do Arpoador.</p>
+        </div>
+
+        <div class="grid">
+            <div class="card" onclick="abrirEListar('SIA')">
+                <div style="font-size: 3rem; margin-bottom: 10px;">📊</div>
+                <h3 style="margin: 10px 0 5px 0;">SIA</h3>
+                <p style="color:#64748b; font-size:0.85rem; margin: 0;">Sistema de Informações Ambulatoriais</p>
+            </div>
+            <div class="card" onclick="abrirEListar('BPA')">
+                <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+                <h3 style="margin: 10px 0 5px 0;">BPA</h3>
+                <p style="color:#64748b; font-size:0.85rem; margin: 0;">Boletim de Produção Ambulatorial</p>
+            </div>
+            <div class="card" onclick="abrirEListar('RAAS')">
+                <div style="font-size: 3rem; margin-bottom: 10px;">📋</div>
+                <h3 style="margin: 10px 0 5px 0;">RAAS</h3>
+                <p style="color:#64748b; font-size:0.85rem; margin: 0;">Registro de Ações Ambulatoriais</p>
+            </div>
+            <div class="card" onclick="abrirEListar('FPO')">
+                <div style="font-size: 3rem; margin-bottom: 10px;">💰</div>
+                <h3 style="margin: 10px 0 5px 0;">FPO</h3>
+                <p style="color:#64748b; font-size:0.85rem; margin: 0;">Programação Físico-Orçamentária</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal" onclick="fecharModalFora(event)">
+        <div class="glass-card" style="width: 95%; max-width: 700px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow: hidden;" onclick="event.stopPropagation()">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 25px; background: rgba(15, 23, 42, 0.5); border-bottom: 1px solid #334155;">
+                <div>
+                    <h3 id="modal-title" style="margin: 0; color: white; font-size: 1.2rem;">Arquivos Disponíveis</h3>
+                    <small style="color: #64748b;">Clique em baixar para iniciar a transferência</small>
+                </div>
+                <button onclick="fecharModal()" style="background: #334155; border: none; color: white; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#334155'">✕</button>
+            </div>
+            
+            <div id="file-list" style="max-height: 500px; overflow-y: auto; min-height: 300px; padding: 15px; background: #1e293b;">
+                <div style="text-align: center; padding: 50px; color: #64748b;">
+                    Iniciando conexão segura com o Arpoador...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <iframe id="download-iframe" style="display:none;"></iframe>
+
+    <script src="app.js"></script>
+    <script>
+        // Verificação de Segurança de Sessão
+        document.addEventListener('DOMContentLoaded', () => {
+            const usuario = localStorage.getItem('usuario');
+            if (!usuario) {
+                window.location.href = 'index.html';
+                return;
+            }
+            document.getElementById('user-display').innerText = `Olá, ${usuario}`;
+        });
+
+        // Fecha modal ao clicar no fundo escuro
+        function fecharModalFora(event) {
+            if (event.target.id === 'modal') fecharModal();
+        }
+
+        // Função de Logout com limpeza completa
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

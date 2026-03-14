@@ -1,0 +1,26 @@
+{
+  "name": "gateway-datasus",
+  "version": "1.0.0",
+  "description": "Gateway de integração e download de arquivos DATASUS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "datasus",
+    "ftp",
+    "gateway"
+  ],
+  "author": "Marcos Souza",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "basic-ftp": "^5.0.0",
+    "crypto": "^1.0.1",
+    "express": "^4.18.2",
+    "nodemailer": "^6.10.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.6"
+  }
+}

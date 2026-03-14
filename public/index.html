@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso - Gateway DATASUS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Estilos base para garantir o visual mesmo sem o style.css carregado */
+        .glass-card {
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+        }
+        .btn-primary:hover {
+            background: #2563eb !important;
+        }
+        a:hover {
+            text-decoration: underline !important;
+        }
+    </style>
+</head>
+<body style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0f172a; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;">
+
+    <div id="login-container" class="glass-card" style="width: 350px; text-align: center; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
+        <h2 style="margin-bottom: 25px; color: white; font-weight: 800; letter-spacing: -1px;">GATEWAY <span style="color:#3b82f6">SUS</span></h2>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">E-mail</label>
+            <input type="email" id="l-email" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box;" placeholder="nome@instituicao.gov.br">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Senha</label>
+            <input type="password" id="l-pass" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box;" placeholder="••••••••">
+        </div>
+        
+        <button class="btn-primary" onclick="entrar()" style="width: 100%; padding: 14px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.2s;">Entrar no Sistema</button>
+        
+        <p style="font-size: 0.85rem; margin-top: 20px; color: #94a3b8;">
+            <a href="javascript:void(0)" onclick="trocar('forgot')" style="color:#3b82f6; text-decoration: none; font-weight: 500;">Esqueci a senha</a> 
+            <span style="margin: 0 10px; opacity: 0.3;">|</span>
+            <a href="javascript:void(0)" onclick="trocar('signup')" style="color:#3b82f6; text-decoration: none; font-weight: 500;">Criar conta</a>
+        </p>
+    </div>
+
+    <div id="signup-container" class="glass-card" style="width: 350px; text-align: center; display: none; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
+        <h3 style="color: white; margin-bottom: 20px;">Nova Conta</h3>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">NOME COMPLETO</label>
+            <input type="text" id="r-nome" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">E-MAIL</label>
+            <input type="email" id="r-email" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">SENHA</label>
+            <input type="password" id="r-pass" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
+        </div>
+        
+        <button class="btn-primary" onclick="registar()" style="width: 100%; padding: 14px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 1rem;">Finalizar Cadastro</button>
+        
+        <button onclick="trocar('login')" style="background:none; border:none; color:#94a3b8; margin-top:20px; cursor:pointer; font-size: 0.85rem;">← Voltar ao Login</button>
+    </div>
+
+    <div id="forgot-container" class="glass-card" style="width: 350px; text-align: center; display: none; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
+    <h3 style="color: white; margin-bottom: 10px;">Recuperar Senha</h3>
+    <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Insira seu e-mail para receber as instruções.</p>
+    
+    <div style="margin-bottom: 20px;">
+        <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">E-MAIL</label>
+        <input type="email" id="f-email" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;" placeholder="seu@email.com">
+    </div>
+    
+    <button class="btn-primary" onclick="solicitarRecuperacao()" id="btn-forgot" style="width: 100%; padding: 14px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s;">
+        Enviar Instruções Real
+    </button>
+    
+    <button onclick="trocar('login')" style="background:none; border:none; color:#94a3b8; margin-top:20px; cursor:pointer; font-size: 0.85rem;">← Voltar ao Login</button>
+</div>
+
+    <script src="app.js"></script>
+    <script>
+        // Pequeno ajuste para garantir que o login carregue ao abrir
+        window.onload = () => {
+            if (localStorage.getItem('usuario')) {
+                window.location.href = 'dashboard.html';
+            }
+        };
+    </script>
+</body>
+</html>

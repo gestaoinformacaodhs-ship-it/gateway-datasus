@@ -1,0 +1,136 @@
+:root {
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --bg: #0f172a;
+    --card-bg: rgba(30, 41, 59, 0.7);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; 
+}
+
+body {
+    background: radial-gradient(circle at top left, #1e293b, #0f172a);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* Utilitários */
+.hidden { display: none !important; }
+
+/* Efeito Glassmorphism */
+.glass-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Formulários */
+.input-group { 
+    margin-bottom: 20px; 
+    text-align: left; 
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+input {
+    width: 100%; 
+    padding: 12px 16px; 
+    border-radius: 10px; 
+    border: 1px solid var(--border);
+    background: rgba(15, 23, 42, 0.6); 
+    color: white; 
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Botões */
+.btn-primary {
+    width: 100%; 
+    padding: 14px; 
+    background: var(--primary); 
+    color: white;
+    border: none; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover { 
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* Estilização específica do Modal de Arquivos */
+#file-list div:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Chat Support Widget */
+#chat-widget { 
+    position: fixed; 
+    bottom: 25px; 
+    right: 25px; /* Movi para a direita, padrão de suporte */
+    z-index: 9999; 
+}
+
+.chat-btn { 
+    width: 55px; 
+    height: 55px; 
+    background: var(--primary); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    transition: transform 0.3s ease;
+    font-size: 1.5rem;
+}
+
+.chat-btn:hover {
+    transform: rotate(15deg) scale(1.1);
+}
+
+.chat-window { 
+    position: absolute; 
+    bottom: 70px; 
+    right: 0; 
+    width: 300px; 
+    height: 400px; 
+    background: #1e293b; 
+    border: 1px solid var(--border); 
+    border-radius: 15px; 
+    display: none; /* Controlado via JS e classe hidden */
+    flex-direction: column; 
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
