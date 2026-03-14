@@ -10,49 +10,45 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SOLUÇÃO DEFINITIVA PARA NODE 18) ---
+// --- CONFIGURAÇÃO BREVO API (SOLUÇÃO ROBUSTA) ---
 let apiInstance;
 
 try {
-    // Busca a classe correta independente de como o pacote foi carregado
     const BrevoClass = Brevo.TransactionalEmailsApi || (Brevo.default && Brevo.default.TransactionalEmailsApi);
-    
     if (!BrevoClass) throw new Error("Classe TransactionalEmailsApi não encontrada.");
 
     apiInstance = new BrevoClass();
 
-    // Configura a chave de API que você mostrou na imagem
     if (process.env.BREVO_API_KEY) {
-        // Tenta o método moderno primeiro
         if (Brevo.ApiClient && Brevo.ApiClient.instance) {
             const defaultClient = Brevo.ApiClient.instance;
             const apiKey = defaultClient.authentications['api-key'];
             apiKey.apiKey = process.env.BREVO_API_KEY;
         } else {
-            // Fallback para o método setApiKey
             apiInstance.setApiKey(0, process.env.BREVO_API_KEY);
         }
-        console.log("✔️ API Brevo conectada com a chave do Render.");
+        console.log("✔️ API Brevo conectada.");
     }
 } catch (error) {
-    console.error("❌ Falha crítica ao iniciar Brevo:", error.message);
-    // Cria um objeto vazio para o app não travar (Status 1)
-    apiInstance = { sendTransacEmail: () => Promise.reject("Serviço de e-mail indisponível") };
+    console.error("❌ Erro ao iniciar Brevo:", error.message);
+    apiInstance = { sendTransacEmail: () => Promise.reject("E-mail offline") };
 }
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (!err) {
-        db.run(`CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS tokens (email TEXT, token TEXT PRIMARY KEY, expiracao DATETIME)`, 
-        () => console.log("✔️ Banco de Dados pronto."));
+        db.serialize(() => {
+            db.run(`CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, email TEXT UNIQUE, senha TEXT)`);
+            db.run(`CREATE TABLE IF NOT EXISTS tokens (email TEXT, token TEXT PRIMARY KEY, expiracao DATETIME)`);
+        });
+        console.log("✔️ Banco de Dados pronto.");
     }
 });
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
-// --- FUNÇÃO DE ENVIO ---
+// --- FUNÇÃO DE ENVIO DE E-MAIL ---
 async function enviarEmailReal(emailDestino, link) {
     try {
         const EmailClass = Brevo.SendSmtpEmail || (Brevo.default && Brevo.default.SendSmtpEmail);
@@ -62,21 +58,19 @@ async function enviarEmailReal(emailDestino, link) {
         sendSmtpEmail.htmlContent = `
             <div style="font-family:sans-serif; padding:20px; border:1px solid #3b82f6; border-radius:10px;">
                 <h2 style="color:#3b82f6;">Gateway DATASUS</h2>
-                <p>Recebemos um pedido de recuperação para sua conta.</p>
-                <p>Clique no botão abaixo para criar uma nova senha:</p>
+                <p>Clique no botão abaixo para definir sua nova senha:</p>
                 <div style="text-align:center; margin:30px 0;">
                     <a href="${link}" style="background:#3b82f6; color:white; padding:12px 25px; text-decoration:none; border-radius:5px; font-weight:bold;">DEFINIR NOVA SENHA</a>
                 </div>
-                <hr style="border:0; border-top:1px solid #eee;">
                 <small>Este link expira em 1 hora.</small>
             </div>`;
         sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ "email": emailDestino }];
 
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("✅ E-mail enviado para:", emailDestino);
+        console.log("✅ E-mail enviado!");
     } catch (error) {
-        console.error("❌ Erro ao enviar e-mail:", error.message || error);
+        console.error("❌ Erro e-mail:", error.message || error);
     }
 }
 
@@ -111,7 +105,20 @@ app.post('/api/forgot-password', (req, res) => {
             const host = req.get('host');
             const link = `${protocol}://${host}/reset-password.html?token=${token}`;
             enviarEmailReal(email, link);
-            res.json({ message: "Link de recuperação enviado!" });
+            res.json({ message: "Link enviado!" });
+        });
+    });
+});
+
+// --- ROTA DE REDEFINIÇÃO DE SENHA (ADICIONADA) ---
+app.post('/api/reset-password', (req, res) => {
+    const { token, novaSenha } = req.body;
+    db.get(`SELECT email FROM tokens WHERE token = ? AND expiracao > DATETIME('now')`, [token], (err, row) => {
+        if (err || !row) return res.status(400).json({ error: "Link inválido ou expirado." });
+        
+        db.run(`UPDATE usuarios SET senha = ? WHERE email = ?`, [novaSenha, row.email], () => {
+            db.run(`DELETE FROM tokens WHERE token = ?`, [token]);
+            res.json({ message: "Senha atualizada!" });
         });
     });
 });
