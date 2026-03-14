@@ -16,16 +16,19 @@ const GMAIL_USER = process.env.GMAIL_USER || 'gestaoinformacaodhs@gmail.com';
 const GMAIL_PASS = process.env.GMAIL_PASS || 'itgh dwtt nexb sqka'; 
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp-relay.gmail.com', // Servidor de relay (mais flexível)
     port: 587,
-    secure: false, // Para a porta 587, secure deve ser false
+    secure: false, // TLS
     auth: {
         user: GMAIL_USER,
         pass: GMAIL_PASS
     },
     tls: {
-        rejectUnauthorized: false
-    }
+        rejectUnauthorized: false,
+        minVersion: "TLSv1.2"
+    },
+    connectionTimeout: 20000, // Aumentado para 20 segundos
+    greetingTimeout: 20000
 });
 
 // Teste de conexão imediato ao iniciar
