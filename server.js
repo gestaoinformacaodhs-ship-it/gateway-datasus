@@ -4,16 +4,18 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const { Resend } = require('resend');
+const SibApiV3Sdk = require('@getbrevo/brevo'); // Importa o Brevo
 
 const app = express();
 
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO RESEND API ---
-// Prioriza a variável de ambiente do Render para segurança
-const resend = new Resend(process.env.RESEND_API_KEY || 're_98kVnZxz_78KQ6SYsVG9Uy6Bm4nPR1Dep');
+// --- CONFIGURAÇÃO BREVO API ---
+let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+let apiKey = apiInstance.authentications['apiKey'];
+// Ele vai buscar a chave BREVO_API_KEY configurada no painel do Render
+apiKey.apiKey = process.env.BREVO_API_KEY;
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
@@ -28,37 +30,35 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
-// --- FUNÇÃO DE ENVIO VIA API RESEND ---
+// --- FUNÇÃO DE ENVIO VIA API BREVO ---
 async function enviarEmailReal(emailDestino, link) {
-    try {
-        console.log(`📧 Tentando enviar e-mail para: ${emailDestino}`);
-        const { data, error } = await resend.emails.send({
-            from: 'onboarding@resend.dev', // Remetente obrigatório para plano gratuito
-            to: emailDestino,
-            subject: 'Recuperação de Senha - Gateway SUS',
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-                    <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
-                    <p>Você solicitou a alteração de senha no sistema Gateway SUS.</p>
-                    <p>Clique no botão abaixo para definir uma nova senha:</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
-                    </div>
-                    <p style="font-size: 0.8rem; color: #666; margin-top: 20px;">Se o botão não funcionar, copie este link: <br> ${link}</p>
-                </div>`
-        });
+    let sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
 
-        if (error) {
-            console.error("❌ Erro retornado pela API do Resend:", error);
-        } else {
-            console.log("✅ E-mail enviado com sucesso via Resend! ID:", data.id);
-        }
-    } catch (err) {
-        console.error("❌ Falha crítica ao chamar API do Resend:", err.message);
+    sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
+    sendSmtpEmail.htmlContent = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+            <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
+            <p>Você solicitou a alteração de senha no sistema Gateway SUS.</p>
+            <p>Clique no botão abaixo para definir uma nova senha:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
+            </div>
+            <p style="font-size: 0.8rem; color: #666; margin-top: 20px;">Se o link não funcionar, copie: <br> ${link}</p>
+        </div>`;
+    
+    // Remetente configurado no seu Brevo
+    sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
+    sendSmtpEmail.to = [{ "email": emailDestino }];
+
+    try {
+        await apiInstance.sendTransacEmail(sendSmtpEmail);
+        console.log("✅ E-mail enviado via Brevo para:", emailDestino);
+    } catch (error) {
+        console.error("❌ Erro na API do Brevo:", error.message || "Erro desconhecido");
     }
 }
 
-// --- ROTAS DE AUTENTICAÇÃO ---
+// --- ROTAS ---
 
 app.post('/api/register', (req, res) => {
     const { nome, email, senha } = req.body;
@@ -76,8 +76,6 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// --- SISTEMA DE RECUPERAÇÃO DE SENHA ---
-
 app.post('/api/forgot-password', (req, res) => {
     const { email } = req.body;
     db.get(`SELECT email FROM usuarios WHERE email = ?`, [email], async (err, user) => {
@@ -87,20 +85,19 @@ app.post('/api/forgot-password', (req, res) => {
         const expiracao = new Date(Date.now() + 3600000).toISOString(); 
 
         db.run(`INSERT OR REPLACE INTO tokens (email, token, expiracao) VALUES (?, ?, ?)`, [email, token, expiracao], async (err) => {
-            if (err) return res.status(500).json({ error: "Erro no servidor ao gerar token." });
+            if (err) return res.status(500).json({ error: "Erro no servidor." });
 
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
             
-            // Log de backup (caso o e-mail falhe, você pega o link aqui)
             console.log("--------------------------------------------------");
             console.log(`🔗 LINK DE RECUPERAÇÃO: ${link}`);
             console.log("--------------------------------------------------");
 
-            // Dispara o envio do e-mail (sem travar a resposta do usuário)
+            // Envia o e-mail real via Brevo
             enviarEmailReal(email, link);
 
-            res.json({ message: "Instruções enviadas! Verifique seu e-mail ou o log do servidor." });
+            res.json({ message: "Instruções enviadas! Verifique sua caixa de entrada." });
         });
     });
 });
@@ -120,7 +117,6 @@ app.post('/api/reset-password', (req, res) => {
 });
 
 // --- FTP ---
-
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     const client = new ftp.Client();
@@ -129,7 +125,7 @@ app.get('/api/list/:sistema', async (req, res) => {
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
         res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
-    } catch (err) { res.status(500).json({ error: "Erro ao conectar com o FTP do DATASUS." }); }
+    } catch (err) { res.status(500).json({ error: "Erro FTP" }); }
     finally { client.close(); }
 });
 
@@ -143,11 +139,9 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, arquivo);
-    } catch (err) { res.status(500).send("Erro ao realizar download."); }
+    } catch (err) { res.status(500).send("Erro download"); }
     finally { client.close(); }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor Gateway DATASUS rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Servidor Gateway DATASUS rodando na porta ${PORT}`));
