@@ -4,22 +4,19 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const SibApiV3Sdk = require('@getbrevo/brevo');
+// Alteração aqui: Importando especificamente o que precisamos
+const Brevo = require('@getbrevo/brevo');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SINTAXE ROBUSTA) ---
-// Tentamos acessar a classe TransactionalEmailsApi de forma direta
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+// --- CONFIGURAÇÃO BREVO API (SINTAXE GARANTIDA) ---
+let apiInstance = new Brevo.TransactionalEmailsApi();
 
-// Configuração da chave de API usando o método setApiKey
+// Configura a chave de API
 if (process.env.BREVO_API_KEY) {
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
-    console.log("✅ Configuração da API Brevo carregada.");
-} else {
-    console.error("⚠️ BREVO_API_KEY não definida no ambiente.");
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
 }
 
 // --- BANCO DE DADOS ---
@@ -37,14 +34,16 @@ const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus
 
 // --- FUNÇÃO DE ENVIO ---
 async function enviarEmailReal(emailDestino, link) {
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    let sendSmtpEmail = new Brevo.SendSmtpEmail();
 
     sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
     sendSmtpEmail.htmlContent = `
-        <div style="font-family: sans-serif; padding: 20px;">
-            <h2>Recuperação de Senha</h2>
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+            <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
             <p>Clique no botão abaixo para definir sua nova senha:</p>
-            <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;">CRIAR NOVA SENHA</a>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
+            </div>
         </div>`;
     
     sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
@@ -54,7 +53,7 @@ async function enviarEmailReal(emailDestino, link) {
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log("✅ E-mail enviado com sucesso!");
     } catch (error) {
-        console.error("❌ Erro no envio do e-mail:", error.message);
+        console.error("❌ Erro no envio:", error.message);
     }
 }
 
@@ -115,4 +114,4 @@ app.get('/api/list/:sistema', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor Online na porta ${PORT}`));
