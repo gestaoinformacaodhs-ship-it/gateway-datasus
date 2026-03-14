@@ -4,18 +4,20 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const SibApiV3Sdk = require('@getbrevo/brevo'); // Importa o Brevo
+const SibApiV3Sdk = require('@getbrevo/brevo'); // Importação correta
 
 const app = express();
-
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API ---
+// --- CONFIGURAÇÃO BREVO API (FORMA ATUALIZADA) ---
 let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-let apiKey = apiInstance.authentications['apiKey'];
-// Ele vai buscar a chave BREVO_API_KEY configurada no painel do Render
-apiKey.apiKey = process.env.BREVO_API_KEY;
+
+// Configuração da chave de API
+apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+
+// --- BANCO DE DADOS ---
+// ... resto do seu código (db, ftp, rotas) ...
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
@@ -36,25 +38,20 @@ async function enviarEmailReal(emailDestino, link) {
 
     sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
     sendSmtpEmail.htmlContent = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-            <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
-            <p>Você solicitou a alteração de senha no sistema Gateway SUS.</p>
+        <div style="font-family: sans-serif; padding: 20px;">
+            <h2>Recuperação de Senha</h2>
             <p>Clique no botão abaixo para definir uma nova senha:</p>
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
-            </div>
-            <p style="font-size: 0.8rem; color: #666; margin-top: 20px;">Se o link não funcionar, copie: <br> ${link}</p>
+            <a href="${link}" style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">CRIAR NOVA SENHA</a>
         </div>`;
     
-    // Remetente configurado no seu Brevo
     sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
     sendSmtpEmail.to = [{ "email": emailDestino }];
 
     try {
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("✅ E-mail enviado via Brevo para:", emailDestino);
+        console.log("✅ E-mail enviado via Brevo!");
     } catch (error) {
-        console.error("❌ Erro na API do Brevo:", error.message || "Erro desconhecido");
+        console.error("❌ Erro na API do Brevo:", error);
     }
 }
 
