@@ -4,20 +4,15 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const SibApiV3Sdk = require('@getbrevo/brevo'); // Importação correta
+const SibApiV3Sdk = require('@getbrevo/brevo');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (FORMA ATUALIZADA) ---
-let apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-
-// Configuração da chave de API
+// --- CONFIGURAÇÃO BREVO API ---
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
-
-// --- BANCO DE DADOS ---
-// ... resto do seu código (db, ftp, rotas) ...
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
@@ -38,10 +33,14 @@ async function enviarEmailReal(emailDestino, link) {
 
     sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
     sendSmtpEmail.htmlContent = `
-        <div style="font-family: sans-serif; padding: 20px;">
-            <h2>Recuperação de Senha</h2>
-            <p>Clique no botão abaixo para definir uma nova senha:</p>
-            <a href="${link}" style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">CRIAR NOVA SENHA</a>
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+            <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
+            <p>Você solicitou a definição de uma nova senha para o sistema Gateway SUS.</p>
+            <p>Clique no botão abaixo para prosseguir:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
+            </div>
+            <p style="font-size: 0.8rem; color: #666;">Se o botão não funcionar, copie este link: <br> ${link}</p>
         </div>`;
     
     sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
@@ -51,11 +50,11 @@ async function enviarEmailReal(emailDestino, link) {
         await apiInstance.sendTransacEmail(sendSmtpEmail);
         console.log("✅ E-mail enviado via Brevo!");
     } catch (error) {
-        console.error("❌ Erro na API do Brevo:", error);
+        console.error("❌ Erro na API do Brevo:", error.message || error);
     }
 }
 
-// --- ROTAS ---
+// --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/register', (req, res) => {
     const { nome, email, senha } = req.body;
@@ -87,13 +86,9 @@ app.post('/api/forgot-password', (req, res) => {
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
             
-            console.log("--------------------------------------------------");
             console.log(`🔗 LINK DE RECUPERAÇÃO: ${link}`);
-            console.log("--------------------------------------------------");
 
-            // Envia o e-mail real via Brevo
             enviarEmailReal(email, link);
-
             res.json({ message: "Instruções enviadas! Verifique sua caixa de entrada." });
         });
     });
@@ -114,6 +109,7 @@ app.post('/api/reset-password', (req, res) => {
 });
 
 // --- FTP ---
+
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     const client = new ftp.Client();
