@@ -19,11 +19,11 @@ if (process.env.BREVO_API_KEY) {
     console.warn("⚠️ BREVO_API_KEY não encontrada.");
 }
 
-// --- CONFIGURAÇÃO SUPABASE (POSTGRESQL) ---
+// --- CONFIGURAÇÃO SUPABASE (CORRIGIDA) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { 
-        // Esta configuração evita o erro de 'self-signed certificate' no Render
+        // Isso ignora a verificação do certificado autoassinado e resolve o erro
         rejectUnauthorized: false 
     }
 });
