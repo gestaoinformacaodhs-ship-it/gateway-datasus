@@ -4,8 +4,7 @@
   "description": "Gateway de integração e download de arquivos DATASUS",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "keywords": [
     "datasus",
@@ -18,11 +17,7 @@
   "dependencies": {
     "@getbrevo/brevo": "^2.0.0",
     "basic-ftp": "^5.0.0",
-    "crypto": "^1.0.1",
     "express": "^4.18.2",
-    "nodemailer": "^6.10.1",
-    "resend": "^6.9.3",
-    "sqlite": "^5.1.1",
     "sqlite3": "^5.1.6"
   }
 }
