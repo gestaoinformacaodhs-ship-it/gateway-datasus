@@ -4,32 +4,16 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend'); // 1. Trocamos o Nodemailer pelo Resend
 
 const app = express();
 
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO GMAIL ---
-const GMAIL_USER = process.env.GMAIL_USER || 'gestaoinformacaodhs@gmail.com'; 
-const GMAIL_PASS = process.env.GMAIL_PASS || 'itgh dwtt nexb sqka'; 
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, 
-    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-    connectionTimeout: 5000 // Desiste rápido para não travar o site
-});
-
-// REMOVEMOS o transporter.verify daqui para o site ligar sem erros!
-
-// Teste de conexão imediato ao iniciar
-transporter.verify((error) => {
-    if (error) console.log("❌ Erro na configuração de e-mail:", error);
-    else console.log("✅ Servidor de e-mail pronto!");
-});
+// --- CONFIGURAÇÃO RESEND API ---
+// Substitua pela sua chave ou configure no painel do Render como RESEND_API_KEY
+const resend = new Resend(process.env.RESEND_API_KEY || 're_SUA_CHAVE_AQUI');
 
 // --- BANCO DE DADOS ---
 const dbPath = path.join(__dirname, 'database.db');
@@ -44,21 +28,28 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
+// --- FUNÇÃO DE ENVIO VIA API (HTTP) ---
 async function enviarEmailReal(emailDestino, link) {
-    const mailOptions = {
-        from: `"Gateway DATASUS" <${GMAIL_USER}>`,
-        to: emailDestino,
-        subject: "Recuperação de Senha - Gateway SUS",
-        html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
-                <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
-                <p>Clique no botão abaixo para definir uma nova senha. Link válido por 1 hora.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
-                </div>
-            </div>`
-    };
-    return transporter.sendMail(mailOptions);
+    try {
+        const { data, error } = await resend.emails.send({
+            from: 'onboarding@resend.dev', // No plano free, use este remetente
+            to: emailDestino,
+            subject: 'Recuperação de Senha - Gateway SUS',
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+                    <h2 style="color: #3b82f6;">Recuperação de Senha</h2>
+                    <p>Clique no botão abaixo para definir uma nova senha:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${link}" style="background-color: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">CRIAR NOVA SENHA</a>
+                    </div>
+                </div>`
+        });
+
+        if (error) throw error;
+        console.log("✅ E-mail enviado via Resend API:", data.id);
+    } catch (err) {
+        console.error("❌ Falha na API do Resend:", err);
+    }
 }
 
 // --- ROTAS ---
@@ -93,17 +84,12 @@ app.post('/api/forgot-password', (req, res) => {
             const protocol = req.headers['x-forwarded-proto'] || 'http';
             const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
             
-            // --- MODO DE EMERGÊNCIA (PARA NÃO DAR ERRO 502) ---
-            console.log("------------------------------------------");
-            console.log(`🔗 LINK DE RECUPERAÇÃO PARA: ${email}`);
-            console.log(link);
-            console.log("------------------------------------------");
+            console.log(`🔗 Link gerado para ${email}: ${link}`);
 
-            // Tenta enviar o e-mail, mas não trava se falhar
-            enviarEmailReal(email, link).catch(e => console.log("⚠️ E-mail real falhou, use o link acima no log."));
+            // Chamada assíncrona para não travar o servidor
+            enviarEmailReal(email, link);
 
-            // Responde sucesso para o navegador imediatamente
-            res.json({ message: "Se o e-mail não chegar em 1 min, o link foi gerado no log do servidor." });
+            res.json({ message: "Se o e-mail não chegar, o link foi gerado nos logs." });
         });
     });
 });
