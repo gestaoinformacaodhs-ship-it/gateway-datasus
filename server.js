@@ -10,38 +10,34 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API (SOLUÇÃO PARA STATUS 1) ---
+// --- CONFIGURAÇÃO BREVO API (SOLUÇÃO DEFINITIVA PARA NODE 18) ---
 let apiInstance;
 
 try {
-    // Verifica se a classe existe no objeto principal ou dentro de .default (comum no Render)
+    // Busca a classe correta independente de como o pacote foi carregado
     const BrevoClass = Brevo.TransactionalEmailsApi || (Brevo.default && Brevo.default.TransactionalEmailsApi);
     
-    if (!BrevoClass) {
-        throw new Error("Não foi possível encontrar a classe TransactionalEmailsApi no pacote.");
-    }
+    if (!BrevoClass) throw new Error("Classe TransactionalEmailsApi não encontrada.");
 
     apiInstance = new BrevoClass();
 
-    // Configuração da chave de API
+    // Configura a chave de API que você mostrou na imagem
     if (process.env.BREVO_API_KEY) {
-        // Tenta configurar pelo ApiClient primeiro (método oficial mais recente)
+        // Tenta o método moderno primeiro
         if (Brevo.ApiClient && Brevo.ApiClient.instance) {
             const defaultClient = Brevo.ApiClient.instance;
             const apiKey = defaultClient.authentications['api-key'];
             apiKey.apiKey = process.env.BREVO_API_KEY;
         } else {
-            // Método alternativo direto na instância
+            // Fallback para o método setApiKey
             apiInstance.setApiKey(0, process.env.BREVO_API_KEY);
         }
-        console.log("✔️ Configuração da API Brevo carregada.");
-    } else {
-        console.error("⚠️ Alerta: BREVO_API_KEY não encontrada no ambiente.");
+        console.log("✔️ API Brevo conectada com a chave do Render.");
     }
 } catch (error) {
-    console.error("❌ Erro ao inicializar API Brevo:", error.message);
-    // Criamos um objeto fake para não derrubar o servidor se a API falhar
-    apiInstance = { sendTransacEmail: () => console.error("API Brevo não inicializada.") };
+    console.error("❌ Falha crítica ao iniciar Brevo:", error.message);
+    // Cria um objeto vazio para o app não travar (Status 1)
+    apiInstance = { sendTransacEmail: () => Promise.reject("Serviço de e-mail indisponível") };
 }
 
 // --- BANCO DE DADOS ---
@@ -59,27 +55,32 @@ const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus
 // --- FUNÇÃO DE ENVIO ---
 async function enviarEmailReal(emailDestino, link) {
     try {
-        const sendSmtpEmail = new (Brevo.SendSmtpEmail || Brevo.default.SendSmtpEmail)();
+        const EmailClass = Brevo.SendSmtpEmail || (Brevo.default && Brevo.default.SendSmtpEmail);
+        const sendSmtpEmail = new EmailClass();
+
         sendSmtpEmail.subject = "Recuperação de Senha - Gateway SUS";
         sendSmtpEmail.htmlContent = `
-            <div style="font-family:sans-serif; padding:20px; border:1px solid #eee; border-radius:10px;">
-                <h2 style="color:#3b82f6;">Recuperação de Senha</h2>
-                <p>Você solicitou a alteração de senha do Gateway DATASUS.</p>
-                <p>Clique no link abaixo para prosseguir:</p>
-                <a href="${link}" style="background:#3b82f6; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; display:inline-block;">ALTERAR SENHA</a>
-                <br><br><small>Se você não solicitou isso, ignore este e-mail.</small>
+            <div style="font-family:sans-serif; padding:20px; border:1px solid #3b82f6; border-radius:10px;">
+                <h2 style="color:#3b82f6;">Gateway DATASUS</h2>
+                <p>Recebemos um pedido de recuperação para sua conta.</p>
+                <p>Clique no botão abaixo para criar uma nova senha:</p>
+                <div style="text-align:center; margin:30px 0;">
+                    <a href="${link}" style="background:#3b82f6; color:white; padding:12px 25px; text-decoration:none; border-radius:5px; font-weight:bold;">DEFINIR NOVA SENHA</a>
+                </div>
+                <hr style="border:0; border-top:1px solid #eee;">
+                <small>Este link expira em 1 hora.</small>
             </div>`;
         sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ "email": emailDestino }];
 
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log("✅ E-mail de recuperação enviado para:", emailDestino);
+        console.log("✅ E-mail enviado para:", emailDestino);
     } catch (error) {
-        console.error("❌ Falha no envio do e-mail:", error.message);
+        console.error("❌ Erro ao enviar e-mail:", error.message || error);
     }
 }
 
-// --- ROTAS ---
+// --- ROTAS DA API ---
 
 app.post('/api/register', (req, res) => {
     const { nome, email, senha } = req.body;
@@ -100,16 +101,17 @@ app.post('/api/login', (req, res) => {
 app.post('/api/forgot-password', (req, res) => {
     const { email } = req.body;
     db.get(`SELECT email FROM usuarios WHERE email = ?`, [email], (err, user) => {
-        if (err || !user) return res.status(404).json({ error: "E-mail não encontrado." });
+        if (err || !user) return res.status(404).json({ error: "E-mail não cadastrado." });
         
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + 3600000).toISOString(); 
 
         db.run(`INSERT OR REPLACE INTO tokens (email, token, expiracao) VALUES (?, ?, ?)`, [email, token, expiracao], () => {
             const protocol = req.headers['x-forwarded-proto'] || 'http';
-            const link = `${protocol}://${req.get('host')}/reset-password.html?token=${token}`;
+            const host = req.get('host');
+            const link = `${protocol}://${host}/reset-password.html?token=${token}`;
             enviarEmailReal(email, link);
-            res.json({ message: "Instruções enviadas!" });
+            res.json({ message: "Link de recuperação enviado!" });
         });
     });
 });
@@ -117,13 +119,12 @@ app.post('/api/forgot-password', (req, res) => {
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     const client = new ftp.Client();
-    client.ftp.verbose = false;
     try {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
         res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
-    } catch (err) { res.status(500).json({ error: "Erro ao conectar ao FTP do DATASUS" }); }
+    } catch (err) { res.status(500).json({ error: "Erro FTP" }); }
     finally { client.close(); }
 });
 
@@ -137,7 +138,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, arquivo);
-    } catch (err) { res.status(500).send("Erro no download via FTP"); }
+    } catch (err) { res.status(500).send("Erro download"); }
     finally { client.close(); }
 });
 
