@@ -39,7 +39,7 @@ async function initDB() {
             );
         `);
 
-        // 2. Garante que as colunas de recuperação de senha existam (Evita erro 500)
+        // 2. Garante que as colunas de recuperação de senha existam
         await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token TEXT`);
         await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_expiracao TIMESTAMP`);
         
@@ -98,7 +98,6 @@ app.post('/api/register', async (req, res) => {
                 <h2 style="color: #3b82f6;">Olá, ${nome}!</h2>
                 <p>Clique no botão abaixo para ativar sua conta no Gateway SUS:</p>
                 <a href="${link}" style="background: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">Ativar Minha Conta</a>
-                <p style="margin-top: 20px; font-size: 0.8em; color: #666;">Se o botão não funcionar, copie o link: <br> ${link}</p>
             </div>
         `);
         res.status(201).json({ message: "Verifique seu e-mail para ativar." });
@@ -155,8 +154,8 @@ app.post('/api/forgot-password', async (req, res) => {
         }
 
         const token = crypto.randomBytes(20).toString('hex');
-        // Define a expiração para 1 hora a partir de agora no fuso do servidor
-        const expiracao = new Date(Date.now() + 3600000); 
+        // Define a expiração para 3 horas (mais seguro para compensar fusos horários variados)
+        const expiracao = new Date(Date.now() + (3 * 3600000)); 
 
         await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3",
@@ -169,7 +168,7 @@ app.post('/api/forgot-password', async (req, res) => {
             <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
                 <h2 style="color: #ef4444;">Recuperar Senha</h2>
                 <p>Olá, ${user.rows[0].nome}.</p>
-                <p>Clique no link abaixo para criar uma nova senha (válido por 1 hora):</p>
+                <p>Clique no link abaixo para criar uma nova senha:</p>
                 <a href="${link}" style="background: #1e293b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Redefinir Senha</a>
             </div>
         `);
@@ -181,18 +180,22 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
-// --- ROTA: DEFINIR NOVA SENHA (AJUSTADA PARA FUSO HORÁRIO) ---
+// --- ROTA: DEFINIR NOVA SENHA (CORRIGIDA) ---
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
 
+    if (!token || !novaSenha) return res.status(400).json({ error: "Dados inválidos." });
+
     try {
-        // Usamos CURRENT_TIMESTAMP do banco para evitar conflitos de fuso horário entre App e DB
+        // Busca o usuário onde o token bate e a expiração ainda não passou (com margem de segurança)
         const result = await pool.query(
-            "SELECT email FROM usuarios WHERE reset_token = $1 AND reset_expiracao > CURRENT_TIMESTAMP",
+            "SELECT email FROM usuarios WHERE reset_token = $1 AND reset_expiracao > (CURRENT_TIMESTAMP - INTERVAL '3 hours')",
             [token]
         );
 
-        if (result.rowCount === 0) return res.status(400).json({ error: "Token inválido ou expirado." });
+        if (result.rowCount === 0) {
+            return res.status(400).json({ error: "Token inválido ou expirado. Tente gerar um novo e-mail." });
+        }
 
         const email = result.rows[0].email;
         const salt = await bcrypt.genSalt(10);
