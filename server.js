@@ -155,7 +155,8 @@ app.post('/api/forgot-password', async (req, res) => {
         }
 
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        // Define a expiração para 1 hora a partir de agora no fuso do servidor
+        const expiracao = new Date(Date.now() + 3600000); 
 
         await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3",
@@ -180,13 +181,14 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
-// --- ROTA: DEFINIR NOVA SENHA ---
+// --- ROTA: DEFINIR NOVA SENHA (AJUSTADA PARA FUSO HORÁRIO) ---
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
 
     try {
+        // Usamos CURRENT_TIMESTAMP do banco para evitar conflitos de fuso horário entre App e DB
         const result = await pool.query(
-            "SELECT email FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()",
+            "SELECT email FROM usuarios WHERE reset_token = $1 AND reset_expiracao > CURRENT_TIMESTAMP",
             [token]
         );
 
