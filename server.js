@@ -4,19 +4,18 @@ const path = require('path');
 const { Pool } = require('pg'); 
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
-const bcrypt = require('bcrypt'); // ADICIONADO: Segurança de senhas
+const bcrypt = require('bcrypt');
 const Brevo = require('@getbrevo/brevo');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- CONFIGURAÇÃO BREVO API ---
+// --- CONFIGURAÇÃO BREVO API (CORRIGIDA) ---
 let apiInstance = new Brevo.TransactionalEmailsApi();
 if (process.env.BREVO_API_KEY) {
-    const defaultClient = Brevo.ApiClient.instance;
-    const apiKey = defaultClient.authentications['api-key'];
-    apiKey.apiKey = process.env.BREVO_API_KEY;
+    // Nova forma de definir a API Key para evitar erros de 'undefined' no Render
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
     console.log("✔️ API Brevo configurada com sucesso.");
 }
 
@@ -54,13 +53,21 @@ const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus
 
 async function enviarEmail(emailDestino, assunto, html) {
     try {
+        // Proteção: não tenta enviar se a chave não estiver configurada
+        if (!process.env.BREVO_API_KEY) {
+            console.warn("⚠️ E-mail não enviado: BREVO_API_KEY ausente.");
+            return;
+        }
+
         const sendSmtpEmail = new Brevo.SendSmtpEmail();
         sendSmtpEmail.subject = assunto;
         sendSmtpEmail.htmlContent = html;
         sendSmtpEmail.sender = { name: "Gateway SUS", email: "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ email: emailDestino }];
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-    } catch (e) { console.error("Erro e-mail:", e.response?.body || e.message); }
+    } catch (e) { 
+        console.error("Erro e-mail:", e.response?.body || e.message); 
+    }
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
@@ -73,7 +80,6 @@ app.post('/api/register', async (req, res) => {
     const token = crypto.randomBytes(20).toString('hex');
 
     try {
-        // Criptografando a senha antes de salvar
         const salt = await bcrypt.genSalt(10);
         const senhaHash = await bcrypt.hash(senha, salt);
 
@@ -103,7 +109,7 @@ app.get('/api/activate', async (req, res) => {
             [token]
         );
         if (result.rowCount === 0) return res.status(400).send("Link inválido ou já utilizado.");
-        res.send("<h1>Conta Ativada!</h1><p>Você será redirecionado para o login...</p><meta http-equiv='refresh' content='2;url=/index.html'>");
+        res.send("<h1>Conta Ativada!</h1><p>Redirecionando...</p><meta http-equiv='refresh' content='2;url=/index.html'>");
     } catch (err) { res.status(500).send("Erro na ativação."); }
 });
 
@@ -120,11 +126,10 @@ app.post('/api/login', async (req, res) => {
 
         if (!user) return res.status(401).json({ error: "Usuário não encontrado." });
         
-        // Comparando senha criptografada
         const senhaValida = await bcrypt.compare(senha, user.senha);
         if (!senhaValida) return res.status(401).json({ error: "E-mail ou senha incorretos." });
         
-        if (user.ativo === 0) return res.status(403).json({ error: "Sua conta ainda não foi ativada. Verifique seu e-mail." });
+        if (user.ativo === 0) return res.status(403).json({ error: "Ative sua conta primeiro." });
         
         res.json({ 
             user: user.nome, 
@@ -134,7 +139,6 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// --- ROTA DE ATUALIZAÇÃO DE PERFIL (Para suportar profile.html) ---
 app.put('/api/update-profile', async (req, res) => {
     const { nome, email, senha } = req.body;
     const emailLower = email.toLowerCase().trim();
@@ -167,9 +171,8 @@ app.post('/api/forgot-password', async (req, res) => {
         if (user.rowCount === 0) return res.status(404).json({ error: "E-mail não encontrado." });
 
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        const expiracao = new Date(Date.now() + 3600000); 
 
-        // Limpa tokens antigos antes de criar um novo
         await pool.query(`DELETE FROM tokens WHERE email = $1`, [emailLower]);
         await pool.query(
             `INSERT INTO tokens (email, token, expiracao) VALUES ($1, $2, $3)`,
@@ -177,13 +180,9 @@ app.post('/api/forgot-password', async (req, res) => {
         );
 
         const link = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
-        await enviarEmail(emailLower, "Recuperação de Senha - Gateway SUS", `
-            <p>Você solicitou a redefinição de senha.</p>
-            <p>Clique no link abaixo (válido por 1 hora):</p>
-            <a href="${link}">Redefinir minha senha</a>
-        `);
-        res.json({ message: "E-mail de recuperação enviado!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao processar solicitação." }); }
+        await enviarEmail(emailLower, "Recuperação de Senha", `<a href="${link}">Redefinir minha senha</a>`);
+        res.json({ message: "E-mail enviado!" });
+    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -194,8 +193,7 @@ app.post('/api/reset-password', async (req, res) => {
             [token]
         );
         const row = result.rows[0];
-
-        if (!row) return res.status(400).json({ error: "Link inválido ou expirado." });
+        if (!row) return res.status(400).json({ error: "Link expirado." });
         
         const salt = await bcrypt.genSalt(10);
         const senhaHash = await bcrypt.hash(novaSenha, salt);
@@ -203,11 +201,11 @@ app.post('/api/reset-password', async (req, res) => {
         await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [senhaHash, row.email]);
         await pool.query(`DELETE FROM tokens WHERE email = $1`, [row.email]);
         
-        res.json({ message: "Senha atualizada com sucesso!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao salvar nova senha." }); }
+        res.json({ message: "Senha atualizada!" });
+    } catch (err) { res.status(500).json({ error: "Erro ao salvar." }); }
 });
 
-// --- FTP DATASUS ---
+// --- FTP ---
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     const client = new ftp.Client();
@@ -219,7 +217,7 @@ app.get('/api/list/:sistema', async (req, res) => {
             name: f.name, 
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })));
-    } catch (e) { res.status(500).send("Erro ao listar arquivos FTP."); } 
+    } catch (e) { res.status(500).send("Erro FTP"); } 
     finally { client.close(); }
 });
 
@@ -233,7 +231,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, decodeURIComponent(arquivo));
-    } catch (e) { if (!res.headersSent) res.status(500).send("Erro no download."); } 
+    } catch (e) { if (!res.headersSent) res.status(500).send("Erro"); } 
     finally { client.close(); }
 });
 
