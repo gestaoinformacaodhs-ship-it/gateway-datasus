@@ -256,22 +256,25 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao redefinir." }); }
 });
 
-// --- LÓGICA FTP (ATUALIZADA COM CNES) ---
+// --- LÓGICA FTP (Diferenciando hosts para CNES e outros sistemas) ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 
     'SIA': '/siasus/SIA', 
     'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO',
-    'CNES': '/siasus/CNES' // Novo sistema adicionado
+    'CNES': '/cnes' // Caminho correto para o CNES
 };
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
 
-    const client = new ftp.Client(20000); 
+    // Se for CNES usa ftp.datasus, senão mantém arpoador.datasus
+    const ftpHost = (sistema === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
+
+    const client = new ftp.Client(30000); 
     try {
-        await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
+        await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
         res.json(list.filter(f => f.isFile).map(f => ({ 
@@ -279,6 +282,7 @@ app.get('/api/list/:sistema', async (req, res) => {
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })));
     } catch (e) { 
+        console.error("Erro FTP List:", e.message);
         res.status(500).json({ error: "Erro ao listar arquivos FTP." }); 
     } finally { 
         client.close(); 
@@ -290,9 +294,11 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const sisUpper = sistema.toUpperCase();
     if (!pastasFTP[sisUpper]) return res.status(400).send("Sistema inválido.");
 
+    const ftpHost = (sisUpper === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
+
     const client = new ftp.Client(45000);
     try {
-        await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
+        await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sisUpper]);
         
         res.setHeader('Content-Disposition', `attachment; filename="${arquivo}"`);
