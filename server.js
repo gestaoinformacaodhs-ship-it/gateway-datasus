@@ -154,18 +154,30 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
+// --- ROTA DE ATUALIZAÇÃO DE PERFIL CORRIGIDA ---
 app.post('/api/update-profile', async (req, res) => {
     const { email, nome, novaSenha } = req.body;
     try {
-        if (novaSenha) {
+        if (!email) return res.status(400).json({ error: "E-mail não identificado." });
+
+        if (novaSenha && novaSenha.trim() !== "") {
             const salt = await bcrypt.genSalt(10);
             const hash = await bcrypt.hash(novaSenha, salt);
-            await pool.query("UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3", [nome, hash, email.toLowerCase().trim()]);
+            await pool.query(
+                "UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3", 
+                [nome, hash, email.toLowerCase().trim()]
+            );
         } else {
-            await pool.query("UPDATE usuarios SET nome = $1 WHERE email = $3", [nome, email.toLowerCase().trim()]);
+            await pool.query(
+                "UPDATE usuarios SET nome = $1 WHERE email = $2", 
+                [nome, email.toLowerCase().trim()]
+            );
         }
         res.json({ message: "Perfil atualizado com sucesso!", novoNome: nome });
-    } catch (err) { res.status(500).json({ error: "Erro ao atualizar perfil." }); }
+    } catch (err) { 
+        console.error("❌ Erro ao atualizar perfil no DB:", err);
+        res.status(500).json({ error: "Erro ao atualizar dados no banco de dados." }); 
+    }
 });
 
 app.post('/api/forgot-password', async (req, res) => {
