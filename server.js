@@ -21,10 +21,12 @@ const io = new Server(server, {
         methods: ["GET", "POST"],
         credentials: true
     },
-    transports: ['websocket', 'polling'] // websocket primeiro melhora a performance
+    transports: ['websocket', 'polling']
 }); 
 
-app.use(express.json());
+// Aumentar o limite do JSON para suportar o envio de imagens em Base64
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static('public'));
 
 // --- CONFIGURAÇÃO BREVO API ---
@@ -43,7 +45,6 @@ const pool = new Pool({
 
 async function initDB() {
     try {
-        // Tabela de Usuários
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -57,33 +58,35 @@ async function initDB() {
             );
         `);
 
-        // Tabela: Mensagens do Suporte
         await pool.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
                 id SERIAL PRIMARY KEY,
                 sala_id TEXT, 
                 usuario TEXT,
                 texto TEXT,
+                arquivo TEXT, 
+                tipo_arquivo TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
         
+        // Garantir que as colunas de arquivo existam para suporte a imagens
         try {
-            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS sala_id TEXT;");
-        } catch (e) { /* ignore */ }
+            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS arquivo TEXT;");
+            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS tipo_arquivo TEXT;");
+        } catch (e) { /* colunas já existem */ }
 
-        console.log("✔️ Banco de Dados pronto (Tabelas e Chat por Salas).");
+        console.log("✔️ Banco de Dados pronto (Suporte a Imagens e Arquivos).");
     } catch (err) {
         console.error("❌ Erro no Banco de Dados:", err.message);
     }
 }
 initDB();
 
-// --- LÓGICA DO CHAT (SOCKET.IO) COM SALAS PRIVADAS ---
+// --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     console.log('🔌 Conexão estabelecida:', socket.id);
 
-    // O admin chama isso para entrar em uma "sala global" de notificações
     socket.on('admin_entrar', () => {
         socket.join('admin_room');
         console.log(`🛠️ Admin ${socket.id} entrou na sala de monitoramento.`);
@@ -92,11 +95,10 @@ io.on('connection', (socket) => {
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         socket.join(salaId);
-        console.log(`👤 Socket ${socket.id} entrou na sala: ${salaId}`);
-
+        
         try {
             const historico = await pool.query(
-                "SELECT usuario, texto, timestamp FROM mensagens_suporte WHERE sala_id = $1 ORDER BY timestamp ASC LIMIT 100",
+                "SELECT usuario, texto, arquivo, tipo_arquivo as tipo, timestamp FROM mensagens_suporte WHERE sala_id = $1 ORDER BY timestamp ASC LIMIT 100",
                 [salaId]
             );
             socket.emit('historico_mensagens', historico.rows);
@@ -122,17 +124,48 @@ io.on('connection', (socket) => {
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             };
 
-            // Envia para a sala específica (usuário e admin que estiver nela)
             io.to(salaId).emit('receber_mensagem', msgData);
-
-            // Se for mensagem de usuário, avisa o admin na sala global para alerta visual
             if (nome !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
-            
         } catch (err) {
             console.error("Erro ao salvar mensagem:", err.message);
         }
+    });
+
+    // --- NOVA LÓGICA: RECEBER E ENVIAR ARQUIVOS ---
+    socket.on('enviar_arquivo', async (data) => {
+        const { nome, arquivo, tipo, nomeArquivo, salaId } = data;
+        if (!salaId || !arquivo) return;
+
+        try {
+            // Salva no banco (Opcional: em produção, o ideal é salvar em um Storage e guardar apenas a URL)
+            await pool.query(
+                "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)",
+                [salaId, nome, `Arquivo: ${nomeArquivo}`, arquivo, tipo]
+            );
+
+            const msgData = {
+                usuario: nome,
+                texto: `Enviou um arquivo: ${nomeArquivo}`,
+                arquivo: arquivo,
+                tipo: tipo,
+                salaId: salaId,
+                hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            io.to(salaId).emit('receber_mensagem', msgData);
+            if (nome !== "Suporte Arpoador") {
+                io.to('admin_room').emit('receber_mensagem', msgData);
+            }
+        } catch (err) {
+            console.error("Erro ao processar arquivo:", err.message);
+        }
+    });
+
+    socket.on('encerrar_conversa', (salaId) => {
+        io.to(salaId).emit('conversa_encerrada', { salaId });
+        console.log(`🔒 Conversa ${salaId} encerrada.`);
     });
 
     socket.on('disconnect', () => {
@@ -279,7 +312,6 @@ app.put('/api/update-profile', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao atualizar perfil." }); }
 });
 
-// IMPORTANTE: PORTA PARA O RENDER
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`);
