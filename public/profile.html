@@ -43,8 +43,8 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-envelope"></i>
                         </span>
-                        <input type="email" id="email" required
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                        <input type="email" id="email" required readonly
+                            class="w-full bg-slate-800 text-slate-500 rounded-lg pl-10 pr-4 py-3 focus:outline-none border border-slate-700 cursor-not-allowed">
                     </div>
                 </div>
 
@@ -92,7 +92,7 @@
             const userEmail = localStorage.getItem('email');
 
             if (!userNome || !userEmail) {
-                window.location.href = 'index.html'; // Proteção: se não logado, volta pro login
+                window.location.href = 'index.html'; 
                 return;
             }
 
@@ -131,8 +131,14 @@
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            if (senha && senha !== confirma) {
-                return alert("⚠️ As senhas não coincidem!");
+            // Validação de Senha
+            if (senha) {
+                if (senha.length < 6) {
+                    return alert("⚠️ A nova senha deve ter pelo menos 6 caracteres.");
+                }
+                if (senha !== confirma) {
+                    return alert("⚠️ As senhas não coincidem!");
+                }
             }
 
             const originalText = btn.innerHTML;
@@ -141,22 +147,22 @@
 
             try {
                 const res = await fetch('/api/update-profile', {
-                    method: 'PUT',
+                    method: 'POST', // Ajustado para POST conforme o server.js
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         nome, 
                         email, 
-                        senha: senha.trim() === "" ? undefined : senha 
+                        novaSenha: senha.trim() === "" ? undefined : senha // Nome do campo ajustado
                     })
                 });
 
+                const data = await res.json();
+
                 if (res.ok) {
-                    // ATUALIZA O LOCALSTORAGE PARA O DASHBOARD NÃO FICAR COM NOME ANTIGO
                     localStorage.setItem('usuario', nome);
-                    localStorage.setItem('email', email);
                     alert("✅ Perfil atualizado com sucesso!");
+                    window.location.reload();
                 } else {
-                    const data = await res.json();
                     alert("❌ Erro ao salvar: " + (data.error || "Tente novamente."));
                 }
             } catch (err) {

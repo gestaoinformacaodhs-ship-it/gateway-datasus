@@ -16,7 +16,7 @@ const server = http.createServer(app);
 // --- ATIVAÇÃO DA COMPRESSÃO ---
 app.use(compression()); 
 
-// --- AJUSTE NO SOCKET.IO PARA PRODUÇÃO ---
+// --- CONFIGURAÇÃO SOCKET.IO PARA PRODUÇÃO ---
 const io = new Server(server, {
     cors: {
         origin: ["https://gateway-datasus.onrender.com", "http://localhost:3000"],
@@ -82,6 +82,7 @@ initDB();
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     socket.on('admin_entrar', () => socket.join('admin_room'));
+    
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         socket.join(salaId);
@@ -100,7 +101,9 @@ io.on('connection', (socket) => {
         try {
             await pool.query("INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)", [salaId, nome, mensagem]);
             const msgData = { 
-                usuario: nome, texto: mensagem, salaId, 
+                usuario: nome, 
+                texto: mensagem, 
+                salaId, 
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
             };
             io.to(salaId).emit('receber_mensagem', msgData);
