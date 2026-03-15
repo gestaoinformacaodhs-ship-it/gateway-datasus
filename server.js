@@ -27,7 +27,7 @@ const pool = new Pool({
 
 async function initDB() {
     try {
-        // Tabela de usuários com campos de reset de senha
+        // 1. Cria a tabela base se não existir
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -35,14 +35,17 @@ async function initDB() {
                 email TEXT UNIQUE,
                 senha TEXT,
                 ativo INTEGER DEFAULT 0,
-                token_ativacao TEXT,
-                reset_token TEXT,
-                reset_expiracao TIMESTAMP
+                token_ativacao TEXT
             );
         `);
-        console.log("✔️ Banco de Dados pronto.");
+
+        // 2. Garante que as colunas de recuperação de senha existam (Evita erro 500)
+        await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token TEXT`);
+        await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_expiracao TIMESTAMP`);
+        
+        console.log("✔️ Banco de Dados pronto e atualizado.");
     } catch (err) {
-        console.error("❌ Erro ao inicializar Tabelas:", err.message);
+        console.error("❌ Erro ao inicializar/atualizar Tabelas:", err.message);
     }
 }
 initDB();
@@ -139,7 +142,7 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// --- NOVA ROTA: RECUPERAR SENHA (FORGOT PASSWORD) ---
+// --- ROTA: SOLICITAR RECUPERAÇÃO ---
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     const emailLower = email.toLowerCase().trim();
@@ -148,12 +151,11 @@ app.post('/api/forgot-password', async (req, res) => {
         const user = await pool.query("SELECT nome FROM usuarios WHERE email = $1", [emailLower]);
         
         if (user.rowCount === 0) {
-            // Por segurança, não confirmamos que o e-mail não existe
             return res.json({ message: "Se o e-mail estiver cadastrado, você receberá as instruções." });
         }
 
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora de validade
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
 
         await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3",
@@ -165,7 +167,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await enviarEmail(emailLower, "Recuperação de Senha - Gateway SUS", `
             <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee;">
                 <h2 style="color: #ef4444;">Recuperar Senha</h2>
-                <p>Olá, ${user.rows[0].nome}. Você solicitou a redefinição de senha.</p>
+                <p>Olá, ${user.rows[0].nome}.</p>
                 <p>Clique no link abaixo para criar uma nova senha (válido por 1 hora):</p>
                 <a href="${link}" style="background: #1e293b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Redefinir Senha</a>
             </div>
@@ -173,12 +175,12 @@ app.post('/api/forgot-password', async (req, res) => {
 
         res.json({ message: "E-mail de recuperação enviado!" });
     } catch (err) {
-        console.error(err);
+        console.error("Erro forgot-pass:", err);
         res.status(500).json({ error: "Erro ao processar solicitação." });
     }
 });
 
-// --- NOVA ROTA: SALVAR NOVA SENHA ---
+// --- ROTA: DEFINIR NOVA SENHA ---
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
 
@@ -201,6 +203,7 @@ app.post('/api/reset-password', async (req, res) => {
 
         res.json({ message: "Senha alterada com sucesso!" });
     } catch (err) {
+        console.error("Erro reset-pass:", err);
         res.status(500).json({ error: "Erro ao redefinir senha." });
     }
 });
