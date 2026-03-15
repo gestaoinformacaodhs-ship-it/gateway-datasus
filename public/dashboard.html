@@ -35,7 +35,7 @@
         }
 
         .glass-chat {
-            background: rgba(15, 23, 42, 0.98); /* Fundo do chat mais escuro */
+            background: rgba(15, 23, 42, 0.98);
             backdrop-filter: blur(25px);
             border: 1px solid rgba(255,255,255,0.08);
         }
@@ -51,7 +51,6 @@
             border-color: #2563eb;
         }
 
-        /* ESTILOS DE DESTAQUE DO CHAT - TONS MAIS ESCUROS */
         .msg-bubble {
             padding: 10px 14px;
             border-radius: 10px;
@@ -60,18 +59,16 @@
             line-height: 1.4;
         }
 
-        /* Estilo para VOCÊ (Usuário) - Azul Petróleo Escuro */
         .msg-is-me {
             background: #164e63 !important; 
             color: #e2e8f0 !important;
             border-left: 4px solid #475569;
         }
 
-        /* Estilo para o SUPORTE (Outros) - Cinza Escuro com Borda Verde Escura */
         .msg-is-support {
             background: #1e293b !important; 
             color: #f1f5f9 !important;
-            border-left: 4px solid #059669; /* Verde Esmeralda Escuro */
+            border-left: 4px solid #059669;
         }
 
         .author-name {
@@ -117,7 +114,7 @@
             <p class="text-slate-500 mt-2">Selecione o sistema para listar arquivos via FTP em tempo real.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIA')">
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📊</div>
                 <h3 class="text-lg font-bold text-white">SIA</h3>
@@ -146,6 +143,12 @@
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🏥</div>
                 <h3 class="text-lg font-bold text-white">CNES</h3>
                 <p class="text-[10px] text-slate-600 mt-1 uppercase tracking-tight">Cadastro Nac. de Estab.</p>
+            </div>
+
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIHD')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🖥️</div>
+                <h3 class="text-lg font-bold text-white">SIHD</h3>
+                <p class="text-[10px] text-slate-600 mt-1 uppercase tracking-tight">Sist. Inf. Hospitais</p>
             </div>
         </div>
     </main>
@@ -306,17 +309,12 @@
             fileInput.value = "";
         }
 
-        // --- FUNÇÃO DE MENSAGENS COM CORES DIFERENTES (TONS MAIS ESCUROS) ---
         function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu) {
             const box = document.getElementById('chat-messages');
             const div = document.createElement('div');
-            
-            // Define as classes baseadas no autor
             const bubbleStyle = souEu ? 'msg-is-me' : 'msg-is-support';
             const nameColor = souEu ? 'text-slate-400' : 'text-emerald-500';
-
             let corpoHTML = texto ? `<p>${texto}</p>` : '';
-            
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
                     corpoHTML += `<img src="${arquivo}" class="max-w-full rounded mt-2 border border-white/10" onclick="window.open(this.src)">`;
@@ -324,7 +322,6 @@
                     corpoHTML += `<a href="${arquivo}" download class="block mt-2 text-xs underline opacity-80 italic"><i class="fa-solid fa-file-download mr-1"></i>Anexo recebido</a>`;
                 }
             }
-
             div.innerHTML = `
                 <div class="flex flex-col">
                     <span class="author-name ${nameColor}">${autor} ${souEu ? '(Você)' : ''}</span>
@@ -333,12 +330,10 @@
                     </div>
                 </div>
             `;
-
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- LÓGICA DE FTP ---
         async function abrirEListar(sistema) {
             sistemaAtual = sistema;
             const modal = document.getElementById('modal');

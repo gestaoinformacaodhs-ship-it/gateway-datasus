@@ -53,7 +53,7 @@ async function initDB() {
                 senha TEXT,
                 ativo INTEGER DEFAULT 0,
                 token_ativacao TEXT,
-                reset_token TEXT,
+                token_reset TEXT,
                 reset_expiracao TIMESTAMP
             );
         `);
@@ -251,7 +251,6 @@ app.post('/api/reset-password', async (req, res) => {
     const cleanToken = token?.trim();
 
     try {
-        // 1. Busca o usuário e a data de expiração gravada
         const userCheck = await pool.query(
             "SELECT id, reset_expiracao FROM usuarios WHERE reset_token = $1",
             [cleanToken]
@@ -265,12 +264,10 @@ app.post('/api/reset-password', async (req, res) => {
         const agora = new Date();
         const expiracao = new Date(usuario.reset_expiracao);
 
-        // 2. Validação de tempo via JavaScript (Ignora fuso horário do Banco)
         if (expiracao < agora) {
             return res.status(400).json({ error: "O link de recuperação expirou." });
         }
 
-        // 3. Atualiza a senha
         const senhaHash = await bcrypt.hash(novaSenha, 10);
         await pool.query(
             "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2",
@@ -284,20 +281,30 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- LÓGICA FTP ---
+// --- LÓGICA FTP ATUALIZADA COM SIHD ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 
     'SIA': '/siasus/SIA', 
     'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO',
-    'CNES': '/cnes' 
+    'CNES': '/cnes',
+    'SIHD': '/public/sistemas/dsweb/SIHD/Programas' // Novo Caminho
 };
+
+// Função auxiliar para definir o Host correto
+function getFtpHost(sistema) {
+    if (sistema === 'CNES') return "ftp.datasus.gov.br";
+    if (sistema === 'SIHD') return "ftp2.datasus.gov.br";
+    return "arpoador.datasus.gov.br";
+}
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
-    const ftpHost = (sistema === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
+    
+    const ftpHost = getFtpHost(sistema);
     const client = new ftp.Client(30000); 
+    
     try {
         await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
@@ -307,17 +314,17 @@ app.get('/api/list/:sistema', async (req, res) => {
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })).reverse());
     } catch (e) { 
+        console.error("Erro FTP List:", e.message);
         res.status(500).json({ error: "Erro ao listar arquivos FTP." }); 
     } finally { client.close(); }
 });
 
-// --- DOWNLOAD OTIMIZADO COM BUFFER E HEADERS DE CONTROLE ---
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
     const sisUpper = sistema.toUpperCase();
     if (!pastasFTP[sisUpper]) return res.status(400).send("Sistema inválido.");
 
-    const ftpHost = (sisUpper === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
+    const ftpHost = getFtpHost(sisUpper);
     const nomeArquivo = decodeURIComponent(arquivo);
 
     const client = new ftp.Client(0); 
@@ -325,18 +332,12 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sisUpper]);
         
-        // --- HEADERS PARA ACELERAR O FLUXO NO RENDER ---
         res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
 
-        const tunnel = new PassThrough({
-            highWaterMark: 1024 * 1024 // Aumenta o Buffer interno para 1MB
-        });
-        
+        const tunnel = new PassThrough({ highWaterMark: 1024 * 1024 });
         tunnel.on('error', () => client.close());
         tunnel.pipe(res);
         
@@ -344,9 +345,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     } catch (e) { 
         console.error("Erro no download:", e.message);
         if (!res.headersSent) res.status(500).send("Erro no download."); 
-    } finally { 
-        client.close(); 
-    }
+    } finally { client.close(); }
 });
 
 app.put('/api/update-profile', async (req, res) => {
