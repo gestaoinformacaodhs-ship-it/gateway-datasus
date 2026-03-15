@@ -165,8 +165,6 @@
         function atualizarSala() {
             const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
             const emailSalvo = localStorage.getItem('email');
-            
-            // Prioriza e-mail logado, depois e-mail digitado, depois ID do socket
             let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socket.id);
             
             if (novaSala !== emailSala) {
@@ -178,7 +176,6 @@
         socket.on('connect', atualizarSala);
         document.getElementById('l-email').addEventListener('blur', atualizarSala);
 
-        // Atalho Enter
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (document.getElementById('login-container').style.display !== 'none') entrar();
@@ -195,8 +192,13 @@
         }
 
         function trocar(tela) {
-            ['login-container', 'signup-container', 'forgot-container'].forEach(c => document.getElementById(c).style.display = 'none');
-            document.getElementById(tela + '-container').style.display = 'block';
+            ['login-container', 'signup-container', 'forgot-container'].forEach(c => {
+                document.getElementById(c).classList.add('hidden');
+                document.getElementById(c).style.display = 'none';
+            });
+            const target = document.getElementById(tela + '-container');
+            target.classList.remove('hidden');
+            target.style.display = 'block';
         }
 
         function toggleChat() {
@@ -224,10 +226,9 @@
                 const data = await res.json();
                 
                 if (res.ok) {
-                    // Armazena dados e redireciona
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
-                    localStorage.setItem('token', 'sessao_ativa'); // Garante que o script de topo funcione
+                    localStorage.setItem('token', 'sessao_ativa');
                     window.location.href = 'dashboard.html';
                 } else {
                     alert(data.error || "Erro ao fazer login.");
@@ -248,6 +249,7 @@
             
             if (!nome || !email || !senha) return alert("Preencha todos os campos.");
             btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processando...';
             
             try {
                 const res = await fetch('/api/register', {
@@ -267,19 +269,32 @@
         }
 
         async function solicitarRecuperacao() {
-            const email = document.getElementById('f-email').value;
+            const emailField = document.getElementById('f-email');
+            const email = emailField.value;
+            const btn = document.getElementById('btn-forgot');
+
             if (!email) return alert("Informe seu e-mail.");
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Enviando...';
+
             try {
                 const res = await fetch('/api/forgot-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ email: email.trim().toLowerCase() })
                 });
-                if (res.ok) {
-                    alert("Se o e-mail existir, as instruções foram enviadas.");
-                    trocar('login');
-                }
-            } catch (err) { alert("Erro ao processar."); }
+                
+                // Resposta genérica por segurança
+                alert("Se o e-mail estiver cadastrado, você receberá as instruções em instantes.");
+                emailField.value = "";
+                trocar('login');
+            } catch (err) { 
+                alert("Erro ao processar solicitação de recuperação."); 
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Enviar Instruções";
+            }
         }
 
         // --- CHAT LOGIC ---

@@ -6,7 +6,7 @@ const { PassThrough } = require('stream');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const Brevo = require('@getbrevo/brevo');
-const compression = require('compression'); // NOVO: Para compressão de dados
+const compression = require('compression');
 
 // --- IMPORTS PARA O CHAT ---
 const http = require('http');
@@ -40,13 +40,13 @@ if (process.env.BREVO_API_KEY) {
     console.log("✔️ API Brevo configurada com sucesso.");
 }
 
-// --- CONFIGURAÇÃO SUPABASE/POSTGRES (OTIMIZADA) ---
+// --- CONFIGURAÇÃO SUPABASE/POSTGRES ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000, // Fecha conexões inativas após 30s
-    max: 10 // Limita o número de conexões para não estourar o banco
+    idleTimeoutMillis: 30000,
+    max: 10 
 });
 
 async function initDB() {
@@ -134,7 +134,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// --- FUNÇÃO E-MAIL ---
+// --- FUNÇÃO AUXILIAR E-MAIL ---
 async function enviarEmail(emailDestino, assunto, html) {
     try {
         if (!process.env.BREVO_API_KEY) return;
@@ -148,18 +148,50 @@ async function enviarEmail(emailDestino, assunto, html) {
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
+
 app.post('/api/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
         const result = await pool.query(`SELECT nome, email, senha, ativo FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(senha, user.senha))) return res.status(401).json({ error: "Credenciais inválidas." });
-        if (user.ativo === 0) return res.status(403).json({ error: "Ative sua conta." });
+        if (user.ativo === 0) return res.status(403).json({ error: "Ative sua conta primeiro." });
         res.json({ user: user.nome, email: user.email });
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// --- LÓGICA FTP COM CACHE (LIMPO E RÁPIDO) ---
+// NOVO: Rota para Esqueci a Senha
+app.post('/api/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
+
+    try {
+        const token = crypto.randomBytes(20).toString('hex');
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora de validade
+
+        const result = await pool.query(
+            "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
+            [token, expiracao, email.toLowerCase().trim()]
+        );
+
+        if (result.rowCount > 0) {
+            const link = `https://${req.headers.host}/reset-password.html?token=${token}`;
+            await enviarEmail(
+                email, 
+                "Recuperação de Senha - Gateway SUS", 
+                `Olá ${result.rows[0].nome},<br><br>Clique no link abaixo para redefinir sua senha:<br><a href="${link}">${link}</a><br><br>Este link expira em 1 hora.`
+            );
+        }
+        
+        // Sempre retornamos sucesso por segurança (evitar enumeração de e-mails)
+        res.json({ message: "Se o e-mail existir, as instruções foram enviadas." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao processar solicitação." });
+    }
+});
+
+// --- LÓGICA FTP COM CACHE ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO', 'CNES': '/cnes',
@@ -167,7 +199,7 @@ const pastasFTP = {
     'CIHA': '/public/sistemas/dsweb/CIHA'
 };
 
-const cacheFTP = {}; // Armazena listagens temporariamente
+const cacheFTP = {}; 
 
 function getFtpHost(sistema) {
     if (sistema === 'CNES') return "ftp.datasus.gov.br";
@@ -179,13 +211,12 @@ app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Inválido." });
 
-    // Se houver cache de menos de 5 minutos, retorna ele
     const agora = Date.now();
     if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
         return res.json(cacheFTP[sistema].data);
     }
     
-    const client = new ftp.Client(15000); // Timeout de 15s para não travar o server
+    const client = new ftp.Client(15000); 
     try {
         await client.access({ host: getFtpHost(sistema), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
@@ -195,7 +226,7 @@ app.get('/api/list/:sistema', async (req, res) => {
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })).reverse();
         
-        cacheFTP[sistema] = { time: agora, data: data }; // Salva no cache
+        cacheFTP[sistema] = { time: agora, data: data }; 
         res.json(data);
     } catch (e) { 
         res.status(500).json({ error: "FTP DATASUS instável." }); 
@@ -207,7 +238,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const sisUpper = sistema.toUpperCase();
     if (!pastasFTP[sisUpper]) return res.status(400).send("Sistema inválido.");
 
-    const client = new ftp.Client(0); // Timeout 0 para downloads longos
+    const client = new ftp.Client(0); 
     try {
         await client.access({ host: getFtpHost(sisUpper), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sisUpper]);
