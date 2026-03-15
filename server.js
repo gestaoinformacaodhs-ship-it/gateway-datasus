@@ -4,6 +4,7 @@ const path = require('path');
 const { Pool } = require('pg'); 
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt'); // ADICIONADO: Segurança de senhas
 const Brevo = require('@getbrevo/brevo');
 
 const app = express();
@@ -13,7 +14,9 @@ app.use(express.static('public'));
 // --- CONFIGURAÇÃO BREVO API ---
 let apiInstance = new Brevo.TransactionalEmailsApi();
 if (process.env.BREVO_API_KEY) {
-    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+    const defaultClient = Brevo.ApiClient.instance;
+    const apiKey = defaultClient.authentications['api-key'];
+    apiKey.apiKey = process.env.BREVO_API_KEY;
     console.log("✔️ API Brevo configurada com sucesso.");
 }
 
@@ -54,10 +57,10 @@ async function enviarEmail(emailDestino, assunto, html) {
         const sendSmtpEmail = new Brevo.SendSmtpEmail();
         sendSmtpEmail.subject = assunto;
         sendSmtpEmail.htmlContent = html;
-        sendSmtpEmail.sender = { "name": "Gateway SUS", "email": "gestaoinformacaodhs@gmail.com" };
-        sendSmtpEmail.to = [{ "email": emailDestino }];
+        sendSmtpEmail.sender = { name: "Gateway SUS", email: "gestaoinformacaodhs@gmail.com" };
+        sendSmtpEmail.to = [{ email: emailDestino }];
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-    } catch (e) { console.error("Erro e-mail:", e.message); }
+    } catch (e) { console.error("Erro e-mail:", e.response?.body || e.message); }
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
@@ -70,15 +73,25 @@ app.post('/api/register', async (req, res) => {
     const token = crypto.randomBytes(20).toString('hex');
 
     try {
+        // Criptografando a senha antes de salvar
+        const salt = await bcrypt.genSalt(10);
+        const senhaHash = await bcrypt.hash(senha, salt);
+
         await pool.query(
             `INSERT INTO usuarios (nome, email, senha, token_ativacao) VALUES ($1, $2, $3, $4)`,
-            [nome, emailLower, senha, token]
+            [nome, emailLower, senhaHash, token]
         );
+        
         const link = `${req.protocol}://${req.get('host')}/api/activate?token=${token}`;
-        await enviarEmail(emailLower, "Ative sua conta", `<p>Clique aqui para ativar: <a href="${link}">${link}</a></p>`);
+        await enviarEmail(emailLower, "Ative sua conta - Gateway SUS", `
+            <h2>Olá, ${nome}!</h2>
+            <p>Clique no link abaixo para ativar sua conta no sistema:</p>
+            <a href="${link}">${link}</a>
+        `);
         res.status(201).json({ message: "Verifique seu e-mail para ativar." });
     } catch (err) {
-        res.status(400).json({ error: "E-mail já cadastrado." });
+        console.error(err);
+        res.status(400).json({ error: "E-mail já cadastrado ou erro no banco." });
     }
 });
 
@@ -89,8 +102,8 @@ app.get('/api/activate', async (req, res) => {
             `UPDATE usuarios SET ativo = 1, token_ativacao = NULL WHERE token_ativacao = $1`,
             [token]
         );
-        if (result.rowCount === 0) return res.status(400).send("Link inválido.");
-        res.send("<h1>Conta Ativada!</h1><meta http-equiv='refresh' content='2;url=/index.html'>");
+        if (result.rowCount === 0) return res.status(400).send("Link inválido ou já utilizado.");
+        res.send("<h1>Conta Ativada!</h1><p>Você será redirecionado para o login...</p><meta http-equiv='refresh' content='2;url=/index.html'>");
     } catch (err) { res.status(500).send("Erro na ativação."); }
 });
 
@@ -103,14 +116,47 @@ app.post('/api/login', async (req, res) => {
             `SELECT nome, email, senha, ativo FROM usuarios WHERE email = $1`,
             [emailLower]
         );
-        const row = result.rows[0];
+        const user = result.rows[0];
 
-        if (!row) return res.status(401).json({ error: "Usuário não encontrado." });
-        if (row.senha !== senha) return res.status(401).json({ error: "E-mail ou senha incorretos." });
-        if (row.ativo === 0) return res.status(403).json({ error: "Ative sua conta primeiro." });
+        if (!user) return res.status(401).json({ error: "Usuário não encontrado." });
         
-        res.json({ user: row.nome, email: row.email, token: crypto.randomBytes(16).toString('hex') });
+        // Comparando senha criptografada
+        const senhaValida = await bcrypt.compare(senha, user.senha);
+        if (!senhaValida) return res.status(401).json({ error: "E-mail ou senha incorretos." });
+        
+        if (user.ativo === 0) return res.status(403).json({ error: "Sua conta ainda não foi ativada. Verifique seu e-mail." });
+        
+        res.json({ 
+            user: user.nome, 
+            email: user.email, 
+            token: crypto.randomBytes(16).toString('hex') 
+        });
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
+});
+
+// --- ROTA DE ATUALIZAÇÃO DE PERFIL (Para suportar profile.html) ---
+app.put('/api/update-profile', async (req, res) => {
+    const { nome, email, senha } = req.body;
+    const emailLower = email.toLowerCase().trim();
+
+    try {
+        if (senha) {
+            const salt = await bcrypt.genSalt(10);
+            const senhaHash = await bcrypt.hash(senha, salt);
+            await pool.query(
+                `UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3`,
+                [nome, senhaHash, emailLower]
+            );
+        } else {
+            await pool.query(
+                `UPDATE usuarios SET nome = $1 WHERE email = $2`,
+                [nome, emailLower]
+            );
+        }
+        res.json({ message: "Perfil atualizado!" });
+    } catch (err) {
+        res.status(500).json({ error: "Erro ao atualizar perfil." });
+    }
 });
 
 app.post('/api/forgot-password', async (req, res) => {
@@ -123,15 +169,21 @@ app.post('/api/forgot-password', async (req, res) => {
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + 3600000); // 1 hora
 
+        // Limpa tokens antigos antes de criar um novo
+        await pool.query(`DELETE FROM tokens WHERE email = $1`, [emailLower]);
         await pool.query(
             `INSERT INTO tokens (email, token, expiracao) VALUES ($1, $2, $3)`,
             [emailLower, token, expiracao]
         );
 
         const link = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
-        await enviarEmail(emailLower, "Recuperar Senha", `<a href="${link}">Redefinir Senha</a>`);
+        await enviarEmail(emailLower, "Recuperação de Senha - Gateway SUS", `
+            <p>Você solicitou a redefinição de senha.</p>
+            <p>Clique no link abaixo (válido por 1 hora):</p>
+            <a href="${link}">Redefinir minha senha</a>
+        `);
         res.json({ message: "E-mail de recuperação enviado!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao processar." }); }
+    } catch (err) { res.status(500).json({ error: "Erro ao processar solicitação." }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -145,14 +197,17 @@ app.post('/api/reset-password', async (req, res) => {
 
         if (!row) return res.status(400).json({ error: "Link inválido ou expirado." });
         
-        await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [novaSenha, row.email]);
+        const salt = await bcrypt.genSalt(10);
+        const senhaHash = await bcrypt.hash(novaSenha, salt);
+
+        await pool.query(`UPDATE usuarios SET senha = $1 WHERE email = $2`, [senhaHash, row.email]);
         await pool.query(`DELETE FROM tokens WHERE email = $1`, [row.email]);
         
-        res.json({ message: "Senha atualizada!" });
+        res.json({ message: "Senha atualizada com sucesso!" });
     } catch (err) { res.status(500).json({ error: "Erro ao salvar nova senha." }); }
 });
 
-// --- FTP ---
+// --- FTP DATASUS ---
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     const client = new ftp.Client();
@@ -164,7 +219,7 @@ app.get('/api/list/:sistema', async (req, res) => {
             name: f.name, 
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })));
-    } catch (e) { res.status(500).send("Erro FTP"); } 
+    } catch (e) { res.status(500).send("Erro ao listar arquivos FTP."); } 
     finally { client.close(); }
 });
 
@@ -178,7 +233,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, decodeURIComponent(arquivo));
-    } catch (e) { if (!res.headersSent) res.status(500).send("Erro"); } 
+    } catch (e) { if (!res.headersSent) res.status(500).send("Erro no download."); } 
     finally { client.close(); }
 });
 

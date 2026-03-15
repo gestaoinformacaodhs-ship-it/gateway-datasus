@@ -22,7 +22,7 @@
         <div class="bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
             <div class="bg-blue-600 p-6">
                 <h2 class="text-2xl font-bold text-white">Configurações de Perfil</h2>
-                <p class="text-blue-100 opacity-80 text-sm">Mantenha seus dados de acesso governamental atualizados.</p>
+                <p class="text-blue-100 opacity-80 text-sm">Mantenha seus dados de acesso atualizados.</p>
             </div>
 
             <form id="form-perfil" class="p-8 space-y-6">
@@ -32,18 +32,18 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-user"></i>
                         </span>
-                        <input type="text" id="nome" value="Marcos Souza Monteiro" 
+                        <input type="text" id="nome" required
                             class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1">E-mail de Acesso</label>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1">E-mail de Acesso (Login)</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-envelope"></i>
                         </span>
-                        <input type="email" id="email" placeholder="seu@email.com"
+                        <input type="email" id="email" required
                             class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
                     </div>
                 </div>
@@ -86,6 +86,20 @@
     </div>
 
     <script>
+        // --- 1. CARREGAR DADOS AO ABRIR ---
+        window.onload = () => {
+            const userNome = localStorage.getItem('usuario');
+            const userEmail = localStorage.getItem('email');
+
+            if (!userNome || !userEmail) {
+                window.location.href = 'index.html'; // Proteção: se não logado, volta pro login
+                return;
+            }
+
+            document.getElementById('nome').value = userNome;
+            document.getElementById('email').value = userEmail;
+        };
+
         function avaliarForca() {
             const senha = document.getElementById('senha').value;
             const barra = document.getElementById('barra-forca');
@@ -99,12 +113,13 @@
             }
 
             barra.style.width = forca + "%";
-            if (forca <= 25) barra.className = "w-full h-full bg-red-500 transition-all";
-            else if (forca <= 50) barra.className = "w-full h-full bg-yellow-500 transition-all";
-            else if (forca <= 75) barra.className = "w-full h-full bg-blue-500 transition-all";
-            else barra.className = "w-full h-full bg-emerald-500 transition-all";
+            if (forca <= 25) barra.style.backgroundColor = "#ef4444";
+            else if (forca <= 50) barra.style.backgroundColor = "#eab308";
+            else if (forca <= 75) barra.style.backgroundColor = "#3b82f6";
+            else barra.style.backgroundColor = "#10b981";
         }
 
+        // --- 2. SALVAR ALTERAÇÕES ---
         const form = document.getElementById('form-perfil');
         const btn = document.getElementById('btn-salvar');
 
@@ -128,14 +143,21 @@
                 const res = await fetch('/api/update-profile', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, email, senha: senha || undefined })
+                    body: JSON.stringify({ 
+                        nome, 
+                        email, 
+                        senha: senha.trim() === "" ? undefined : senha 
+                    })
                 });
 
                 if (res.ok) {
+                    // ATUALIZA O LOCALSTORAGE PARA O DASHBOARD NÃO FICAR COM NOME ANTIGO
+                    localStorage.setItem('usuario', nome);
+                    localStorage.setItem('email', email);
                     alert("✅ Perfil atualizado com sucesso!");
                 } else {
                     const data = await res.json();
-                    alert("❌ Erro ao salvar: " + (data.error || "Tente novamente mais tarde."));
+                    alert("❌ Erro ao salvar: " + (data.error || "Tente novamente."));
                 }
             } catch (err) {
                 alert("❌ Erro técnico ao conectar com o servidor.");

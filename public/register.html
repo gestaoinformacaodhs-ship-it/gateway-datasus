@@ -22,8 +22,8 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i class="fa-solid fa-user"></i>
                     </span>
-                    <input type="text" id="nome" placeholder="Digite seu nome" 
-                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                    <input type="text" id="nome" placeholder="Digite seu nome" required
+                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600 transition-all">
                 </div>
             </div>
 
@@ -33,8 +33,8 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i class="fa-solid fa-envelope"></i>
                     </span>
-                    <input type="email" id="email" placeholder="seu@email.com" 
-                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                    <input type="email" id="email" placeholder="seu@email.com" required autocomplete="email"
+                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600 transition-all">
                 </div>
             </div>
 
@@ -44,8 +44,8 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i class="fa-solid fa-lock"></i>
                     </span>
-                    <input type="password" id="senha" placeholder="••••••••" oninput="validarFormulario()"
-                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                    <input type="password" id="senha" placeholder="••••••••" oninput="validarFormulario()" required autocomplete="new-password"
+                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600 transition-all">
                 </div>
                 
                 <div class="w-full h-1.5 bg-slate-900 rounded-full mt-3 overflow-hidden">
@@ -63,10 +63,10 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i class="fa-solid fa-check-double"></i>
                     </span>
-                    <input type="password" id="confirmar_senha" placeholder="Repita a senha" oninput="validarFormulario()"
-                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600">
+                    <input type="password" id="confirmar_senha" placeholder="Repita a senha" oninput="validarFormulario()" required autocomplete="new-password"
+                        class="w-full bg-slate-700 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-600 transition-all">
                 </div>
-                <p id="erro-confirmacao" class="text-red-500 text-[10px] mt-1 ml-1 hidden">As senhas não coincidem.</p>
+                <p id="erro-confirmacao" class="text-red-500 text-[10px] mt-1 ml-1 hidden">As senhas não coincidem ou são muito curtas.</p>
             </div>
 
             <button onclick="finalizarCadastro()" id="btn-cadastro" disabled
@@ -82,7 +82,6 @@
     </div>
 
     <script>
-        // Função unificada para validar força e igualdade
         function validarFormulario() {
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
@@ -93,17 +92,18 @@
             
             let forca = 0;
 
-            // 1. Cálculo da Força
-            if (senha.length >= 6) forca += 25;
-            if (senha.match(/[a-z]/) && senha.match(/[A-Z]/)) forca += 25;
-            if (senha.match(/[0-9]/)) forca += 25;
-            if (senha.match(/[^a-zA-Z0-9]/)) forca += 25;
+            if (senha.length > 0) {
+                if (senha.length >= 6) forca += 25;
+                if (senha.match(/[a-z]/) && senha.match(/[A-Z]/)) forca += 25;
+                if (senha.match(/[0-9]/)) forca += 25;
+                if (senha.match(/[^a-zA-Z0-9]/)) forca += 25;
+            }
 
             barra.style.width = forca + "%";
 
-            // 2. Cores da Barra e Status
             if (forca <= 25) {
-                barra.className = "w-full h-full bg-red-500 transition-all";
+                barra.className = "w-0 h-full bg-red-500 transition-all"; // Fallback para largura 0 se vazio
+                if(senha.length > 0) barra.className = "w-full h-full bg-red-500 transition-all";
                 status.innerText = "Fraca";
                 status.className = "text-[10px] uppercase font-bold text-red-500";
             } else if (forca <= 50) {
@@ -120,11 +120,9 @@
                 status.className = "text-[10px] uppercase font-bold text-emerald-500";
             }
 
-            // 3. Validação de Igualdade e Habilitação do Botão
             const senhasIguais = (senha === confirma && senha !== "");
             const forcaAceitavel = (forca >= 50);
 
-            // Mostrar erro de confirmação apenas se o usuário já começou a digitar no segundo campo
             if (confirma.length > 0 && !senhasIguais) {
                 erroMsg.classList.remove('hidden');
             } else {
@@ -143,8 +141,8 @@
         }
 
         async function finalizarCadastro() {
-            const nome = document.getElementById('nome').value;
-            const email = document.getElementById('email').value;
+            const nome = document.getElementById('nome').value.trim();
+            const email = document.getElementById('email').value.trim();
             const senha = document.getElementById('senha').value;
             const btn = document.getElementById('btn-cadastro');
 
@@ -152,11 +150,10 @@
                 return alert("⚠️ Preencha todos os campos obrigatórios.");
             }
 
-            // UI: Feedback visual
             const conteudoOriginal = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `
-                <svg class="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                <svg class="animate-spin h-5 w-5 mr-3 text-white inline" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -180,7 +177,6 @@
                     resetarBotao(btn, conteudoOriginal);
                 }
             } catch (err) {
-                console.error("Erro:", err);
                 alert("❌ Servidor indisponível ou erro de rede.");
                 resetarBotao(btn, conteudoOriginal);
             }
@@ -192,6 +188,5 @@
             validarFormulario();
         }
     </script>
-
 </body>
 </html>

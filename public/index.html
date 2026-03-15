@@ -39,7 +39,6 @@
         }
     </style>
     <script>
-        // SEGURANÇA: Se já houver um token, não deixa o usuário ver a tela de login
         if (localStorage.getItem('token')) {
             window.location.href = 'dashboard.html';
         }
@@ -141,8 +140,7 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // CORREÇÃO AQUI: Salvando TUDO que o Dashboard precisa
-                    localStorage.setItem('token', data.token || 'logado'); 
+                    localStorage.setItem('token', data.token); 
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
                     window.location.href = 'dashboard.html';
@@ -157,8 +155,69 @@
             }
         }
 
-        // Funções registrar() e solicitarRecuperacao() continuam as mesmas...
-        // (Apenas garanta que o registrar também limpe o localStorage antes de enviar)
+        async function registrar() {
+            const nome = document.getElementById('r-nome').value;
+            const email = document.getElementById('r-email').value;
+            const senha = document.getElementById('r-pass').value;
+            const btn = document.getElementById('btn-registrar');
+
+            if (!nome || !email || !senha) return alert("Preencha todos os campos.");
+
+            btn.disabled = true;
+            btn.innerText = "Cadastrando...";
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email, senha })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert("Conta criada! Verifique seu e-mail para ativar.");
+                    trocar('login');
+                } else {
+                    alert(data.error || "Erro ao registrar");
+                }
+            } catch (err) {
+                alert("Erro de conexão.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Finalizar Cadastro";
+            }
+        }
+
+        async function solicitarRecuperacao() {
+            const email = document.getElementById('f-email').value;
+            const btn = document.getElementById('btn-forgot');
+
+            if (!email) return alert("Informe seu e-mail.");
+
+            btn.disabled = true;
+            btn.innerText = "Enviando...";
+
+            try {
+                const res = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert("Se o e-mail existir, você receberá as instruções em breve.");
+                    trocar('login');
+                } else {
+                    alert(data.error || "Erro ao solicitar");
+                }
+            } catch (err) {
+                alert("Erro de conexão.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Enviar Instruções";
+            }
+        }
     </script>
 </body>
 </html>
