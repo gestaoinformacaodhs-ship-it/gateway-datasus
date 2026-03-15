@@ -6,9 +6,9 @@
     <title>Acesso | Gateway DATASUS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         body {
-            /* Configuração do Wallpaper com overlay escuro para leitura */
             background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), 
                         url('background.jpg');
             background-size: cover;
@@ -34,9 +34,12 @@
             transition: 0.2s;
         }
         .toggle-btn:hover { color: #3b82f6; }
+
+        /* Scrollbar do Chat */
+        #user-chat-box::-webkit-scrollbar { width: 4px; }
+        #user-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
     </style>
     <script>
-        // Se já houver token, pula o login automaticamente
         if (localStorage.getItem('token')) {
             window.location.href = 'dashboard.html';
         }
@@ -121,43 +124,70 @@
         </div>
     </div>
 
+    <div id="chat-container" class="fixed bottom-6 right-6 z-50">
+        <button onclick="toggleChat()" id="chat-button" class="bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-2xl transition-all active:scale-95 flex items-center justify-center relative">
+            <i class="fa-solid fa-comments text-2xl"></i>
+            <span id="badge-notificacao" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-[#0f172a]">!</span>
+        </button>
+
+        <div id="chat-window" class="hidden glass-card bg-slate-900/95 w-80 h-[400px] rounded-2xl flex flex-col overflow-hidden mb-4 border border-white/10">
+            <div class="bg-blue-600 p-4 text-white flex justify-between items-center shadow-lg">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="font-bold text-xs uppercase tracking-widest">Suporte Online</span>
+                </div>
+                <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs">
+                <div class="bg-slate-800 text-slate-300 p-3 rounded-xl rounded-tl-none self-start max-w-[85%] border border-white/5">
+                    Olá! Alguma dúvida sobre o Gateway ou arquivos do DATASUS?
+                </div>
+            </div>
+
+            <div class="p-3 bg-slate-900 border-t border-white/5 flex gap-2">
+                <input type="text" id="user-input" placeholder="Sua mensagem..." 
+                    class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-blue-500">
+                <button onclick="enviarMensagemUsuario()" class="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-500 transition-all">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="user-notificacao-som" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
+        // --- LOGICA DE AUTENTICAÇÃO ---
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (document.getElementById('login-container').style.display !== 'none') entrar();
+                else if (!document.getElementById('chat-window').classList.contains('hidden')) enviarMensagemUsuario();
             }
         });
 
         function toggleView(inputId, btn) {
             const input = document.getElementById(inputId);
             const icon = btn.querySelector('i');
-            if (input.type === "password") {
-                input.type = "text";
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                input.type = "password";
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
-            }
+            input.type = input.type === "password" ? "text" : "password";
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
         }
 
         function trocar(tela) {
-            const containers = ['login-container', 'signup-container', 'forgot-container'];
-            containers.forEach(c => document.getElementById(c).style.display = 'none');
-            
-            if (tela === 'signup') document.getElementById('signup-container').style.display = 'block';
-            else if (tela === 'forgot') document.getElementById('forgot-container').style.display = 'block';
-            else document.getElementById('login-container').style.display = 'block';
+            ['login-container', 'signup-container', 'forgot-container'].forEach(c => document.getElementById(c).style.display = 'none');
+            document.getElementById(tela + '-container').style.display = 'block';
         }
 
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
             const btn = document.getElementById('btn-entrar');
-
-            if (!email || !senha) return alert("Preencha todos os campos.");
-
+            if (!email || !senha) return alert("Preencha tudo.");
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Autenticando...';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>';
 
             try {
                 const res = await fetch('/api/login', {
@@ -166,21 +196,14 @@
                     body: JSON.stringify({ email, senha })
                 });
                 const data = await res.json();
-
                 if (res.ok) {
                     localStorage.setItem('token', data.token); 
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
                     window.location.href = 'dashboard.html';
-                } else {
-                    alert(data.error || "E-mail ou senha incorretos.");
-                }
-            } catch (err) {
-                alert("Servidor indisponível no momento.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Entrar no Sistema";
-            }
+                } else { alert(data.error); }
+            } catch (err) { alert("Erro de conexão."); }
+            finally { btn.disabled = false; btn.innerText = "Entrar no Sistema"; }
         }
 
         async function registrar() {
@@ -188,62 +211,75 @@
             const email = document.getElementById('r-email').value;
             const senha = document.getElementById('r-pass').value;
             const btn = document.getElementById('btn-registrar');
-
-            if (!nome || !email || !senha) return alert("Preencha todos os campos.");
-
+            if (!nome || !email || !senha) return alert("Preencha tudo.");
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Criando conta...';
-
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nome, email, senha })
                 });
-                const data = await res.json();
-
-                if (res.ok) {
-                    alert("✅ Conta criada! Verifique seu e-mail para ativar.");
-                    trocar('login');
-                } else {
-                    alert(data.error || "Erro ao registrar.");
-                }
-            } catch (err) {
-                alert("Erro de conexão.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Finalizar Cadastro";
-            }
+                if (res.ok) { alert("Verifique seu e-mail!"); trocar('login'); }
+                else { const d = await res.json(); alert(d.error); }
+            } catch (err) { alert("Erro."); }
+            finally { btn.disabled = false; btn.innerText = "Finalizar Cadastro"; }
         }
 
         async function solicitarRecuperacao() {
             const email = document.getElementById('f-email').value;
-            const btn = document.getElementById('btn-forgot');
-
-            if (!email) return alert("Informe seu e-mail.");
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Enviando...';
-
+            if (!email) return alert("E-mail?");
             try {
                 const res = await fetch('/api/forgot-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-                if (res.ok) {
-                    alert("📧 Se o e-mail estiver cadastrado, você receberá o link em instantes.");
-                    trocar('login');
-                } else {
-                    const data = await res.json();
-                    alert(data.error || "Erro ao solicitar.");
-                }
-            } catch (err) {
-                alert("Erro de conexão.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Enviar Instruções";
+                if (res.ok) { alert("Link enviado!"); trocar('login'); }
+            } catch (err) { alert("Erro."); }
+        }
+
+        // --- LOGICA DO CHAT SUPORTE ---
+        const socket = io();
+        const somUser = document.getElementById('user-notificacao-som');
+        const chatWindow = document.getElementById('chat-window');
+        const badge = document.getElementById('badge-notificacao');
+        const nomeUsuario = localStorage.getItem('usuario') || "Visitante";
+
+        function toggleChat() {
+            chatWindow.classList.toggle('hidden');
+            badge.classList.add('hidden');
+        }
+
+        socket.on('historico_mensagens', (mensagens) => {
+            const chatBox = document.getElementById('user-chat-box');
+            mensagens.forEach(data => renderizarMensagemUser(data));
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        socket.on('receber_mensagem', (data) => {
+            renderizarMensagemUser(data);
+            if (data.usuario === "Suporte Arpoador") {
+                somUser.play().catch(()=>{});
+                if (chatWindow.classList.contains('hidden')) badge.classList.remove('hidden');
             }
+        });
+
+        function renderizarMensagemUser(data) {
+            const chatBox = document.getElementById('user-chat-box');
+            const souEu = data.usuario === nomeUsuario || (nomeUsuario === "Visitante" && data.usuario.startsWith("Visitante"));
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `p-3 rounded-xl max-w-[85%] ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
+            msgDiv.innerHTML = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p><p>${data.texto}</p>`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function enviarMensagemUsuario() {
+            const input = document.getElementById('user-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: msg });
+            input.value = "";
         }
     </script>
 </body>

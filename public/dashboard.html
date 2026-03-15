@@ -57,7 +57,6 @@
             border-color: rgba(59, 130, 246, 0.3);
         }
 
-        /* Ajuste para imagens no chat */
         .chat-img {
             max-width: 100%;
             border-radius: 8px;
@@ -157,28 +156,27 @@
             <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-minus"></i></button>
         </div>
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs text-slate-200 flex flex-col">
-            <div class="bg-slate-700/50 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl self-start max-w-[85%]">
-                Olá! Como podemos auxiliar você no Gateway hoje?
             </div>
-        </div>
         
         <div class="p-3 bg-slate-900/50 border-t border-white/5 flex gap-2 items-center">
             <label for="chat-file" class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors px-1">
                 <i class="fa-solid fa-paperclip text-lg"></i>
                 <input type="file" id="chat-file" class="hidden" accept="image/*, .pdf, .docx, .txt" onchange="enviarArquivo()">
             </label>
-            
             <input type="text" id="chat-input" class="flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-white text-xs focus:outline-none focus:border-blue-500" placeholder="Sua mensagem...">
-            
             <button onclick="enviarMensagem()" class="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500 transition-colors">
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
         </div>
     </div>
 
+    <audio id="notificacao-som" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
-        // --- INICIALIZAÇÃO E CHAT REAL ---
         const socket = io(); 
+        const somNotificacao = document.getElementById('notificacao-som');
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -186,6 +184,7 @@
             if (display) display.innerText = `Olá, ${nomeUsuario}`;
         });
 
+        // --- LÓGICA DO CHAT ---
         socket.on('receber_mensagem', (data) => {
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
@@ -193,8 +192,12 @@
             
             adicionarMensagemNaTela(data.usuario, data.texto, souEu);
 
-            if (!souEu && win.style.display !== 'flex') {
-                badge.classList.remove('hidden');
+            // Som e Notificação se não for minha mensagem
+            if (!souEu) {
+                somNotificacao.play().catch(e => console.log("Áudio aguardando interação."));
+                if (win.style.display !== 'flex') {
+                    badge.classList.remove('hidden');
+                }
             }
         });
 
@@ -213,41 +216,24 @@
             const input = document.getElementById('chat-input');
             const mensagem = input.value.trim();
             if (!mensagem) return;
-
-            socket.emit('enviar_mensagem', {
-                nome: nomeUsuario,
-                mensagem: mensagem
-            });
+            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: mensagem });
             input.value = "";
         }
 
-        // NOVA FUNÇÃO: ENVIAR ARQUIVO/IMAGEM
         function enviarArquivo() {
             const fileInput = document.getElementById('chat-file');
             const file = fileInput.files[0];
             if (!file) return;
-
-            // Limite de 2MB para não pesar o servidor
             if (file.size > 2 * 1024 * 1024) {
-                alert("O arquivo é muito grande! Escolha um de até 2MB.");
-                fileInput.value = "";
+                alert("O arquivo é muito grande! Máximo 2MB.");
                 return;
             }
-
             const reader = new FileReader();
             reader.onload = function(e) {
-                let conteudoHTML = "";
-                
-                if (file.type.startsWith('image/')) {
-                    conteudoHTML = `<img src="${e.target.result}" class="chat-img" onclick="window.open(this.src)" title="Clique para ampliar" />`;
-                } else {
-                    conteudoHTML = `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center gap-2 mt-1 italic"><i class="fa-solid fa-file-arrow-down"></i> ${file.name}</a>`;
-                }
-
-                socket.emit('enviar_mensagem', {
-                    nome: nomeUsuario,
-                    mensagem: conteudoHTML
-                });
+                let conteudoHTML = file.type.startsWith('image/') ? 
+                    `<img src="${e.target.result}" class="chat-img" onclick="window.open(this.src)" />` : 
+                    `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center gap-2 mt-1 italic"><i class="fa-solid fa-file-arrow-down"></i> ${file.name}</a>`;
+                socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: conteudoHTML });
             };
             reader.readAsDataURL(file);
             fileInput.value = ""; 
@@ -256,7 +242,6 @@
         function adicionarMensagemNaTela(autor, texto, souEu) {
             const box = document.getElementById('chat-messages');
             const msgDiv = document.createElement('div');
-            
             if (souEu) {
                 msgDiv.className = "bg-blue-600/40 p-3 rounded-tl-xl rounded-bl-xl rounded-br-xl self-end text-right max-w-[85%] border border-blue-500/20";
                 msgDiv.innerHTML = texto;
@@ -264,7 +249,6 @@
                 msgDiv.className = "bg-slate-700/50 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl self-start max-w-[85%]";
                 msgDiv.innerHTML = `<span class="block text-[10px] font-black text-blue-400 mb-1 uppercase">${autor}</span>${texto}`;
             }
-
             box.appendChild(msgDiv);
             box.scrollTop = box.scrollHeight;
         }
@@ -274,46 +258,25 @@
             const modal = document.getElementById('modal');
             const fileList = document.getElementById('file-list');
             const subtitle = document.getElementById('modal-subtitle');
-            
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; 
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
             subtitle.innerText = "Consultando Arpoador...";
-            
-            fileList.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-20 text-blue-500">
-                    <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i>
-                    <p class="text-slate-400 text-sm animate-pulse font-bold">Estabelecendo conexão FTP...</p>
-                </div>`;
-
+            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse font-bold">Estabelecendo conexão FTP...</p></div>`;
             try {
                 const res = await fetch(`/api/list/${sistema}`);
                 const arquivos = await res.json();
                 fileList.innerHTML = '';
-
                 if (!arquivos || arquivos.length === 0) {
                     fileList.innerHTML = `<div class="text-center py-20"><i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i><p class="text-slate-500">Nenhum arquivo encontrado.</p></div>`;
                     subtitle.innerText = "Pasta Vazia";
                     return;
                 }
-
                 subtitle.innerText = `${arquivos.length} arquivos localizados`;
-                
                 arquivos.forEach(file => {
                     const item = document.createElement('div');
                     item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 group';
-                    item.innerHTML = `
-                        <div class="flex items-center gap-4">
-                            <i class="fa-solid fa-file-code text-slate-500 group-hover:text-blue-500 transition-colors"></i>
-                            <div>
-                                <p class="text-sm font-semibold text-slate-200">${file.name}</p>
-                                <p class="text-[10px] text-slate-500 font-mono">${file.size}</p>
-                            </div>
-                        </div>
-                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg transition-all active:scale-95" 
-                                onclick="baixar('${sistema}', '${file.name}', this)">
-                            <i class="fa-solid fa-download mr-1"></i> Baixar
-                        </button>`;
+                    item.innerHTML = `<div class="flex items-center gap-4"><i class="fa-solid fa-file-code text-slate-500 group-hover:text-blue-500 transition-colors"></i><div><p class="text-sm font-semibold text-slate-200">${file.name}</p><p class="text-[10px] text-slate-500 font-mono">${file.size}</p></div></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg transition-all active:scale-95" onclick="baixar('${sistema}', '${file.name}', this)"><i class="fa-solid fa-download mr-1"></i> Baixar</button>`;
                     fileList.appendChild(item);
                 });
             } catch (err) {
@@ -327,10 +290,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }, 3000);
+            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
         }
 
         function fecharModal() { 
