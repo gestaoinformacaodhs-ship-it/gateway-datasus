@@ -13,7 +13,16 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app); 
-const io = new Server(server); 
+
+// --- AJUSTE NO SOCKET.IO PARA PRODUÇÃO (RENDER) ---
+const io = new Server(server, {
+    cors: {
+        origin: ["https://gateway-datasus.onrender.com", "http://localhost:3000"],
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'] // websocket primeiro melhora a performance
+}); 
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -59,7 +68,6 @@ async function initDB() {
             );
         `);
         
-        // Garante que a coluna sala_id existe
         try {
             await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS sala_id TEXT;");
         } catch (e) { /* ignore */ }
@@ -72,7 +80,7 @@ async function initDB() {
 initDB();
 
 // --- LÓGICA DO CHAT (SOCKET.IO) COM SALAS PRIVADAS ---
-io.on('connection', async (socket) => {
+io.on('connection', (socket) => {
     console.log('🔌 Conexão estabelecida:', socket.id);
 
     // O admin chama isso para entrar em uma "sala global" de notificações
@@ -117,7 +125,7 @@ io.on('connection', async (socket) => {
             // Envia para a sala específica (usuário e admin que estiver nela)
             io.to(salaId).emit('receber_mensagem', msgData);
 
-            // Se for mensagem de usuário, avisa o admin na sala global (para ele ver o alerta visual)
+            // Se for mensagem de usuário, avisa o admin na sala global para alerta visual
             if (nome !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
@@ -271,6 +279,7 @@ app.put('/api/update-profile', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao atualizar perfil." }); }
 });
 
+// IMPORTANTE: PORTA PARA O RENDER
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`);

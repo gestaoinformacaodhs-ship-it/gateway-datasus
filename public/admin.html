@@ -32,6 +32,7 @@
             </div>
             
             <div class="flex items-center gap-6">
+                <span id="status-conexao" class="text-[10px] text-red-500 font-bold uppercase">● Desconectado</span>
                 <button onclick="logoutAdmin()" class="text-slate-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest transition-colors">
                     Sair <i class="fa-solid fa-right-from-bracket ml-1"></i>
                 </button>
@@ -75,27 +76,46 @@
     </div>
 
     <script>
-        const socket = io();
+        // Configuração de conexão automática para o Render
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            reconnectionAttempts: 10
+        });
+
         const nomeAdmin = "Suporte Arpoador"; 
         let salaAtual = null;
         let usuariosConhecidos = new Set();
 
-        // 1. Monitora novas mensagens para montar a lista de usuários à esquerda
+        // LOGICA DE CONEXÃO
+        socket.on('connect', () => {
+            console.log("Conectado ao servidor!");
+            document.getElementById('status-conexao').innerText = "● Online";
+            document.getElementById('status-conexao').classList.replace('text-red-500', 'text-green-500');
+            
+            // ESSENCIAL: Avisa o servidor que este socket é o admin
+            socket.emit('admin_entrar');
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('status-conexao').innerText = "● Desconectado";
+            document.getElementById('status-conexao').classList.replace('text-green-500', 'text-red-500');
+        });
+
+        // 1. Monitora novas mensagens
         socket.on('receber_mensagem', (data) => {
-            // Se for mensagem de um usuário (não do suporte), adiciona na lista lateral
+            console.log("Nova mensagem recebida:", data);
+
             if (data.usuario !== nomeAdmin && data.salaId) {
                 adicionarUsuarioLista(data.usuario, data.salaId);
                 
-                // Se a mensagem for da sala que estou aberto, renderiza na tela
                 if (data.salaId === salaAtual) {
                     adicionarNaTela(data.usuario, data.texto);
                 } else {
-                    // Tocar som de notificação se for mensagem nova de outra sala
+                    // Notificação sonora
                     new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play().catch(()=>{});
                     marcarComoNaoLida(data.salaId);
                 }
             } else if (data.usuario === nomeAdmin && data.salaId === salaAtual) {
-                // Se eu (admin) enviei em outro dispositivo/aba e estou na sala, mostra aqui também
                 adicionarNaTela(data.usuario, data.texto);
             }
         });
@@ -103,26 +123,29 @@
         // 2. Função para alternar entre conversas
         function selecionarUsuario(nome, salaId) {
             salaAtual = salaId;
-            document.getElementById('status-chat').innerText = `Atendendo: ${nome} (${salaId})`;
+            document.getElementById('status-chat').innerText = `Atendendo: ${nome}`;
             
-            // Habilita inputs
             document.getElementById('admin-input').disabled = false;
             document.getElementById('btn-enviar').disabled = false;
-            document.getElementById('admin-input').placeholder = "Digite sua resposta...";
+            document.getElementById('admin-input').focus();
 
-            // Entrar na sala via socket
+            // Entrar na sala e pedir histórico
             socket.emit('entrar_na_sala', salaId);
 
-            // Destacar na lista
+            // UI
+            const idFormatado = salaId.replace(/[@.]/g, '_');
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(`user-${salaId.replace(/[@.]/g, '_')}`).classList.add('active');
-            document.getElementById(`badge-${salaId.replace(/[@.]/g, '_')}`).classList.add('hidden');
+            document.getElementById(`user-${idFormatado}`).classList.add('active');
+            document.getElementById(`badge-${idFormatado}`).classList.add('hidden');
         }
 
         // 3. Carregar Histórico
         socket.on('historico_mensagens', (mensagens) => {
             const container = document.getElementById('admin-chat');
             container.innerHTML = '';
+            if(mensagens.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-600 text-xs italic py-4">Início da conversa</div>';
+            }
             mensagens.forEach(msg => adicionarNaTela(msg.usuario, msg.texto));
         });
 
@@ -133,7 +156,6 @@
             usuariosConhecidos.add(salaId);
             const lista = document.getElementById('lista-usuarios');
             
-            // Remove o texto de "Aguardando" na primeira mensagem
             if (usuariosConhecidos.size === 1) lista.innerHTML = '';
 
             const div = document.createElement('div');
@@ -141,11 +163,11 @@
             div.className = "user-item p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all flex justify-between items-center";
             div.onclick = () => selecionarUsuario(nome, salaId);
             div.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="text-sm font-bold text-white">${nome}</span>
-                    <span class="text-[10px] text-slate-500">${salaId}</span>
+                <div class="flex flex-col overflow-hidden">
+                    <span class="text-sm font-bold text-white truncate">${nome}</span>
+                    <span class="text-[10px] text-slate-500 truncate">${salaId}</span>
                 </div>
-                <span id="badge-${idFormatado}" class="hidden w-2 h-2 bg-blue-500 rounded-full"></span>
+                <span id="badge-${idFormatado}" class="w-2 h-2 bg-blue-500 rounded-full shadow-lg shadow-blue-500/50"></span>
             `;
             lista.prepend(div);
         }
