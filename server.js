@@ -48,44 +48,57 @@ async function initDB() {
             );
         `);
 
-        // Tabela: Mensagens do Suporte
+        // Tabela: Mensagens do Suporte (Atualizada com sala_id)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
                 id SERIAL PRIMARY KEY,
+                sala_id TEXT, 
                 usuario TEXT,
                 texto TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
 
-        console.log("✔️ Banco de Dados pronto (Tabelas e Chat).");
+        console.log("✔️ Banco de Dados pronto (Tabelas e Chat por Salas).");
     } catch (err) {
         console.error("❌ Erro ao inicializar/atualizar Tabelas:", err.message);
     }
 }
 initDB();
 
-// --- LÓGICA DO CHAT (SOCKET.IO) ---
+// --- LÓGICA DO CHAT (SOCKET.IO) COM SALAS PRIVADAS ---
 io.on('connection', async (socket) => {
-    console.log('🔌 Novo usuário conectado ao suporte:', socket.id);
+    console.log('🔌 Conexão estabelecida:', socket.id);
 
-    try {
-        const historico = await pool.query(
-            "SELECT usuario, texto FROM mensagens_suporte ORDER BY timestamp ASC LIMIT 50"
-        );
-        socket.emit('historico_mensagens', historico.rows);
-    } catch (err) {
-        console.error("Erro ao carregar histórico:", err.message);
-    }
+    // O cliente solicita entrar em uma sala (ID único, ex: e-mail do usuário)
+    socket.on('entrar_na_sala', async (salaId) => {
+        socket.join(salaId);
+        console.log(`👤 Socket ${socket.id} entrou na sala: ${salaId}`);
+
+        // Busca histórico específico desta sala
+        try {
+            const historico = await pool.query(
+                "SELECT usuario, texto, timestamp FROM mensagens_suporte WHERE sala_id = $1 ORDER BY timestamp ASC LIMIT 100",
+                [salaId]
+            );
+            socket.emit('historico_mensagens', historico.rows);
+        } catch (err) {
+            console.error("Erro ao carregar histórico da sala:", err.message);
+        }
+    });
 
     socket.on('enviar_mensagem', async (data) => {
-        const { nome, mensagem } = data;
+        const { nome, mensagem, salaId } = data; 
+        
         try {
+            // Salva no banco vinculando à sala específica
             await pool.query(
-                "INSERT INTO mensagens_suporte (usuario, texto) VALUES ($1, $2)",
-                [nome, mensagem]
+                "INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)",
+                [salaId, nome, mensagem]
             );
-            io.emit('receber_mensagem', {
+
+            // Envia a mensagem apenas para quem está naquela sala (usuário + admin logado nela)
+            io.to(salaId).emit('receber_mensagem', {
                 usuario: nome,
                 texto: mensagem,
                 hora: new Date().toLocaleTimeString()
@@ -96,7 +109,7 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('❌ Usuário desconectou do suporte.');
+        console.log('❌ Usuário desconectou.');
     });
 });
 
@@ -118,42 +131,35 @@ async function enviarEmail(emailDestino, assunto, html) {
     }
 }
 
-// --- ROTA DE RECUPERAÇÃO DE SENHA ADMIN (NOVA) ---
+// --- ROTA DE RECUPERAÇÃO DE SENHA ADMIN ---
 app.post('/api/recuperar-senha-admin', async (req, res) => {
     const { email } = req.body;
     const emailLower = email.toLowerCase().trim();
-
-    // Segurança: Defina aqui o seu e-mail de admin autorizado
     const EMAIL_ADMIN_AUTORIZADO = "gestaoinformacaodhs@gmail.com"; 
 
     if (emailLower !== EMAIL_ADMIN_AUTORIZADO) {
-        // Por segurança, não confirmamos se o e-mail é o correto ou não
-        return res.json({ success: true, message: "Se o e-mail for o administrador, você receberá a senha." });
+        return res.json({ success: true, message: "Processamento concluído." });
     }
 
-    const senhaMestra = "2024"; // Sua senha configurada no admin-login.html
-
+    const senhaMestra = "2024";
     const conteudoHtml = `
-        <div style="font-family: sans-serif; background: #0f172a; color: white; padding: 40px; border-radius: 20px; border: 1px solid #1e293b;">
+        <div style="font-family: sans-serif; background: #0f172a; color: white; padding: 40px; border-radius: 20px;">
             <h2 style="color: #3b82f6; text-align: center;">CONSOLE ADMIN</h2>
-            <p style="text-align: center; color: #94a3b8;">Você solicitou a recuperação da senha de acesso ao suporte.</p>
-            <div style="background: #1e293b; padding: 30px; border-radius: 15px; border: 2px dashed #3b82f6; text-align: center; margin: 20px 0;">
-                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #fff;">${senhaMestra}</span>
+            <div style="background: #1e293b; padding: 30px; border-radius: 15px; border: 2px dashed #3b82f6; text-align: center;">
+                <span style="font-size: 32px; font-weight: bold; color: #fff;">${senhaMestra}</span>
             </div>
-            <p style="font-size: 12px; color: #64748b; text-align: center;">Use esta senha na página admin-login.html</p>
         </div>
     `;
 
     try {
         await enviarEmail(emailLower, "🔒 Senha de Acesso Administrador", conteudoHtml);
-        res.json({ success: true, message: "E-mail enviado!" });
+        res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ success: false, error: "Erro ao disparar e-mail." });
+        res.status(500).json({ success: false });
     }
 });
 
-// --- ROTAS DE USUÁRIO (REGISTER / LOGIN / RESET) ---
-
+// --- ROTAS DE USUÁRIO ---
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
     if (!nome || !email || !senha) return res.status(400).json({ error: "Dados incompletos." });
@@ -168,17 +174,11 @@ app.post('/api/register', async (req, res) => {
             [nome, emailLower, senhaHash, token]
         );
         const link = `${req.protocol}://${req.get('host')}/api/activate?token=${token}`;
-        await enviarEmail(emailLower, "Ative sua conta - Gateway SUS", `
-            <div style="font-family: sans-serif; padding: 20px; color: #333; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #3b82f6;">Olá, ${nome}!</h2>
-                <p>Clique no botão abaixo para ativar sua conta no Gateway SUS:</p>
-                <a href="${link}" style="background: #3b82f6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">Ativar Minha Conta</a>
-            </div>
-        `);
+        await enviarEmail(emailLower, "Ative sua conta - Gateway SUS", `<p><a href="${link}">Ativar Minha Conta</a></p>`);
         res.status(201).json({ message: "Verifique seu e-mail para ativar." });
     } catch (err) {
-        if (err.code === '23505') return res.status(400).json({ error: "Este e-mail já está cadastrado." });
-        res.status(500).json({ error: "Erro interno no servidor." });
+        if (err.code === '23505') return res.status(400).json({ error: "E-mail já cadastrado." });
+        res.status(500).json({ error: "Erro interno." });
     }
 });
 
@@ -187,8 +187,8 @@ app.get('/api/activate', async (req, res) => {
     try {
         const result = await pool.query(`UPDATE usuarios SET ativo = 1, token_ativacao = NULL WHERE token_ativacao = $1`, [token]);
         if (result.rowCount === 0) return res.status(400).send("Link inválido.");
-        res.send("<h1>Conta Ativada!</h1><p>Redirecionando...</p><meta http-equiv='refresh' content='2;url=/index.html'>");
-    } catch (err) { res.status(500).send("Erro na ativação."); }
+        res.send("<h1>Conta Ativada!</h1><meta http-equiv='refresh' content='2;url=/index.html'>");
+    } catch (err) { res.status(500).send("Erro."); }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -197,10 +197,10 @@ app.post('/api/login', async (req, res) => {
     try {
         const result = await pool.query(`SELECT nome, email, senha, ativo FROM usuarios WHERE email = $1`, [emailLower]);
         const user = result.rows[0];
-        if (!user || !(await bcrypt.compare(senha, user.senha))) return res.status(401).json({ error: "E-mail ou senha incorretos." });
-        if (user.ativo === 0) return res.status(403).json({ error: "Ative sua conta no e-mail." });
-        res.json({ user: user.nome, email: user.email, token: crypto.randomBytes(32).toString('hex') });
-    } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
+        if (!user || !(await bcrypt.compare(senha, user.senha))) return res.status(401).json({ error: "Credenciais inválidas." });
+        if (user.ativo === 0) return res.status(403).json({ error: "Ative sua conta." });
+        res.json({ user: user.nome, email: user.email });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
 app.post('/api/forgot-password', async (req, res) => {
@@ -208,47 +208,40 @@ app.post('/api/forgot-password', async (req, res) => {
     const emailLower = email.toLowerCase().trim();
     try {
         const user = await pool.query("SELECT nome FROM usuarios WHERE email = $1", [emailLower]);
-        if (user.rowCount === 0) return res.json({ message: "Se o e-mail estiver cadastrado, você receberá as instruções." });
+        if (user.rowCount === 0) return res.json({ message: "Instruções enviadas se o e-mail existir." });
         const token = crypto.randomBytes(20).toString('hex');
         const expiracao = new Date(Date.now() + (3 * 3600000)); 
         await pool.query("UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3", [token, expiracao, emailLower]);
         const link = `${req.protocol}://${req.get('host')}/reset-password.html?token=${token}`;
-        await enviarEmail(emailLower, "Recuperação de Senha - Gateway SUS", `<p><a href="${link}">Redefinir Senha</a></p>`);
-        res.json({ message: "E-mail de recuperação enviado!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao processar." }); }
+        await enviarEmail(emailLower, "Recuperação de Senha", `<p><a href="${link}">Redefinir Senha</a></p>`);
+        res.json({ message: "E-mail enviado!" });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
         const result = await pool.query("SELECT email FROM usuarios WHERE reset_token = $1 AND reset_expiracao > (CURRENT_TIMESTAMP - INTERVAL '3 hours')", [token]);
-        if (result.rowCount === 0) return res.status(400).json({ error: "Token inválido ou expirado." });
+        if (result.rowCount === 0) return res.status(400).json({ error: "Expirado." });
         const salt = await bcrypt.genSalt(10);
         const senhaHash = await bcrypt.hash(novaSenha, salt);
         await pool.query("UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE email = $2", [senhaHash, result.rows[0].email]);
-        res.json({ message: "Senha alterada com sucesso!" });
-    } catch (err) { res.status(500).json({ error: "Erro interno." }); }
+        res.json({ message: "Sucesso!" });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
 // --- LÓGICA FTP ---
-
-const pastasFTP = { 
-    'BPA': '/siasus/BPA', 
-    'SIA': '/siasus/SIA', 
-    'RAAS': '/siasus/RAAS', 
-    'FPO': '/siasus/FPO' 
-};
+const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
-    if (!pastasFTP[sistema]) return res.status(400).send("Sistema inválido.");
     const client = new ftp.Client(15000); 
     try {
-        await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest", secure: false });
+        await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
         res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
-    } catch (e) { res.status(500).json({ error: "Erro FTP DATASUS." }); } finally { client.close(); }
+    } catch (e) { res.status(500).json({ error: "Erro FTP." }); } finally { client.close(); }
 });
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
@@ -261,7 +254,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, decodeURIComponent(arquivo));
-    } catch (e) { if (!res.headersSent) res.status(500).send("Erro download."); } finally { client.close(); }
+    } catch (e) { if (!res.headersSent) res.status(500).send("Erro."); } finally { client.close(); }
 });
 
 app.put('/api/update-profile', async (req, res) => {
@@ -274,11 +267,10 @@ app.put('/api/update-profile', async (req, res) => {
         } else {
             await pool.query(`UPDATE usuarios SET nome = $1 WHERE email = $2`, [nome, email]);
         }
-        res.json({ message: "Perfil atualizado!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao atualizar." }); }
+        res.json({ message: "Sucesso!" });
+    } catch (err) { res.status(500).json({ error: "Erro." }); }
 });
 
-// --- INICIALIZAÇÃO ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`);

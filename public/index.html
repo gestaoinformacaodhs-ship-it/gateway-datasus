@@ -140,10 +140,7 @@
             </div>
 
             <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs">
-                <div class="bg-slate-800 text-slate-300 p-3 rounded-xl rounded-tl-none self-start max-w-[85%] border border-white/5">
-                    Olá! Alguma dúvida sobre o Gateway ou arquivos do DATASUS?
                 </div>
-            </div>
 
             <div class="p-3 bg-slate-900 border-t border-white/5 flex gap-2">
                 <input type="text" id="user-input" placeholder="Sua mensagem..." 
@@ -160,11 +157,26 @@
     </audio>
 
     <script>
-        // --- LOGICA DE AUTENTICAÇÃO ---
+        // --- CONFIGURAÇÃO INICIAL DO CHAT ---
+        const socket = io();
+        const somUser = document.getElementById('user-notificacao-som');
+        const chatWindow = document.getElementById('chat-window');
+        const badge = document.getElementById('badge-notificacao');
+        
+        // Sala baseada no e-mail ou identificador de visitante
+        const nomeUsuario = localStorage.getItem('usuario') || "Visitante";
+        const emailSala = localStorage.getItem('email') || "visitante_" + socket.id;
+
+        // Entrar na sala assim que conectar
+        socket.on('connect', () => {
+            socket.emit('entrar_na_sala', emailSala);
+        });
+
+        // --- LÓGICA DE INTERFACE ---
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (document.getElementById('login-container').style.display !== 'none') entrar();
-                else if (!document.getElementById('chat-window').classList.contains('hidden')) enviarMensagemUsuario();
+                else if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
             }
         });
 
@@ -181,6 +193,12 @@
             document.getElementById(tela + '-container').style.display = 'block';
         }
 
+        function toggleChat() {
+            chatWindow.classList.toggle('hidden');
+            badge.classList.add('hidden');
+        }
+
+        // --- CHAMADAS API ---
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
@@ -238,27 +256,20 @@
             } catch (err) { alert("Erro."); }
         }
 
-        // --- LOGICA DO CHAT SUPORTE ---
-        const socket = io();
-        const somUser = document.getElementById('user-notificacao-som');
-        const chatWindow = document.getElementById('chat-window');
-        const badge = document.getElementById('badge-notificacao');
-        const nomeUsuario = localStorage.getItem('usuario') || "Visitante";
-
-        function toggleChat() {
-            chatWindow.classList.toggle('hidden');
-            badge.classList.add('hidden');
-        }
-
+        // --- LÓGICA DO SOCKET (CHAT) ---
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('user-chat-box');
-            mensagens.forEach(data => renderizarMensagemUser(data));
-            chatBox.scrollTop = chatBox.scrollHeight;
+            chatBox.innerHTML = ""; // Limpa para evitar duplicados
+            if (mensagens.length === 0) {
+                renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar hoje?" });
+            } else {
+                mensagens.forEach(data => renderizarMensagemUser(data));
+            }
         });
 
         socket.on('receber_mensagem', (data) => {
             renderizarMensagemUser(data);
-            if (data.usuario === "Suporte Arpoador") {
+            if (data.usuario !== nomeUsuario) {
                 somUser.play().catch(()=>{});
                 if (chatWindow.classList.contains('hidden')) badge.classList.remove('hidden');
             }
@@ -266,7 +277,7 @@
 
         function renderizarMensagemUser(data) {
             const chatBox = document.getElementById('user-chat-box');
-            const souEu = data.usuario === nomeUsuario || (nomeUsuario === "Visitante" && data.usuario.startsWith("Visitante"));
+            const souEu = data.usuario === nomeUsuario;
             const msgDiv = document.createElement('div');
             msgDiv.className = `p-3 rounded-xl max-w-[85%] ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
             msgDiv.innerHTML = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p><p>${data.texto}</p>`;
@@ -278,7 +289,12 @@
             const input = document.getElementById('user-input');
             const msg = input.value.trim();
             if (!msg) return;
-            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: msg });
+            // Envia agora com o salaId correto
+            socket.emit('enviar_mensagem', { 
+                nome: nomeUsuario, 
+                mensagem: msg, 
+                salaId: emailSala 
+            });
             input.value = "";
         }
     </script>
