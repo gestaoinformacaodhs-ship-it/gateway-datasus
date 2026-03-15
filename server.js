@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const Brevo = require('@getbrevo/brevo');
 
-// --- NOVOS IMPORTS PARA O CHAT ---
+// --- IMPORTS PARA O CHAT ---
 const http = require('http');
 const { Server } = require('socket.io');
 
@@ -48,7 +48,7 @@ async function initDB() {
             );
         `);
 
-        // NOVA TABELA: Mensagens do Suporte (Persistente no Postgres)
+        // Tabela: Mensagens do Suporte
         await pool.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
                 id SERIAL PRIMARY KEY,
@@ -65,11 +65,10 @@ async function initDB() {
 }
 initDB();
 
-// --- LÓGICA DO CHAT (SOCKET.IO) COM PERSISTÊNCIA ---
+// --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', async (socket) => {
     console.log('🔌 Novo usuário conectado ao suporte:', socket.id);
 
-    // 1. Enviar histórico de mensagens ao conectar (Últimas 50)
     try {
         const historico = await pool.query(
             "SELECT usuario, texto FROM mensagens_suporte ORDER BY timestamp ASC LIMIT 50"
@@ -79,18 +78,13 @@ io.on('connection', async (socket) => {
         console.error("Erro ao carregar histórico:", err.message);
     }
 
-    // 2. Receber, Salvar e Retransmitir mensagens
     socket.on('enviar_mensagem', async (data) => {
         const { nome, mensagem } = data;
-
         try {
-            // Salva a mensagem no PostgreSQL
             await pool.query(
                 "INSERT INTO mensagens_suporte (usuario, texto) VALUES ($1, $2)",
                 [nome, mensagem]
             );
-
-            // Retransmite para todos
             io.emit('receber_mensagem', {
                 usuario: nome,
                 texto: mensagem,
@@ -106,15 +100,7 @@ io.on('connection', async (socket) => {
     });
 });
 
-// --- RESTANTE DA LÓGICA (FTP E AUTH) ---
-
-const pastasFTP = { 
-    'BPA': '/siasus/BPA', 
-    'SIA': '/siasus/SIA', 
-    'RAAS': '/siasus/RAAS', 
-    'FPO': '/siasus/FPO' 
-};
-
+// --- FUNÇÃO AUXILIAR DE E-MAIL (BREVO) ---
 async function enviarEmail(emailDestino, assunto, html) {
     try {
         if (!process.env.BREVO_API_KEY) {
@@ -131,6 +117,42 @@ async function enviarEmail(emailDestino, assunto, html) {
         console.error("Erro e-mail:", e.response?.body || e.message); 
     }
 }
+
+// --- ROTA DE RECUPERAÇÃO DE SENHA ADMIN (NOVA) ---
+app.post('/api/recuperar-senha-admin', async (req, res) => {
+    const { email } = req.body;
+    const emailLower = email.toLowerCase().trim();
+
+    // Segurança: Defina aqui o seu e-mail de admin autorizado
+    const EMAIL_ADMIN_AUTORIZADO = "gestaoinformacaodhs@gmail.com"; 
+
+    if (emailLower !== EMAIL_ADMIN_AUTORIZADO) {
+        // Por segurança, não confirmamos se o e-mail é o correto ou não
+        return res.json({ success: true, message: "Se o e-mail for o administrador, você receberá a senha." });
+    }
+
+    const senhaMestra = "2024"; // Sua senha configurada no admin-login.html
+
+    const conteudoHtml = `
+        <div style="font-family: sans-serif; background: #0f172a; color: white; padding: 40px; border-radius: 20px; border: 1px solid #1e293b;">
+            <h2 style="color: #3b82f6; text-align: center;">CONSOLE ADMIN</h2>
+            <p style="text-align: center; color: #94a3b8;">Você solicitou a recuperação da senha de acesso ao suporte.</p>
+            <div style="background: #1e293b; padding: 30px; border-radius: 15px; border: 2px dashed #3b82f6; text-align: center; margin: 20px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #fff;">${senhaMestra}</span>
+            </div>
+            <p style="font-size: 12px; color: #64748b; text-align: center;">Use esta senha na página admin-login.html</p>
+        </div>
+    `;
+
+    try {
+        await enviarEmail(emailLower, "🔒 Senha de Acesso Administrador", conteudoHtml);
+        res.json({ success: true, message: "E-mail enviado!" });
+    } catch (error) {
+        res.status(500).json({ success: false, error: "Erro ao disparar e-mail." });
+    }
+});
+
+// --- ROTAS DE USUÁRIO (REGISTER / LOGIN / RESET) ---
 
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
@@ -207,6 +229,15 @@ app.post('/api/reset-password', async (req, res) => {
         res.json({ message: "Senha alterada com sucesso!" });
     } catch (err) { res.status(500).json({ error: "Erro interno." }); }
 });
+
+// --- LÓGICA FTP ---
+
+const pastasFTP = { 
+    'BPA': '/siasus/BPA', 
+    'SIA': '/siasus/SIA', 
+    'RAAS': '/siasus/RAAS', 
+    'FPO': '/siasus/FPO' 
+};
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
