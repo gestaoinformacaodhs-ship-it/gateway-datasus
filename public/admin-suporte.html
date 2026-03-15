@@ -21,6 +21,10 @@
             cursor: zoom-in;
             display: block;
         }
+        .user-item.active {
+            background-color: #1e293b;
+            border-left-color: #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-[#0f172a] text-slate-200 overflow-hidden">
@@ -32,9 +36,8 @@
             </h2>
             
             <div id="user-list" class="space-y-2 overflow-y-auto flex-1">
-                <div class="p-3 bg-slate-800 rounded-xl border-l-4 border-blue-500 cursor-pointer hover:bg-slate-700 transition-all">
-                    <p class="font-bold text-sm" id="active-user-name">Aguardando Mensagens...</p>
-                    <p class="text-xs text-slate-400 truncate" id="last-message-preview">Nenhuma conversa ativa</p>
+                <div id="no-chats" class="text-center p-10 text-slate-500 text-xs italic">
+                    Nenhum usuário ativo no momento...
                 </div>
             </div>
 
@@ -46,15 +49,15 @@
         <div class="flex-1 flex flex-col bg-slate-900/50">
             <div class="p-4 border-b border-slate-700 bg-[#0f172a]/80 flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <span class="text-sm font-bold uppercase tracking-widest text-blue-400">Conversa Ativa</span>
-                    <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30">CONECTADO</span>
+                    <span class="text-sm font-bold uppercase tracking-widest text-blue-400">Conversa: <span id="chat-title">Nenhum</span></span>
+                    <span id="status-badge" class="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-1 rounded border border-slate-500/30 font-bold">AGUARDANDO</span>
                 </div>
                 
                 <div class="flex items-center gap-4">
                     <button onclick="testarSom()" class="text-slate-500 hover:text-blue-400 transition-colors text-xs flex items-center gap-1">
-                        <i class="fa-solid fa-volume-high"></i> Testar Som
+                        <i class="fa-solid fa-volume-high"></i>
                     </button>
-                    <button onclick="limparHistorico()" class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-tighter">
+                    <button onclick="limparTela()" class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-tighter">
                         <i class="fa-solid fa-trash-can"></i> Limpar Tela
                     </button>
                 </div>
@@ -62,7 +65,7 @@
 
             <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
                 <div id="empty-state" class="self-center bg-slate-800/50 text-slate-500 text-[10px] px-4 py-1 rounded-full border border-white/5">
-                    Carregando histórico...
+                    Selecione um atendimento à esquerda para iniciar
                 </div>
             </div>
 
@@ -74,7 +77,7 @@
 
                 <input type="text" id="admin-input" 
                     class="flex-1 bg-slate-900 border border-slate-700 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-all" 
-                    placeholder="Escreva sua resposta para o usuário...">
+                    placeholder="Escreva sua resposta...">
                 
                 <button onclick="enviarResposta()" 
                     class="bg-blue-600 hover:bg-blue-500 px-8 py-2 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
@@ -91,65 +94,96 @@
 
     <script>
         const socket = io();
-        const nomeAdmin = "Suporte Arpoador";
+        const nomeAdmin = "Suporte Arpoador"; // Nome que aparece para o usuário
         const somNotificacao = document.getElementById('notificacao-som');
-        const tituloOriginal = document.title;
-        let intervaloTitulo = null;
+        
+        let salaAtiva = ""; // Email do usuário que estamos atendendo no momento
+        let usuariosAtivos = {}; // Armazena info dos usuários que mandaram msg
 
-        // --- FUNÇÕES DE NOTIFICAÇÃO ---
+        // Ao conectar, avisa que é admin para receber notificações globais
+        socket.on('connect', () => {
+            console.log("Admin conectado.");
+            socket.emit('admin_entrar'); 
+        });
 
-        function tocarSom() {
-            somNotificacao.currentTime = 0;
-            somNotificacao.play().catch(e => console.log("Áudio bloqueado. Clique na página primeiro."));
-        }
+        // Recebe mensagens e gerencia a lista à esquerda
+        socket.on('receber_mensagem', (data) => {
+            const { usuario, texto, salaId } = data;
+            
+            // Adiciona/Atualiza usuário na lista lateral
+            if (usuario !== nomeAdmin) {
+                if (!usuariosAtivos[salaId]) {
+                    document.getElementById('no-chats').style.display = 'none';
+                    usuariosAtivos[salaId] = { nome: usuario, ultimaMsg: texto };
+                    criarCardUsuario(salaId, usuario, texto);
+                } else {
+                    atualizarCardUsuario(salaId, texto);
+                }
 
-        function piscarTitulo() {
-            if (document.hidden && !intervaloTitulo) {
-                intervaloTitulo = setInterval(() => {
-                    document.title = document.title === "🔔 Nova Mensagem!" ? tituloOriginal : "🔔 Nova Mensagem!";
-                }, 1000);
+                // Notificações
+                if (salaId !== salaAtiva) {
+                    tocarSom();
+                    marcarComoNaoLida(salaId);
+                }
             }
-        }
 
-        window.addEventListener('focus', () => {
-            if (intervaloTitulo) {
-                clearInterval(intervaloTitulo);
-                intervaloTitulo = null;
-                document.title = tituloOriginal;
+            // Se a mensagem for da sala que estou olhando, renderiza na tela
+            if (salaId === salaAtiva) {
+                renderizarMensagem(data);
             }
         });
 
-        function testarSom() {
-            tocarSom();
-            alert("Som de notificação funcionando!");
-        }
-
-        // --- LÓGICA DO CHAT ---
-
-        // Carrega o histórico vindo do Postgres (server.js)
+        // Recebe o histórico ao trocar de sala
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('admin-chat-box');
-            document.getElementById('empty-state').style.display = 'none';
-            
+            chatBox.innerHTML = "";
             mensagens.forEach(data => renderizarMensagem(data, false));
             chatBox.scrollTop = chatBox.scrollHeight;
         });
 
-        socket.on('receber_mensagem', (data) => {
-            const souEu = data.usuario === nomeAdmin;
+        function selecionarUsuario(salaId, nome) {
+            salaAtiva = salaId;
+            document.getElementById('chat-title').innerText = nome;
+            document.getElementById('status-badge').innerText = "ATENDENDO";
+            document.getElementById('status-badge').className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold";
+            document.getElementById('empty-state').style.display = 'none';
             
-            if (!souEu) {
-                document.getElementById('active-user-name').innerText = data.usuario;
-                document.getElementById('last-message-preview').innerText = 
-                    data.texto.includes('<img') ? "📷 Imagem recebida" : 
-                    data.texto.includes('<a') ? "📄 Arquivo recebido" : data.texto;
-                
-                tocarSom();
-                piscarTitulo();
-            }
+            // Highlight na lista
+            document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`user-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`).classList.add('active');
+            document.getElementById(`unread-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`).classList.add('hidden');
 
-            renderizarMensagem(data, true);
-        });
+            // Pede o histórico dessa sala específica
+            socket.emit('entrar_na_sala', salaId);
+        }
+
+        function criarCardUsuario(salaId, nome, texto) {
+            const safeId = salaId.replace(/[^a-zA-Z0-9]/g, '');
+            const userList = document.getElementById('user-list');
+            const card = document.createElement('div');
+            card.id = `user-${safeId}`;
+            card.className = "user-item p-3 bg-slate-800/40 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-800 transition-all relative";
+            card.onclick = () => selecionarUsuario(salaId, nome);
+            
+            card.innerHTML = `
+                <div id="unread-${safeId}" class="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></div>
+                <p class="font-bold text-sm text-white">${nome}</p>
+                <p id="preview-${safeId}" class="text-xs text-slate-400 truncate">${texto}</p>
+            `;
+            userList.prepend(card);
+        }
+
+        function atualizarCardUsuario(salaId, texto) {
+            const safeId = salaId.replace(/[^a-zA-Z0-9]/g, '');
+            const preview = document.getElementById(`preview-${safeId}`);
+            if (preview) preview.innerText = texto;
+        }
+
+        function marcarComoNaoLida(salaId) {
+            const safeId = salaId.replace(/[^a-zA-Z0-9]/g, '');
+            const dot = document.getElementById(`unread-${safeId}`);
+            if (dot) dot.classList.remove('hidden');
+        }
 
         function renderizarMensagem(data, scroll = true) {
             const chatBox = document.getElementById('admin-chat-box');
@@ -172,11 +206,12 @@
         function enviarResposta() {
             const input = document.getElementById('admin-input');
             const mensagem = input.value.trim();
-            if (!mensagem) return;
+            if (!mensagem || !salaAtiva) return;
 
             socket.emit('enviar_mensagem', {
                 nome: nomeAdmin,
-                mensagem: mensagem
+                mensagem: mensagem,
+                salaId: salaAtiva // Fundamental: envia para a sala do usuário selecionado
             });
 
             input.value = "";
@@ -186,37 +221,35 @@
         function adminEnviarArquivo() {
             const fileInput = document.getElementById('admin-file');
             const file = fileInput.files[0];
-            if (!file) return;
-
-            if (file.size > 2 * 1024 * 1024) {
-                alert("Arquivo muito grande! Máximo 2MB.");
-                fileInput.value = "";
-                return;
-            }
+            if (!file || !salaAtiva) return;
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                let htmlContent = "";
-                if (file.type.startsWith('image/')) {
-                    htmlContent = `<img src="${e.target.result}" class="chat-img-admin" onclick="window.open(this.src)" />`;
-                } else {
-                    htmlContent = `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center justify-end gap-2 mt-1 italic"><i class="fa-solid fa-file-export"></i> Enviado: ${file.name}</a>`;
-                }
+                let htmlContent = file.type.startsWith('image/') 
+                    ? `<img src="${e.target.result}" class="chat-img-admin" onclick="window.open(this.src)" />`
+                    : `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline italic">📄 ${file.name}</a>`;
 
                 socket.emit('enviar_mensagem', {
                     nome: nomeAdmin,
-                    mensagem: htmlContent
+                    mensagem: htmlContent,
+                    salaId: salaAtiva
                 });
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
         }
 
-        function limparHistorico() {
-            if (confirm("Isso limpa apenas a sua visualização atual. O histórico permanece no banco de dados. Confirmar?")) {
-                const chatBox = document.getElementById('admin-chat-box');
-                chatBox.innerHTML = `<div class="self-center text-slate-600 text-[10px]">Tela limpa localmente</div>`;
-            }
+        function tocarSom() {
+            somNotificacao.currentTime = 0;
+            somNotificacao.play().catch(() => {});
+        }
+
+        function testarSom() {
+            tocarSom();
+        }
+
+        function limparTela() {
+            document.getElementById('admin-chat-box').innerHTML = "";
         }
 
         document.getElementById('admin-input').addEventListener('keypress', (e) => {

@@ -163,14 +163,27 @@
         const chatWindow = document.getElementById('chat-window');
         const badge = document.getElementById('badge-notificacao');
         
-        // Sala baseada no e-mail ou identificador de visitante
-        const nomeUsuario = localStorage.getItem('usuario') || "Visitante";
-        const emailSala = localStorage.getItem('email') || "visitante_" + socket.id;
+        // Determina a sala (Se não logado, usa ID temporário que mudará para o email assim que digitado)
+        let emailSala = localStorage.getItem('email') || "";
 
-        // Entrar na sala assim que conectar
+        // Tenta pegar o e-mail do campo de input se o localStorage estiver vazio
+        function atualizarSala() {
+            const inputEmail = document.getElementById('l-email').value;
+            if (inputEmail && inputEmail.includes('@')) {
+                emailSala = inputEmail;
+                socket.emit('entrar_na_sala', emailSala);
+            } else if (!emailSala) {
+                emailSala = "visitante_" + socket.id;
+                socket.emit('entrar_na_sala', emailSala);
+            }
+        }
+
         socket.on('connect', () => {
-            socket.emit('entrar_na_sala', emailSala);
+            atualizarSala();
         });
+
+        // Se o usuário digitar o email, já atualizamos a sala do chat automaticamente
+        document.getElementById('l-email').addEventListener('blur', atualizarSala);
 
         // --- LÓGICA DE INTERFACE ---
         document.addEventListener('keypress', (e) => {
@@ -196,6 +209,9 @@
         function toggleChat() {
             chatWindow.classList.toggle('hidden');
             badge.classList.add('hidden');
+            if (!chatWindow.classList.contains('hidden')) {
+                atualizarSala(); // Garante que puxa o histórico ao abrir
+            }
         }
 
         // --- CHAMADAS API ---
@@ -259,7 +275,7 @@
         // --- LÓGICA DO SOCKET (CHAT) ---
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('user-chat-box');
-            chatBox.innerHTML = ""; // Limpa para evitar duplicados
+            chatBox.innerHTML = ""; 
             if (mensagens.length === 0) {
                 renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar hoje?" });
             } else {
@@ -269,7 +285,8 @@
 
         socket.on('receber_mensagem', (data) => {
             renderizarMensagemUser(data);
-            if (data.usuario !== nomeUsuario) {
+            const nomeAtual = localStorage.getItem('usuario') || "Visitante";
+            if (data.usuario !== nomeAtual) {
                 somUser.play().catch(()=>{});
                 if (chatWindow.classList.contains('hidden')) badge.classList.remove('hidden');
             }
@@ -277,7 +294,8 @@
 
         function renderizarMensagemUser(data) {
             const chatBox = document.getElementById('user-chat-box');
-            const souEu = data.usuario === nomeUsuario;
+            const nomeAtual = localStorage.getItem('usuario') || "Visitante";
+            const souEu = data.usuario === nomeAtual;
             const msgDiv = document.createElement('div');
             msgDiv.className = `p-3 rounded-xl max-w-[85%] ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
             msgDiv.innerHTML = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p><p>${data.texto}</p>`;
@@ -289,9 +307,11 @@
             const input = document.getElementById('user-input');
             const msg = input.value.trim();
             if (!msg) return;
-            // Envia agora com o salaId correto
+            
+            atualizarSala(); // Garante que a sala está correta antes de enviar
+
             socket.emit('enviar_mensagem', { 
-                nome: nomeUsuario, 
+                nome: localStorage.getItem('usuario') || "Visitante", 
                 mensagem: msg, 
                 salaId: emailSala 
             });

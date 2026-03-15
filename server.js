@@ -59,13 +59,10 @@ async function initDB() {
             );
         `);
         
-        // Tenta adicionar a coluna caso a tabela já exista (forma mais estável que DO $$)
+        // Garante que a coluna sala_id existe
         try {
-            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN sala_id TEXT;");
-            console.log("ℹ️ Coluna 'sala_id' adicionada.");
-        } catch (e) {
-            // Coluna já existe, ignora o erro
-        }
+            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS sala_id TEXT;");
+        } catch (e) { /* ignore */ }
 
         console.log("✔️ Banco de Dados pronto (Tabelas e Chat por Salas).");
     } catch (err) {
@@ -77,6 +74,12 @@ initDB();
 // --- LÓGICA DO CHAT (SOCKET.IO) COM SALAS PRIVADAS ---
 io.on('connection', async (socket) => {
     console.log('🔌 Conexão estabelecida:', socket.id);
+
+    // O admin chama isso para entrar em uma "sala global" de notificações
+    socket.on('admin_entrar', () => {
+        socket.join('admin_room');
+        console.log(`🛠️ Admin ${socket.id} entrou na sala de monitoramento.`);
+    });
 
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
@@ -104,12 +107,21 @@ io.on('connection', async (socket) => {
                 [salaId, nome, mensagem]
             );
 
-            io.to(salaId).emit('receber_mensagem', {
+            const msgData = {
                 usuario: nome,
                 texto: mensagem,
                 salaId: salaId, 
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-            });
+            };
+
+            // Envia para a sala específica (usuário e admin que estiver nela)
+            io.to(salaId).emit('receber_mensagem', msgData);
+
+            // Se for mensagem de usuário, avisa o admin na sala global (para ele ver o alerta visual)
+            if (nome !== "Suporte Arpoador") {
+                io.to('admin_room').emit('receber_mensagem', msgData);
+            }
+            
         } catch (err) {
             console.error("Erro ao salvar mensagem:", err.message);
         }
@@ -135,7 +147,8 @@ async function enviarEmail(emailDestino, assunto, html) {
     }
 }
 
-// --- ROTA DE RECUPERAÇÃO DE SENHA ADMIN ---
+// --- ROTAS DE API ---
+
 app.post('/api/recuperar-senha-admin', async (req, res) => {
     const { email } = req.body;
     const emailLower = email?.toLowerCase().trim();
@@ -156,7 +169,6 @@ app.post('/api/recuperar-senha-admin', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- ROTAS DE USUÁRIO (REGISTRO, LOGIN, RESET) ---
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
     const emailLower = email.toLowerCase().trim();

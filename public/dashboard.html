@@ -66,8 +66,7 @@
         }
     </style>
     <script>
-        // Trava de segurança para usuários comuns
-        if (!localStorage.getItem('token')) {
+        if (!localStorage.getItem('email')) {
             window.location.href = 'index.html';
         }
     </script>
@@ -184,10 +183,16 @@
         const socket = io(); 
         const somNotificacao = document.getElementById('notificacao-som');
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
+        const emailUsuario = localStorage.getItem('email'); // Importante para as salas
 
         document.addEventListener('DOMContentLoaded', () => {
             const display = document.getElementById('user-display');
             if (display) display.innerText = `Olá, ${nomeUsuario}`;
+
+            // Entra na sala assim que carrega o dashboard
+            if (emailUsuario) {
+                socket.emit('entrar_na_sala', emailUsuario);
+            }
         });
 
         // --- HISTÓRICO PERSISTENTE ---
@@ -229,8 +234,14 @@
         function enviarMensagem() {
             const input = document.getElementById('chat-input');
             const mensagem = input.value.trim();
-            if (!mensagem) return;
-            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: mensagem });
+            if (!mensagem || !emailUsuario) return;
+            
+            // Agora enviamos o salaId (email) para o server.js
+            socket.emit('enviar_mensagem', { 
+                nome: nomeUsuario, 
+                mensagem: mensagem,
+                salaId: emailUsuario 
+            });
             input.value = "";
         }
 
@@ -244,7 +255,12 @@
                 let html = file.type.startsWith('image/') ? 
                     `<img src="${e.target.result}" class="chat-img" onclick="window.open(this.src)" />` : 
                     `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center gap-2 mt-1 italic"><i class="fa-solid fa-file-arrow-down"></i> ${file.name}</a>`;
-                socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: html });
+                
+                socket.emit('enviar_mensagem', { 
+                    nome: nomeUsuario, 
+                    mensagem: html,
+                    salaId: emailUsuario 
+                });
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
