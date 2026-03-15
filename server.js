@@ -25,8 +25,8 @@ const io = new Server(server, {
 }); 
 
 // Aumentar o limite do JSON para suportar o envio de imagens em Base64
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ limit: '15mb', extended: true }));
 app.use(express.static('public'));
 
 // --- CONFIGURAÇÃO BREVO API ---
@@ -155,16 +155,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- LÓGICA DE LIMPEZA AO ENCERRAR ---
     socket.on('encerrar_conversa', async (salaId) => {
         try {
-            // 1. Deleta o histórico do banco de dados para limpar no próximo login
             await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
-            
-            // 2. Avisa o cliente para limpar a tela atual e mostrar aviso de encerramento
             io.to(salaId).emit('conversa_encerrada', { salaId });
             io.to(salaId).emit('limpar_tela_chat'); 
-            
             console.log(`🔒 Conversa ${salaId} limpa e encerrada.`);
         } catch (err) {
             console.error("Erro ao encerrar/limpar conversa:", err.message);
@@ -191,7 +186,7 @@ async function enviarEmail(emailDestino, assunto, html) {
     }
 }
 
-// --- ROTAS DE API (Login, Registro, Recuperação, FTP, Profile) ---
+// --- ROTAS DE API ---
 
 app.post('/api/recuperar-senha-admin', async (req, res) => {
     const { email } = req.body;
@@ -261,30 +256,55 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao redefinir." }); }
 });
 
-const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
+// --- LÓGICA FTP (ATUALIZADA COM CNES) ---
+const pastasFTP = { 
+    'BPA': '/siasus/BPA', 
+    'SIA': '/siasus/SIA', 
+    'RAAS': '/siasus/RAAS', 
+    'FPO': '/siasus/FPO',
+    'CNES': '/siasus/CNES' // Novo sistema adicionado
+};
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
-    const client = new ftp.Client(15000); 
+    if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
+
+    const client = new ftp.Client(20000); 
     try {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        res.json(list.filter(f => f.isFile).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(2) + " MB" })));
-    } catch (e) { res.status(500).json({ error: "Erro ao listar arquivos FTP." }); } finally { client.close(); }
+        res.json(list.filter(f => f.isFile).map(f => ({ 
+            name: f.name, 
+            size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
+        })));
+    } catch (e) { 
+        res.status(500).json({ error: "Erro ao listar arquivos FTP." }); 
+    } finally { 
+        client.close(); 
+    }
 });
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
-    const client = new ftp.Client(30000);
+    const sisUpper = sistema.toUpperCase();
+    if (!pastasFTP[sisUpper]) return res.status(400).send("Sistema inválido.");
+
+    const client = new ftp.Client(45000);
     try {
         await client.access({ host: "arpoador.datasus.gov.br", user: "anonymous", password: "guest" });
-        await client.cd(pastasFTP[sistema.toUpperCase()]);
+        await client.cd(pastasFTP[sisUpper]);
+        
         res.setHeader('Content-Disposition', `attachment; filename="${arquivo}"`);
         const tunnel = new PassThrough();
         tunnel.pipe(res);
+        
         await client.downloadTo(tunnel, decodeURIComponent(arquivo));
-    } catch (e) { if (!res.headersSent) res.status(500).send("Erro no download."); } finally { client.close(); }
+    } catch (e) { 
+        if (!res.headersSent) res.status(500).send("Erro no download."); 
+    } finally { 
+        client.close(); 
+    }
 });
 
 app.put('/api/update-profile', async (req, res) => {

@@ -81,29 +81,35 @@
             <p class="text-slate-400 mt-2">Selecione o sistema para listar arquivos via FTP em tempo real.</p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIA')">
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📊</div>
                 <h3 class="text-lg font-bold text-white">SIA</h3>
-                <p class="text-sm text-slate-500 mt-1">Sist. Inf. Ambulatoriais</p>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Sist. Inf. Ambulatoriais</p>
             </div>
 
             <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('BPA')">
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📦</div>
                 <h3 class="text-lg font-bold text-white">BPA</h3>
-                <p class="text-sm text-slate-500 mt-1">Bol. Produção Ambulatorial</p>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Bol. Produção Ambulatorial</p>
             </div>
 
             <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('RAAS')">
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📋</div>
                 <h3 class="text-lg font-bold text-white">RAAS</h3>
-                <p class="text-sm text-slate-500 mt-1">Reg. Ações Ambulatoriais</p>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Reg. Ações Ambulatoriais</p>
             </div>
 
             <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('FPO')">
                 <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">💰</div>
                 <h3 class="text-lg font-bold text-white">FPO</h3>
-                <p class="text-sm text-slate-500 mt-1">Prog. Físico-Orçamentária</p>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Prog. Físico-Orçamentária</p>
+            </div>
+
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('CNES')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🏥</div>
+                <h3 class="text-lg font-bold text-white">CNES</h3>
+                <p class="text-[10px] text-slate-500 mt-1 uppercase tracking-tight">Cadastro Nac. de Estab.</p>
             </div>
         </div>
     </main>
@@ -119,7 +125,7 @@
             <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5 shrink-0">
                 <div>
                     <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
-                    <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando...</span>
+                    <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando via Gateway...</span>
                 </div>
                 <button onclick="fecharModal()" class="text-slate-400 hover:text-white transition-colors">
                     <i class="fa-solid fa-xmark text-2xl"></i>
@@ -173,21 +179,17 @@
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
         });
 
-        // 1. Ouvir Mensagens
         socket.on('receber_mensagem', (data) => {
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
             const souEu = (data.usuario === nomeUsuario);
-            
             adicionarMensagemNaTela(data.usuario, data.texto, data.arquivo, data.tipo, souEu);
-
             if (!souEu) {
                 somNotificacao.play().catch(() => {});
                 if (win.style.display !== 'flex') badge.classList.remove('hidden');
             }
         });
 
-        // 2. Ouvir Histórico
         socket.on('historico_mensagens', (mensagens) => {
             const box = document.getElementById('chat-messages');
             box.innerHTML = ''; 
@@ -196,7 +198,6 @@
             });
         });
 
-        // 3. Ouvir Encerramento
         socket.on('conversa_encerrada', () => {
             const box = document.getElementById('chat-messages');
             box.innerHTML += `<div class="text-center py-2"><span class="bg-red-500/20 text-red-500 text-[9px] px-2 py-1 rounded uppercase font-bold">Atendimento encerrado</span></div>`;
@@ -204,15 +205,10 @@
             box.scrollTop = box.scrollHeight;
         });
 
-        // 4. NOVA LÓGICA: LIMPAR TELA QUANDO ADMIN DELETAR HISTÓRICO
         socket.on('limpar_tela_chat', () => {
             const box = document.getElementById('chat-messages');
-            box.innerHTML = ''; // Limpa as mensagens visualmente
-            
-            // Restaura o rodapé para permitir novas mensagens
+            box.innerHTML = '';
             document.getElementById('chat-footer').innerHTML = footerOriginal;
-            
-            // Re-adiciona o evento de Enter no novo input
             setTimeout(() => {
                 const novoInput = document.getElementById('chat-input');
                 if(novoInput) {
@@ -221,8 +217,6 @@
                     });
                 }
             }, 100);
-
-            console.log("🧹 Chat limpo e pronto para novo chamado.");
         });
 
         function toggleChat() {
@@ -241,12 +235,7 @@
             if (!input) return;
             const mensagem = input.value.trim();
             if (!mensagem || !emailUsuario) return;
-            
-            socket.emit('enviar_mensagem', { 
-                nome: nomeUsuario, 
-                mensagem: mensagem,
-                salaId: emailUsuario 
-            });
+            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: mensagem, salaId: emailUsuario });
             input.value = "";
         }
 
@@ -254,16 +243,9 @@
             const fileInput = document.getElementById('chat-file');
             const file = fileInput.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
-                socket.emit('enviar_arquivo', {
-                    nome: nomeUsuario,
-                    arquivo: e.target.result,
-                    tipo: file.type,
-                    nomeArquivo: file.name,
-                    salaId: emailUsuario
-                });
+                socket.emit('enviar_arquivo', { nome: nomeUsuario, arquivo: e.target.result, tipo: file.type, nomeArquivo: file.name, salaId: emailUsuario });
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
@@ -273,16 +255,14 @@
             const box = document.getElementById('chat-messages');
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex flex-col ${souEu ? 'items-end' : 'items-start'} mb-2`;
-
             let conteudoHTML = `<p>${texto || ''}</p>`;
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
                     conteudoHTML = `<img src="${arquivo}" class="max-w-[150px] rounded-lg mt-1 cursor-pointer border border-white/10" onclick="window.open(this.src)">`;
                 } else {
-                    conteudoHTML = `<a href="${arquivo}" download class="bg-slate-900 p-2 rounded flex items-center gap-2 mt-1 border border-white/10 text-blue-400"><i class="fa-solid fa-file-arrow-down"></i> Baixar Arquivo</a>`;
+                    conteudoHTML = `<a href="${arquivo}" download class="bg-slate-900 p-2 rounded flex items-center gap-2 mt-1 border border-white/10 text-blue-400"><i class="fa-solid fa-file-arrow-down"></i> Baixar</a>`;
                 }
             }
-
             msgDiv.innerHTML = `
                 ${!souEu ? `<span class="text-[9px] font-black text-blue-400 mb-1 uppercase">${autor}</span>` : ''}
                 <div class="p-2 rounded-xl max-w-[90%] ${souEu ? 'bg-blue-600/60 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}">
@@ -293,37 +273,40 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- LÓGICA FTP ---
         async function abrirEListar(sistema) {
             const modal = document.getElementById('modal');
             const fileList = document.getElementById('file-list');
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; 
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
-            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse">Conectando FTP...</p></div>`;
+            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse">Estabelecendo Conexão...</p></div>`;
             try {
                 const res = await fetch(`/api/list/${sistema}`);
                 const arquivos = await res.json();
                 fileList.innerHTML = '';
                 if (!arquivos || arquivos.length === 0) {
-                    fileList.innerHTML = `<p class="text-center py-20 text-slate-500">Pasta vazia.</p>`;
+                    fileList.innerHTML = `<p class="text-center py-20 text-slate-500">Nenhum arquivo encontrado.</p>`;
                     return;
                 }
                 arquivos.forEach(file => {
                     const item = document.createElement('div');
                     item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40';
-                    item.innerHTML = `<div><p class="text-sm font-semibold">${file.name}</p><p class="text-[10px] text-slate-500">${file.size}</p></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg" onclick="baixar('${sistema}', '${file.name}', this)">Baixar</button>`;
+                    item.innerHTML = `<div><p class="text-sm font-semibold text-white">${file.name}</p><p class="text-[10px] text-slate-500">${file.size}</p></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" onclick="baixar('${sistema}', '${file.name}', this)">Baixar</button>`;
                     fileList.appendChild(item);
                 });
             } catch (err) {
-                fileList.innerHTML = `<p class="text-center py-20 text-red-400">Erro ao carregar arquivos.</p>`;
+                fileList.innerHTML = `<p class="text-center py-20 text-red-400">Falha ao acessar repositório remoto.</p>`;
             }
         }
 
         function baixar(sistema, arquivo, btn) {
             btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-            setTimeout(() => { btn.disabled = false; }, 3000);
+            setTimeout(() => { 
+                btn.disabled = false; 
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }, 3000);
         }
 
         function fecharModal() { 
@@ -338,7 +321,6 @@
             window.location.href = 'index.html';
         }
 
-        // Adiciona evento inicial de teclado
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') enviarMensagem();
         });
