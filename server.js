@@ -70,13 +70,7 @@ async function initDB() {
             );
         `);
         
-        // Garantir que as colunas de arquivo existam para suporte a imagens
-        try {
-            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS arquivo TEXT;");
-            await pool.query("ALTER TABLE mensagens_suporte ADD COLUMN IF NOT EXISTS tipo_arquivo TEXT;");
-        } catch (e) { /* colunas já existem */ }
-
-        console.log("✔️ Banco de Dados pronto (Suporte a Imagens e Arquivos).");
+        console.log("✔️ Banco de Dados pronto.");
     } catch (err) {
         console.error("❌ Erro no Banco de Dados:", err.message);
     }
@@ -89,7 +83,7 @@ io.on('connection', (socket) => {
 
     socket.on('admin_entrar', () => {
         socket.join('admin_room');
-        console.log(`🛠️ Admin ${socket.id} entrou na sala de monitoramento.`);
+        console.log(`🛠️ Admin entrou na sala de monitoramento.`);
     });
 
     socket.on('entrar_na_sala', async (salaId) => {
@@ -133,13 +127,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- NOVA LÓGICA: RECEBER E ENVIAR ARQUIVOS ---
     socket.on('enviar_arquivo', async (data) => {
         const { nome, arquivo, tipo, nomeArquivo, salaId } = data;
         if (!salaId || !arquivo) return;
 
         try {
-            // Salva no banco (Opcional: em produção, o ideal é salvar em um Storage e guardar apenas a URL)
             await pool.query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)",
                 [salaId, nome, `Arquivo: ${nomeArquivo}`, arquivo, tipo]
@@ -163,9 +155,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('encerrar_conversa', (salaId) => {
-        io.to(salaId).emit('conversa_encerrada', { salaId });
-        console.log(`🔒 Conversa ${salaId} encerrada.`);
+    // --- LÓGICA DE LIMPEZA AO ENCERRAR ---
+    socket.on('encerrar_conversa', async (salaId) => {
+        try {
+            // 1. Deleta o histórico do banco de dados para limpar no próximo login
+            await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
+            
+            // 2. Avisa o cliente para limpar a tela atual e mostrar aviso de encerramento
+            io.to(salaId).emit('conversa_encerrada', { salaId });
+            io.to(salaId).emit('limpar_tela_chat'); 
+            
+            console.log(`🔒 Conversa ${salaId} limpa e encerrada.`);
+        } catch (err) {
+            console.error("Erro ao encerrar/limpar conversa:", err.message);
+        }
     });
 
     socket.on('disconnect', () => {
@@ -188,22 +191,14 @@ async function enviarEmail(emailDestino, assunto, html) {
     }
 }
 
-// --- ROTAS DE API ---
+// --- ROTAS DE API (Login, Registro, Recuperação, FTP, Profile) ---
 
 app.post('/api/recuperar-senha-admin', async (req, res) => {
     const { email } = req.body;
     const emailLower = email?.toLowerCase().trim();
     if (emailLower !== "gestaoinformacaodhs@gmail.com") return res.json({ success: true });
-
     const senhaMestra = "2024";
-    const conteudoHtml = `
-        <div style="font-family: sans-serif; background: #0f172a; color: white; padding: 40px; border-radius: 20px;">
-            <h2 style="color: #3b82f6; text-align: center;">CONSOLE ADMIN</h2>
-            <div style="background: #1e293b; padding: 30px; border-radius: 15px; border: 2px dashed #3b82f6; text-align: center;">
-                <span style="font-size: 32px; font-weight: bold; color: #fff;">${senhaMestra}</span>
-            </div>
-        </div>`;
-
+    const conteudoHtml = `<div style="font-family: sans-serif; background: #0f172a; color: white; padding: 40px; border-radius: 20px;"><h2 style="color: #3b82f6; text-align: center;">CONSOLE ADMIN</h2><div style="background: #1e293b; padding: 30px; border-radius: 15px; border: 2px dashed #3b82f6; text-align: center;"><span style="font-size: 32px; font-weight: bold; color: #fff;">${senhaMestra}</span></div></div>`;
     try {
         await enviarEmail(emailLower, "🔒 Senha de Acesso Administrador", conteudoHtml);
         res.json({ success: true });
@@ -214,19 +209,13 @@ app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
     const emailLower = email.toLowerCase().trim();
     const token = crypto.randomBytes(20).toString('hex');
-
     try {
         const senhaHash = await bcrypt.hash(senha, 10);
-        await pool.query(
-            `INSERT INTO usuarios (nome, email, senha, token_ativacao) VALUES ($1, $2, $3, $4)`,
-            [nome, emailLower, senhaHash, token]
-        );
+        await pool.query(`INSERT INTO usuarios (nome, email, senha, token_ativacao) VALUES ($1, $2, $3, $4)`, [nome, emailLower, senhaHash, token]);
         const link = `${req.protocol}://${req.get('host')}/api/activate?token=${token}`;
         await enviarEmail(emailLower, "Ative sua conta - Gateway SUS", `<p><a href="${link}">Ativar Minha Conta</a></p>`);
         res.status(201).json({ message: "Verifique seu e-mail para ativar." });
-    } catch (err) {
-        res.status(400).json({ error: "E-mail já cadastrado ou erro interno." });
-    }
+    } catch (err) { res.status(400).json({ error: "E-mail já cadastrado ou erro interno." }); }
 });
 
 app.get('/api/activate', async (req, res) => {
@@ -272,7 +261,6 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao redefinir." }); }
 });
 
-// --- LÓGICA FTP ---
 const pastasFTP = { 'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 'FPO': '/siasus/FPO' };
 
 app.get('/api/list/:sistema', async (req, res) => {

@@ -166,6 +166,7 @@
         const somNotificacao = document.getElementById('notificacao-som');
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
         const emailUsuario = localStorage.getItem('email'); 
+        const footerOriginal = document.getElementById('chat-footer').innerHTML;
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
@@ -203,18 +204,41 @@
             box.scrollTop = box.scrollHeight;
         });
 
+        // 4. NOVA LÓGICA: LIMPAR TELA QUANDO ADMIN DELETAR HISTÓRICO
+        socket.on('limpar_tela_chat', () => {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML = ''; // Limpa as mensagens visualmente
+            
+            // Restaura o rodapé para permitir novas mensagens
+            document.getElementById('chat-footer').innerHTML = footerOriginal;
+            
+            // Re-adiciona o evento de Enter no novo input
+            setTimeout(() => {
+                const novoInput = document.getElementById('chat-input');
+                if(novoInput) {
+                    novoInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') enviarMensagem();
+                    });
+                }
+            }, 100);
+
+            console.log("🧹 Chat limpo e pronto para novo chamado.");
+        });
+
         function toggleChat() {
             const win = document.getElementById('chat-window');
             const isHidden = win.style.display === 'none' || win.style.display === '';
             win.style.display = isHidden ? 'flex' : 'none';
             if (isHidden) {
                 document.getElementById('chat-badge').classList.add('hidden');
-                document.getElementById('chat-input').focus();
+                const input = document.getElementById('chat-input');
+                if(input) input.focus();
             }
         }
 
         function enviarMensagem() {
             const input = document.getElementById('chat-input');
+            if (!input) return;
             const mensagem = input.value.trim();
             if (!mensagem || !emailUsuario) return;
             
@@ -314,6 +338,7 @@
             window.location.href = 'index.html';
         }
 
+        // Adiciona evento inicial de teclado
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') enviarMensagem();
         });
