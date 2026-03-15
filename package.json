@@ -25,5 +25,8 @@
     "nodemailer": "^8.0.2",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.2.1"
   }
 }
