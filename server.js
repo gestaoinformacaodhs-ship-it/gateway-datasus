@@ -256,7 +256,7 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao redefinir." }); }
 });
 
-// --- LÓGICA FTP (Diferenciando hosts para CNES e outros sistemas) ---
+// --- LÓGICA FTP ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 
     'SIA': '/siasus/SIA', 
@@ -268,28 +268,22 @@ const pastasFTP = {
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
-
     const ftpHost = (sistema === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
-
     const client = new ftp.Client(30000); 
     try {
         await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        // Ordena para que os arquivos mais recentes apareçam no topo
         res.json(list.filter(f => f.isFile).map(f => ({ 
             name: f.name, 
             size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
         })).reverse());
     } catch (e) { 
-        console.error("Erro FTP List:", e.message);
         res.status(500).json({ error: "Erro ao listar arquivos FTP." }); 
-    } finally { 
-        client.close(); 
-    }
+    } finally { client.close(); }
 });
 
-// --- DOWNLOAD OTIMIZADO COM STREAM E PASSTHROUGH ---
+// --- DOWNLOAD OTIMIZADO COM BUFFER E HEADERS DE CONTROLE ---
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
     const sisUpper = sistema.toUpperCase();
@@ -298,23 +292,26 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const ftpHost = (sisUpper === 'CNES') ? "ftp.datasus.gov.br" : "arpoador.datasus.gov.br";
     const nomeArquivo = decodeURIComponent(arquivo);
 
-    // Timeout zero para permitir downloads muito longos sem cair
     const client = new ftp.Client(0); 
     try {
         await client.access({ host: ftpHost, user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sisUpper]);
         
+        // --- HEADERS PARA ACELERAR O FLUXO NO RENDER ---
         res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
         res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
 
-        const tunnel = new PassThrough();
+        const tunnel = new PassThrough({
+            highWaterMark: 1024 * 1024 // Aumenta o Buffer interno para 1MB
+        });
         
-        // Se houver erro no túnel (ex: cliente cancela), fecha o cliente FTP
         tunnel.on('error', () => client.close());
-        
         tunnel.pipe(res);
         
-        // O segredo para não travar a memória é o downloadTo direto no stream
         await client.downloadTo(tunnel, nomeArquivo);
     } catch (e) { 
         console.error("Erro no download:", e.message);
