@@ -236,7 +236,6 @@ app.post('/api/forgot-password', async (req, res) => {
     const emailLower = req.body.email?.toLowerCase().trim();
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        // Usando UTC explicitamente para evitar conflito com servidor Render
         const expiracao = new Date(Date.now() + 3600000); 
         const result = await pool.query("UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3", [token, expiracao, emailLower]);
         if (result.rowCount > 0) {
@@ -252,21 +251,36 @@ app.post('/api/reset-password', async (req, res) => {
     const cleanToken = token?.trim();
 
     try {
-        const senhaHash = await bcrypt.hash(novaSenha, 10);
-        
-        // CORREÇÃO: Comparação mais robusta de expiração para evitar problemas de fuso horário no Render/Postgres
-        const result = await pool.query(
-            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE reset_token = $2 AND (reset_expiracao > NOW() OR reset_expiracao > CURRENT_TIMESTAMP)", 
-            [senhaHash, cleanToken]
+        // 1. Busca o usuário e a data de expiração gravada
+        const userCheck = await pool.query(
+            "SELECT id, reset_expiracao FROM usuarios WHERE reset_token = $1",
+            [cleanToken]
         );
 
-        if (result.rowCount === 0) {
-            return res.status(400).json({ error: "Token inválido ou expirado." });
+        if (userCheck.rowCount === 0) {
+            return res.status(400).json({ error: "Token inválido ou já utilizado." });
         }
+
+        const usuario = userCheck.rows[0];
+        const agora = new Date();
+        const expiracao = new Date(usuario.reset_expiracao);
+
+        // 2. Validação de tempo via JavaScript (Ignora fuso horário do Banco)
+        if (expiracao < agora) {
+            return res.status(400).json({ error: "O link de recuperação expirou." });
+        }
+
+        // 3. Atualiza a senha
+        const senhaHash = await bcrypt.hash(novaSenha, 10);
+        await pool.query(
+            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2",
+            [senhaHash, usuario.id]
+        );
+
         res.json({ message: "Senha redefinida com sucesso!" });
     } catch (err) { 
         console.error("Erro ao redefinir:", err.message);
-        res.status(500).json({ error: "Erro ao redefinir no servidor." }); 
+        res.status(500).json({ error: "Erro interno no servidor." }); 
     }
 });
 
