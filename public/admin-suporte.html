@@ -12,6 +12,15 @@
         #admin-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
         .message-fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .chat-img-admin {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: zoom-in;
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-[#0f172a] text-slate-200 overflow-hidden">
@@ -41,22 +50,32 @@
                     <span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30">CONECTADO</span>
                 </div>
                 
-                <button onclick="limparHistorico()" class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-tighter">
-                    <i class="fa-solid fa-trash-can"></i>
-                    Limpar Tela
-                </button>
+                <div class="flex items-center gap-4">
+                    <button onclick="testarSom()" class="text-slate-500 hover:text-blue-400 transition-colors text-xs flex items-center gap-1">
+                        <i class="fa-solid fa-volume-high"></i> Testar Som
+                    </button>
+                    <button onclick="limparHistorico()" class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-tighter">
+                        <i class="fa-solid fa-trash-can"></i> Limpar Tela
+                    </button>
+                </div>
             </div>
 
             <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
                 <div id="empty-state" class="self-center bg-slate-800/50 text-slate-500 text-[10px] px-4 py-1 rounded-full border border-white/5">
-                    Início do histórico de suporte
+                    Carregando histórico...
                 </div>
             </div>
 
-            <div class="p-4 bg-slate-800 border-t border-slate-700 flex gap-4 shadow-2xl">
+            <div class="p-4 bg-slate-800 border-t border-slate-700 flex gap-4 shadow-2xl items-center">
+                <label for="admin-file" class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors px-2">
+                    <i class="fa-solid fa-paperclip text-xl"></i>
+                    <input type="file" id="admin-file" class="hidden" accept="image/*, .pdf, .docx, .txt" onchange="adminEnviarArquivo()">
+                </label>
+
                 <input type="text" id="admin-input" 
                     class="flex-1 bg-slate-900 border border-slate-700 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-all" 
                     placeholder="Escreva sua resposta para o usuário...">
+                
                 <button onclick="enviarResposta()" 
                     class="bg-blue-600 hover:bg-blue-500 px-8 py-2 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
                     <span>Enviar</span>
@@ -66,35 +85,89 @@
         </div>
     </div>
 
+    <audio id="notificacao-som" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
         const socket = io();
         const nomeAdmin = "Suporte Arpoador";
+        const somNotificacao = document.getElementById('notificacao-som');
+        const tituloOriginal = document.title;
+        let intervaloTitulo = null;
+
+        // --- FUNÇÕES DE NOTIFICAÇÃO ---
+
+        function tocarSom() {
+            somNotificacao.currentTime = 0;
+            somNotificacao.play().catch(e => console.log("Áudio bloqueado. Clique na página primeiro."));
+        }
+
+        function piscarTitulo() {
+            if (document.hidden && !intervaloTitulo) {
+                intervaloTitulo = setInterval(() => {
+                    document.title = document.title === "🔔 Nova Mensagem!" ? tituloOriginal : "🔔 Nova Mensagem!";
+                }, 1000);
+            }
+        }
+
+        window.addEventListener('focus', () => {
+            if (intervaloTitulo) {
+                clearInterval(intervaloTitulo);
+                intervaloTitulo = null;
+                document.title = tituloOriginal;
+            }
+        });
+
+        function testarSom() {
+            tocarSom();
+            alert("Som de notificação funcionando!");
+        }
+
+        // --- LÓGICA DO CHAT ---
+
+        // Carrega o histórico vindo do Postgres (server.js)
+        socket.on('historico_mensagens', (mensagens) => {
+            const chatBox = document.getElementById('admin-chat-box');
+            document.getElementById('empty-state').style.display = 'none';
+            
+            mensagens.forEach(data => renderizarMensagem(data, false));
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
 
         socket.on('receber_mensagem', (data) => {
-            const chatBox = document.getElementById('admin-chat-box');
-            const preview = document.getElementById('last-message-preview');
-            const userNameDisplay = document.getElementById('active-user-name');
+            const souEu = data.usuario === nomeAdmin;
             
+            if (!souEu) {
+                document.getElementById('active-user-name').innerText = data.usuario;
+                document.getElementById('last-message-preview').innerText = 
+                    data.texto.includes('<img') ? "📷 Imagem recebida" : 
+                    data.texto.includes('<a') ? "📄 Arquivo recebido" : data.texto;
+                
+                tocarSom();
+                piscarTitulo();
+            }
+
+            renderizarMensagem(data, true);
+        });
+
+        function renderizarMensagem(data, scroll = true) {
+            const chatBox = document.getElementById('admin-chat-box');
             const msgDiv = document.createElement('div');
             const souEu = data.usuario === nomeAdmin;
-
-            if (!souEu) {
-                userNameDisplay.innerText = data.usuario;
-                preview.innerText = data.texto;
-            }
 
             msgDiv.className = `message-fade-in ${souEu ? 
                 "self-end bg-blue-600/20 border border-blue-500/30 p-4 rounded-2xl rounded-tr-none max-w-[70%] text-right shadow-sm" : 
                 "self-start bg-slate-800 border border-white/5 p-4 rounded-2xl rounded-tl-none max-w-[70%] shadow-sm"}`;
             
             msgDiv.innerHTML = `
-                <p class="text-xs font-bold text-blue-400 mb-1">${souEu ? 'Você (Suporte)' : data.usuario}</p>
-                <p class="text-sm ${souEu ? 'text-slate-100' : 'text-slate-200'}">${data.texto}</p>
+                <p class="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-tighter">${souEu ? 'Você (Suporte)' : data.usuario}</p>
+                <div class="text-sm ${souEu ? 'text-slate-100' : 'text-slate-200'}">${data.texto}</div>
             `;
 
             chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
+            if (scroll) chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
         function enviarResposta() {
             const input = document.getElementById('admin-input');
@@ -110,17 +183,39 @@
             input.focus();
         }
 
-        // FUNÇÃO PARA LIMPAR O HISTÓRICO DA TELA
+        function adminEnviarArquivo() {
+            const fileInput = document.getElementById('admin-file');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+                alert("Arquivo muito grande! Máximo 2MB.");
+                fileInput.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let htmlContent = "";
+                if (file.type.startsWith('image/')) {
+                    htmlContent = `<img src="${e.target.result}" class="chat-img-admin" onclick="window.open(this.src)" />`;
+                } else {
+                    htmlContent = `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center justify-end gap-2 mt-1 italic"><i class="fa-solid fa-file-export"></i> Enviado: ${file.name}</a>`;
+                }
+
+                socket.emit('enviar_mensagem', {
+                    nome: nomeAdmin,
+                    mensagem: htmlContent
+                });
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = "";
+        }
+
         function limparHistorico() {
-            if (confirm("Deseja realmente limpar o histórico visual desta conversa?")) {
+            if (confirm("Isso limpa apenas a sua visualização atual. O histórico permanece no banco de dados. Confirmar?")) {
                 const chatBox = document.getElementById('admin-chat-box');
-                // Mantém apenas o estado inicial
-                chatBox.innerHTML = `
-                    <div id="empty-state" class="self-center bg-slate-800/50 text-slate-500 text-[10px] px-4 py-1 rounded-full border border-white/5">
-                        Histórico limpo em ${new Date().toLocaleTimeString()}
-                    </div>
-                `;
-                document.getElementById('last-message-preview').innerText = "Conversa limpa";
+                chatBox.innerHTML = `<div class="self-center text-slate-600 text-[10px]">Tela limpa localmente</div>`;
             }
         }
 

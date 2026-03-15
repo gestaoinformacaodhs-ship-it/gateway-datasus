@@ -56,6 +56,15 @@
             background: rgba(59, 130, 246, 0.1);
             border-color: rgba(59, 130, 246, 0.3);
         }
+
+        /* Ajuste para imagens no chat */
+        .chat-img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: zoom-in;
+        }
     </style>
     <script>
         if (!localStorage.getItem('token')) {
@@ -152,8 +161,15 @@
                 Olá! Como podemos auxiliar você no Gateway hoje?
             </div>
         </div>
-        <div class="p-3 bg-slate-900/50 border-t border-white/5 flex gap-2">
+        
+        <div class="p-3 bg-slate-900/50 border-t border-white/5 flex gap-2 items-center">
+            <label for="chat-file" class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors px-1">
+                <i class="fa-solid fa-paperclip text-lg"></i>
+                <input type="file" id="chat-file" class="hidden" accept="image/*, .pdf, .docx, .txt" onchange="enviarArquivo()">
+            </label>
+            
             <input type="text" id="chat-input" class="flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-white text-xs focus:outline-none focus:border-blue-500" placeholder="Sua mensagem...">
+            
             <button onclick="enviarMensagem()" class="bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-500 transition-colors">
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
@@ -170,7 +186,6 @@
             if (display) display.innerText = `Olá, ${nomeUsuario}`;
         });
 
-        // Receber mensagem do servidor
         socket.on('receber_mensagem', (data) => {
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
@@ -178,7 +193,6 @@
             
             adicionarMensagemNaTela(data.usuario, data.texto, souEu);
 
-            // Se a mensagem for de outro e o chat estiver fechado, mostra o badge
             if (!souEu && win.style.display !== 'flex') {
                 badge.classList.remove('hidden');
             }
@@ -188,12 +202,9 @@
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
             const isHidden = win.style.display === 'none' || win.style.display === '';
-            
             win.style.display = isHidden ? 'flex' : 'none';
-            
             if (isHidden) {
                 document.getElementById('chat-input').focus();
-                // Limpa a notificação ao abrir
                 badge.classList.add('hidden');
             }
         }
@@ -207,8 +218,39 @@
                 nome: nomeUsuario,
                 mensagem: mensagem
             });
-
             input.value = "";
+        }
+
+        // NOVA FUNÇÃO: ENVIAR ARQUIVO/IMAGEM
+        function enviarArquivo() {
+            const fileInput = document.getElementById('chat-file');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            // Limite de 2MB para não pesar o servidor
+            if (file.size > 2 * 1024 * 1024) {
+                alert("O arquivo é muito grande! Escolha um de até 2MB.");
+                fileInput.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let conteudoHTML = "";
+                
+                if (file.type.startsWith('image/')) {
+                    conteudoHTML = `<img src="${e.target.result}" class="chat-img" onclick="window.open(this.src)" title="Clique para ampliar" />`;
+                } else {
+                    conteudoHTML = `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center gap-2 mt-1 italic"><i class="fa-solid fa-file-arrow-down"></i> ${file.name}</a>`;
+                }
+
+                socket.emit('enviar_mensagem', {
+                    nome: nomeUsuario,
+                    mensagem: conteudoHTML
+                });
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = ""; 
         }
 
         function adicionarMensagemNaTela(autor, texto, souEu) {
@@ -250,11 +292,7 @@
                 fileList.innerHTML = '';
 
                 if (!arquivos || arquivos.length === 0) {
-                    fileList.innerHTML = `
-                        <div class="text-center py-20">
-                            <i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i>
-                            <p class="text-slate-500">Nenhum arquivo encontrado.</p>
-                        </div>`;
+                    fileList.innerHTML = `<div class="text-center py-20"><i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i><p class="text-slate-500">Nenhum arquivo encontrado.</p></div>`;
                     subtitle.innerText = "Pasta Vazia";
                     return;
                 }
@@ -275,8 +313,7 @@
                         <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg transition-all active:scale-95" 
                                 onclick="baixar('${sistema}', '${file.name}', this)">
                             <i class="fa-solid fa-download mr-1"></i> Baixar
-                        </button>
-                    `;
+                        </button>`;
                     fileList.appendChild(item);
                 });
             } catch (err) {

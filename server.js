@@ -12,8 +12,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
-const server = http.createServer(app); // Cria o servidor HTTP necessário para o Socket.io
-const io = new Server(server); // Inicializa o Socket.io no servidor
+const server = http.createServer(app); 
+const io = new Server(server); 
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -34,6 +34,7 @@ const pool = new Pool({
 
 async function initDB() {
     try {
+        // Tabela de Usuários
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -41,39 +42,71 @@ async function initDB() {
                 email TEXT UNIQUE,
                 senha TEXT,
                 ativo INTEGER DEFAULT 0,
-                token_ativacao TEXT
+                token_ativacao TEXT,
+                reset_token TEXT,
+                reset_expiracao TIMESTAMP
             );
         `);
-        await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token TEXT`);
-        await pool.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_expiracao TIMESTAMP`);
-        console.log("✔️ Banco de Dados pronto e atualizado.");
+
+        // NOVA TABELA: Mensagens do Suporte (Persistente no Postgres)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS mensagens_suporte (
+                id SERIAL PRIMARY KEY,
+                usuario TEXT,
+                texto TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        console.log("✔️ Banco de Dados pronto (Tabelas e Chat).");
     } catch (err) {
         console.error("❌ Erro ao inicializar/atualizar Tabelas:", err.message);
     }
 }
 initDB();
 
-// --- LÓGICA DO CHAT (SOCKET.IO) ---
-io.on('connection', (socket) => {
+// --- LÓGICA DO CHAT (SOCKET.IO) COM PERSISTÊNCIA ---
+io.on('connection', async (socket) => {
     console.log('🔌 Novo usuário conectado ao suporte:', socket.id);
 
-    // Quando o usuário envia uma mensagem
-    socket.on('enviar_mensagem', (data) => {
-        // data deve conter { nome: '...', mensagem: '...' }
-        console.log(`Mensagem de ${data.nome}: ${data.mensagem}`);
-        
-        // Retransmite para todos os conectados (ou para o seu painel de admin)
-        io.emit('receber_mensagem', {
-            usuario: data.nome,
-            texto: data.mensagem,
-            hora: new Date().toLocaleTimeString()
-        });
+    // 1. Enviar histórico de mensagens ao conectar (Últimas 50)
+    try {
+        const historico = await pool.query(
+            "SELECT usuario, texto FROM mensagens_suporte ORDER BY timestamp ASC LIMIT 50"
+        );
+        socket.emit('historico_mensagens', historico.rows);
+    } catch (err) {
+        console.error("Erro ao carregar histórico:", err.message);
+    }
+
+    // 2. Receber, Salvar e Retransmitir mensagens
+    socket.on('enviar_mensagem', async (data) => {
+        const { nome, mensagem } = data;
+
+        try {
+            // Salva a mensagem no PostgreSQL
+            await pool.query(
+                "INSERT INTO mensagens_suporte (usuario, texto) VALUES ($1, $2)",
+                [nome, mensagem]
+            );
+
+            // Retransmite para todos
+            io.emit('receber_mensagem', {
+                usuario: nome,
+                texto: mensagem,
+                hora: new Date().toLocaleTimeString()
+            });
+        } catch (err) {
+            console.error("Erro ao salvar mensagem:", err.message);
+        }
     });
 
     socket.on('disconnect', () => {
         console.log('❌ Usuário desconectou do suporte.');
     });
 });
+
+// --- RESTANTE DA LÓGICA (FTP E AUTH) ---
 
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 
@@ -98,8 +131,6 @@ async function enviarEmail(emailDestino, assunto, html) {
         console.error("Erro e-mail:", e.response?.body || e.message); 
     }
 }
-
-// --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
@@ -177,8 +208,6 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro interno." }); }
 });
 
-// --- FTP LOGIC ---
-
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).send("Sistema inválido.");
@@ -218,7 +247,7 @@ app.put('/api/update-profile', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao atualizar." }); }
 });
 
-// --- INICIALIZAÇÃO DO SERVIDOR (IMPORTANTE: USAR 'server.listen') ---
+// --- INICIALIZAÇÃO ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`);
