@@ -281,20 +281,21 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- LÓGICA FTP ATUALIZADA COM SIHD ---
+// --- LÓGICA FTP ATUALIZADA COM CIHA E SIHD ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 
     'SIA': '/siasus/SIA', 
     'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO',
     'CNES': '/cnes',
-    'SIHD': '/public/sistemas/dsweb/SIHD/Programas' // Novo Caminho
+    'SIHD': '/public/sistemas/dsweb/SIHD/Programas',
+    'CIHA': '/public/sistemas/dsweb/CIHA' // Novo Caminho para CIHA
 };
 
 // Função auxiliar para definir o Host correto
 function getFtpHost(sistema) {
     if (sistema === 'CNES') return "ftp.datasus.gov.br";
-    if (sistema === 'SIHD') return "ftp2.datasus.gov.br";
+    if (sistema === 'SIHD' || sistema === 'CIHA') return "ftp2.datasus.gov.br"; // CIHA fica no ftp2
     return "arpoador.datasus.gov.br";
 }
 
