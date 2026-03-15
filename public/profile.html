@@ -131,7 +131,7 @@
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            // Validação de Senha
+            // Validação local de Senha
             if (senha) {
                 if (senha.length < 6) {
                     return alert("⚠️ A nova senha deve ter pelo menos 6 caracteres.");
@@ -147,25 +147,34 @@
 
             try {
                 const res = await fetch('/api/update-profile', {
-                    method: 'POST', // Ajustado para POST conforme o server.js
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        nome, 
-                        email, 
-                        novaSenha: senha.trim() === "" ? undefined : senha // Nome do campo ajustado
+                        nome: nome, 
+                        email: email, 
+                        novaSenha: senha.trim() === "" ? null : senha 
                     })
                 });
 
                 const data = await res.json();
 
                 if (res.ok) {
+                    // Atualiza o nome no localStorage para o Dashboard refletir a mudança
                     localStorage.setItem('usuario', nome);
                     alert("✅ Perfil atualizado com sucesso!");
+                    
+                    // Limpa os campos de senha
+                    document.getElementById('senha').value = "";
+                    document.getElementById('confirmar_senha').value = "";
+                    document.getElementById('barra-forca').style.width = "0%";
+                    
+                    // Opcional: recarregar para atualizar saudações no header
                     window.location.reload();
                 } else {
                     alert("❌ Erro ao salvar: " + (data.error || "Tente novamente."));
                 }
             } catch (err) {
+                console.error(err);
                 alert("❌ Erro técnico ao conectar com o servidor.");
             } finally {
                 btn.disabled = false;

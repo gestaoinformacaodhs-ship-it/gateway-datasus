@@ -154,7 +154,7 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// --- ROTA DE ATUALIZAÇÃO DE PERFIL CORRIGIDA ---
+// --- ROTA DE ATUALIZAÇÃO DE PERFIL ---
 app.post('/api/update-profile', async (req, res) => {
     const { email, nome, novaSenha } = req.body;
     try {
@@ -184,7 +184,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000);
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
@@ -200,12 +200,26 @@ app.post('/api/forgot-password', async (req, res) => {
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
-        const result = await pool.query("SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()", [token]);
+        // Ajuste de segurança: usa o horário do banco de dados (CURRENT_TIMESTAMP) para validar expiração
+        const result = await pool.query(
+            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > CURRENT_TIMESTAMP", 
+            [token]
+        );
+        
         if (result.rows.length === 0) return res.status(400).json({ error: "Token inválido ou expirado." });
-        const hash = await bcrypt.hash(novaSenha, 10);
-        await pool.query("UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2", [hash, result.rows[0].id]);
+        
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(novaSenha, salt);
+        
+        await pool.query(
+            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2", 
+            [hash, result.rows[0].id]
+        );
         res.json({ message: "Senha atualizada com sucesso!" });
-    } catch (err) { res.status(500).json({ error: "Erro ao redefinir senha." }); }
+    } catch (err) { 
+        console.error("Erro ao redefinir senha:", err);
+        res.status(500).json({ error: "Erro ao redefinir senha." }); 
+    }
 });
 
 // --- LÓGICA FTP ---
