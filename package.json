@@ -4,7 +4,8 @@
   "description": "Gateway de integração e download de arquivos DATASUS",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "keywords": [
     "datasus",
@@ -18,6 +19,7 @@
     "@getbrevo/brevo": "^2.5.0",
     "basic-ftp": "^5.2.0",
     "bcrypt": "^6.0.0",
+    "compression": "^1.8.1",
     "dotenv": "^17.3.1",
     "express": "^4.22.1",
     "nodemailer": "^8.0.2",

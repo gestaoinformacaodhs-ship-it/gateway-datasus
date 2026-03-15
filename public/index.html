@@ -9,7 +9,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body {
-            background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), 
+            background: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.9)), 
                         url('background.jpg');
             background-size: cover;
             background-position: center;
@@ -35,7 +35,6 @@
         }
         .toggle-btn:hover { color: #3b82f6; }
 
-        /* Scrollbar do Chat */
         #user-chat-box::-webkit-scrollbar { width: 4px; }
         #user-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
     </style>
@@ -139,8 +138,7 @@
                 <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs">
-                </div>
+            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs"></div>
 
             <div class="p-3 bg-slate-900 border-t border-white/5 flex gap-2">
                 <input type="text" id="user-input" placeholder="Sua mensagem..." 
@@ -157,35 +155,30 @@
     </audio>
 
     <script>
-        // --- CONFIGURAÇÃO INICIAL DO CHAT ---
         const socket = io();
         const somUser = document.getElementById('user-notificacao-som');
         const chatWindow = document.getElementById('chat-window');
         const badge = document.getElementById('badge-notificacao');
         
-        // Determina a sala (Se não logado, usa ID temporário que mudará para o email assim que digitado)
-        let emailSala = localStorage.getItem('email') || "";
+        let emailSala = "";
 
-        // Tenta pegar o e-mail do campo de input se o localStorage estiver vazio
         function atualizarSala() {
-            const inputEmail = document.getElementById('l-email').value;
-            if (inputEmail && inputEmail.includes('@')) {
-                emailSala = inputEmail;
-                socket.emit('entrar_na_sala', emailSala);
-            } else if (!emailSala) {
-                emailSala = "visitante_" + socket.id;
+            const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
+            const emailSalvo = localStorage.getItem('email');
+            
+            // Prioriza e-mail logado, depois e-mail digitado, depois ID do socket
+            let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socket.id);
+            
+            if (novaSala !== emailSala) {
+                emailSala = novaSala;
                 socket.emit('entrar_na_sala', emailSala);
             }
         }
 
-        socket.on('connect', () => {
-            atualizarSala();
-        });
-
-        // Se o usuário digitar o email, já atualizamos a sala do chat automaticamente
+        socket.on('connect', atualizarSala);
         document.getElementById('l-email').addEventListener('blur', atualizarSala);
 
-        // --- LÓGICA DE INTERFACE ---
+        // Atalho Enter
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (document.getElementById('login-container').style.display !== 'none') entrar();
@@ -209,19 +202,18 @@
         function toggleChat() {
             chatWindow.classList.toggle('hidden');
             badge.classList.add('hidden');
-            if (!chatWindow.classList.contains('hidden')) {
-                atualizarSala(); // Garante que puxa o histórico ao abrir
-            }
+            if (!chatWindow.classList.contains('hidden')) atualizarSala();
         }
 
-        // --- CHAMADAS API ---
+        // --- API CALLS ---
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
             const btn = document.getElementById('btn-entrar');
-            if (!email || !senha) return alert("Preencha tudo.");
+            if (!email || !senha) return alert("Preencha todos os campos.");
+            
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i>';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Entrando...';
 
             try {
                 const res = await fetch('/api/login', {
@@ -230,14 +222,22 @@
                     body: JSON.stringify({ email, senha })
                 });
                 const data = await res.json();
+                
                 if (res.ok) {
-                    localStorage.setItem('token', data.token); 
+                    // Armazena dados e redireciona
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
+                    localStorage.setItem('token', 'sessao_ativa'); // Garante que o script de topo funcione
                     window.location.href = 'dashboard.html';
-                } else { alert(data.error); }
-            } catch (err) { alert("Erro de conexão."); }
-            finally { btn.disabled = false; btn.innerText = "Entrar no Sistema"; }
+                } else {
+                    alert(data.error || "Erro ao fazer login.");
+                }
+            } catch (err) {
+                alert("Erro de conexão com o servidor.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Entrar no Sistema";
+            }
         }
 
         async function registrar() {
@@ -245,39 +245,49 @@
             const email = document.getElementById('r-email').value;
             const senha = document.getElementById('r-pass').value;
             const btn = document.getElementById('btn-registrar');
-            if (!nome || !email || !senha) return alert("Preencha tudo.");
+            
+            if (!nome || !email || !senha) return alert("Preencha todos os campos.");
             btn.disabled = true;
+            
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nome, email, senha })
                 });
-                if (res.ok) { alert("Verifique seu e-mail!"); trocar('login'); }
-                else { const d = await res.json(); alert(d.error); }
-            } catch (err) { alert("Erro."); }
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Cadastro realizado! Verifique seu e-mail para ativar a conta.");
+                    trocar('login');
+                } else {
+                    alert(data.error || "Erro no cadastro.");
+                }
+            } catch (err) { alert("Erro de rede."); }
             finally { btn.disabled = false; btn.innerText = "Finalizar Cadastro"; }
         }
 
         async function solicitarRecuperacao() {
             const email = document.getElementById('f-email').value;
-            if (!email) return alert("E-mail?");
+            if (!email) return alert("Informe seu e-mail.");
             try {
                 const res = await fetch('/api/forgot-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-                if (res.ok) { alert("Link enviado!"); trocar('login'); }
-            } catch (err) { alert("Erro."); }
+                if (res.ok) {
+                    alert("Se o e-mail existir, as instruções foram enviadas.");
+                    trocar('login');
+                }
+            } catch (err) { alert("Erro ao processar."); }
         }
 
-        // --- LÓGICA DO SOCKET (CHAT) ---
+        // --- CHAT LOGIC ---
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('user-chat-box');
             chatBox.innerHTML = ""; 
             if (mensagens.length === 0) {
-                renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar hoje?" });
+                renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar você hoje?" });
             } else {
                 mensagens.forEach(data => renderizarMensagemUser(data));
             }
@@ -296,9 +306,11 @@
             const chatBox = document.getElementById('user-chat-box');
             const nomeAtual = localStorage.getItem('usuario') || "Visitante";
             const souEu = data.usuario === nomeAtual;
+            
             const msgDiv = document.createElement('div');
-            msgDiv.className = `p-3 rounded-xl max-w-[85%] ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
+            msgDiv.className = `p-3 rounded-xl max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300 ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
             msgDiv.innerHTML = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p><p>${data.texto}</p>`;
+            
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -308,8 +320,7 @@
             const msg = input.value.trim();
             if (!msg) return;
             
-            atualizarSala(); // Garante que a sala está correta antes de enviar
-
+            atualizarSala();
             socket.emit('enviar_mensagem', { 
                 nome: localStorage.getItem('usuario') || "Visitante", 
                 mensagem: msg, 
