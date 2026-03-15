@@ -9,8 +9,9 @@
     <style>
         /* Estilização da Scrollbar para o Modal */
         #file-list::-webkit-scrollbar { width: 6px; }
-        #file-list::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.5); }
+        #file-list::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
         #file-list::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        #file-list::-webkit-scrollbar-thumb:hover { background: #2563eb; }
 
         .card { 
             background: rgba(30, 41, 59, 0.6); 
@@ -47,7 +48,6 @@
         }
     </style>
     <script>
-        // Bloqueio imediato se não houver token
         if (!localStorage.getItem('token')) {
             window.location.href = 'index.html';
         }
@@ -110,8 +110,9 @@
     </main>
 
     <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80" onclick="fecharModalFora(event)">
-        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
+            
+            <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5 shrink-0">
                 <div>
                     <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
                     <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando...</span>
@@ -121,13 +122,12 @@
                 </button>
             </div>
 
-            <div id="file-list" class="max-height-[60vh] overflow-y-auto p-4 min-h-[300px]">
+            <div id="file-list" class="overflow-y-auto p-4 flex-1 bg-slate-800/20">
                 </div>
         </div>
     </div>
 
     <script>
-        // Carrega dados do usuário
         document.addEventListener('DOMContentLoaded', () => {
             const nome = localStorage.getItem('usuario');
             if (nome) {
@@ -141,7 +141,7 @@
             const subtitle = document.getElementById('modal-subtitle');
             
             modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden'; // Trava scroll da página
+            document.body.style.overflow = 'hidden'; 
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
             subtitle.innerText = "Consultando Arpoador...";
             
@@ -153,8 +153,6 @@
 
             try {
                 const res = await fetch(`/api/list/${sistema}`);
-                if (!res.ok) throw new Error('Falha na resposta do servidor');
-                
                 const arquivos = await res.json();
                 fileList.innerHTML = '';
 
@@ -162,7 +160,7 @@
                     fileList.innerHTML = `
                         <div class="text-center py-20">
                             <i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i>
-                            <p class="text-slate-500">Nenhum arquivo encontrado nesta pasta.</p>
+                            <p class="text-slate-500">Nenhum arquivo encontrado.</p>
                         </div>`;
                     subtitle.innerText = "Pasta Vazia";
                     return;
@@ -175,7 +173,7 @@
                     item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 group';
                     item.innerHTML = `
                         <div class="flex items-center gap-4">
-                            <i class="fa-solid fa-file-arrow-down text-slate-500 group-hover:text-blue-500 transition-colors"></i>
+                            <i class="fa-solid fa-file-code text-slate-500 group-hover:text-blue-500 transition-colors"></i>
                             <div>
                                 <p class="text-sm font-semibold text-slate-200">${file.name}</p>
                                 <p class="text-[10px] text-slate-500 font-mono">${file.size}</p>
@@ -189,12 +187,7 @@
                     fileList.appendChild(item);
                 });
             } catch (err) {
-                fileList.innerHTML = `
-                    <div class="text-center py-20 text-red-400">
-                        <i class="fa-solid fa-triangle-exclamation text-4xl mb-4"></i>
-                        <p class="font-bold">Erro de Conexão</p>
-                        <p class="text-xs opacity-70">O servidor FTP do DATASUS pode estar instável.</p>
-                    </div>`;
+                fileList.innerHTML = `<div class="text-center py-20 text-red-400 font-bold">Erro ao conectar ao FTP.</div>`;
                 subtitle.innerText = "Erro no FTP";
             }
         }
@@ -203,16 +196,10 @@
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
-            btn.classList.add('opacity-50');
-
-            // Inicia o download
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-
-            // Restaura o botão após 3 segundos (tempo estimado para o browser capturar o stream)
             setTimeout(() => {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                btn.classList.remove('opacity-50');
             }, 3000);
         }
 
@@ -221,9 +208,7 @@
             document.body.style.overflow = 'auto';
         }
 
-        function fecharModalFora(e) { 
-            if (e.target.id === 'modal') fecharModal(); 
-        }
+        function fecharModalFora(e) { if (e.target.id === 'modal') fecharModal(); }
 
         function logout() {
             localStorage.clear();
