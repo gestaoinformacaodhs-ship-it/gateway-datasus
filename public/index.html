@@ -3,103 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acesso - Gateway DATASUS</title>
+    <title>Acesso | Gateway DATASUS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .glass-card {
             border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            transition: all 0.3s ease;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
         }
         input:focus {
             outline: none;
             border-color: #3b82f6 !important;
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
         }
-        .btn-primary:hover {
-            background: #2563eb !important;
-            transform: translateY(-1px);
-        }
-        .btn-primary:disabled {
-            background: #64748b !important;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-        a:hover { text-decoration: underline !important; }
-        
         .toggle-btn {
             position: absolute;
             right: 12px;
-            top: 38px;
+            top: 42px;
             cursor: pointer;
-            color: #94a3b8;
+            color: #64748b;
             transition: 0.2s;
-            z-index: 10;
         }
+        .toggle-btn:hover { color: #3b82f6; }
     </style>
     <script>
+        // Se já houver token, pula o login automaticamente
         if (localStorage.getItem('token')) {
             window.location.href = 'dashboard.html';
         }
     </script>
 </head>
-<body style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #0f172a; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;">
+<body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans text-slate-200">
 
-    <div id="login-container" class="glass-card" style="width: 350px; text-align: center; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
-        <h2 style="margin-bottom: 25px; color: white; font-weight: 800; letter-spacing: -1px;">GATEWAY <span style="color:#3b82f6">SUS</span></h2>
-        
-        <div style="margin-bottom: 20px;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">E-mail</label>
-            <input type="email" id="l-email" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box;" placeholder="seu@email.com">
+    <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/60">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-black tracking-tighter text-white">GATEWAY <span class="text-blue-500">SUS</span></h2>
+            <p class="text-slate-400 text-sm mt-1 font-medium">Gestão de Informação DHS</p>
         </div>
         
-        <div style="margin-bottom: 20px; position: relative;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Senha</label>
-            <input type="password" id="l-pass" style="width: 100%; padding: 12px; padding-right: 40px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box;" placeholder="••••••••">
-            <span class="toggle-btn" onclick="toggleView('l-pass', this)"><i class="fa-solid fa-eye"></i></span>
+        <div class="space-y-5">
+            <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail de Acesso</label>
+                <input type="email" id="l-email" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="nome@exemplo.com">
+            </div>
+            
+            <div class="relative">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Sua Senha</label>
+                <input type="password" id="l-pass" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="••••••••">
+                <span class="toggle-btn" onclick="toggleView('l-pass', this)"><i class="fa-solid fa-eye"></i></span>
+            </div>
+            
+            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+                Entrar no Sistema
+            </button>
         </div>
         
-        <button id="btn-entrar" class="btn-primary" onclick="entrar()" style="width: 100%; padding: 14px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.2s;">Entrar no Sistema</button>
-        
-        <p style="font-size: 0.85rem; margin-top: 20px; color: #94a3b8;">
-            <a href="javascript:void(0)" onclick="trocar('forgot')" style="color:#3b82f6; text-decoration: none; font-weight: 500;">Esqueci a senha</a> 
-            <span style="margin: 0 10px; opacity: 0.3;">|</span>
-            <a href="javascript:void(0)" onclick="trocar('signup')" style="color:#3b82f6; text-decoration: none; font-weight: 500;">Criar conta</a>
-        </p>
+        <div class="mt-8 flex justify-between items-center text-xs font-bold uppercase tracking-tighter">
+            <a href="javascript:void(0)" onclick="trocar('forgot')" class="text-slate-500 hover:text-blue-400 transition-colors">Esqueci a senha</a>
+            <a href="javascript:void(0)" onclick="trocar('signup')" class="text-blue-500 hover:text-blue-400 transition-colors underline underline-offset-4">Criar Conta</a>
+        </div>
     </div>
 
-    <div id="signup-container" class="glass-card" style="width: 350px; text-align: center; display: none; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
-        <h3 style="color: white; margin-bottom: 20px;">Nova Conta</h3>
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">NOME COMPLETO</label>
-            <input type="text" id="r-nome" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
+    <div id="signup-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/60 hidden">
+        <div class="text-center mb-6">
+            <h3 class="text-xl font-bold text-white">Nova Conta</h3>
+            <p class="text-slate-400 text-sm">Preencha os dados para acesso.</p>
         </div>
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">E-MAIL</label>
-            <input type="email" id="r-email" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Nome Completo</label>
+                <input type="text" id="r-nome" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail</label>
+                <input type="email" id="r-email" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all">
+            </div>
+            <div class="relative">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Senha</label>
+                <input type="password" id="r-pass" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all">
+                <span class="toggle-btn" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
+            </div>
+            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-95 mt-2">
+                Finalizar Cadastro
+            </button>
+            <button onclick="trocar('login')" class="w-full text-slate-500 text-xs font-bold uppercase py-2 hover:text-white transition-colors">
+                ← Voltar ao Login
+            </button>
         </div>
-        <div style="margin-bottom: 20px; position: relative;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">SENHA</label>
-            <input type="password" id="r-pass" style="width: 100%; padding: 12px; padding-right: 40px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;">
-            <span class="toggle-btn" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
-        </div>
-        <button id="btn-registrar" class="btn-primary" onclick="registrar()" style="width: 100%; padding: 14px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 1rem;">Finalizar Cadastro</button>
-        <button onclick="trocar('login')" style="background:none; border:none; color:#94a3b8; margin-top:20px; cursor:pointer; font-size: 0.85rem;">← Voltar ao Login</button>
     </div>
 
-    <div id="forgot-container" class="glass-card" style="width: 350px; text-align: center; display: none; padding: 30px; border-radius: 20px; background: rgba(30, 41, 59, 0.7);">
-        <h3 style="color: white; margin-bottom: 10px;">Recuperar Senha</h3>
-        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">Insira seu e-mail para receber as instruções.</p>
-        <div style="margin-bottom: 20px;">
-            <label style="display: block; text-align: left; color: #94a3b8; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600;">E-MAIL</label>
-            <input type="email" id="f-email" style="width: 100%; padding: 12px; border-radius: 8px; background: #0f172a; color: white; border: 1px solid #334155; box-sizing: border-box;" placeholder="seu@email.com">
+    <div id="forgot-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/60 hidden text-center">
+        <i class="fa-solid fa-lock-open text-blue-500 text-4xl mb-4"></i>
+        <h3 class="text-xl font-bold text-white mb-2">Recuperar Senha</h3>
+        <p class="text-slate-400 text-sm mb-6">Enviaremos um link de redefinição para o seu e-mail.</p>
+
+        <div class="space-y-4">
+            <div class="text-left">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail Cadastrado</label>
+                <input type="email" id="f-email" class="w-full bg-slate-900 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="seu@email.com">
+            </div>
+            <button id="btn-forgot" onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20">
+                Enviar Instruções
+            </button>
+            <button onclick="trocar('login')" class="w-full text-slate-500 text-xs font-bold uppercase py-2 hover:text-white transition-colors">
+                ← Voltar ao Login
+            </button>
         </div>
-        <button class="btn-primary" onclick="solicitarRecuperacao()" id="btn-forgot" style="width: 100%; padding: 14px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s;">Enviar Instruções</button>
-        <button onclick="trocar('login')" style="background:none; border:none; color:#94a3b8; margin-top:20px; cursor:pointer; font-size: 0.85rem;">← Voltar ao Login</button>
     </div>
 
     <script>
+        // Adicionar suporte ao "Enter" nos inputs
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (document.getElementById('login-container').style.display !== 'none') entrar();
+            }
+        });
+
         function toggleView(inputId, btn) {
             const input = document.getElementById(inputId);
             const icon = btn.querySelector('i');
@@ -113,9 +134,9 @@
         }
 
         function trocar(tela) {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('signup-container').style.display = 'none';
-            document.getElementById('forgot-container').style.display = 'none';
+            const containers = ['login-container', 'signup-container', 'forgot-container'];
+            containers.forEach(c => document.getElementById(c).style.display = 'none');
+            
             if (tela === 'signup') document.getElementById('signup-container').style.display = 'block';
             else if (tela === 'forgot') document.getElementById('forgot-container').style.display = 'block';
             else document.getElementById('login-container').style.display = 'block';
@@ -129,7 +150,7 @@
             if (!email || !senha) return alert("Preencha todos os campos.");
 
             btn.disabled = true;
-            btn.innerText = "Autenticando...";
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Autenticando...';
 
             try {
                 const res = await fetch('/api/login', {
@@ -140,15 +161,16 @@
                 const data = await res.json();
 
                 if (res.ok) {
+                    // Sincronizado com dashboard.html
                     localStorage.setItem('token', data.token); 
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
                     window.location.href = 'dashboard.html';
                 } else {
-                    alert(data.error || "Erro ao logar");
+                    alert(data.error || "E-mail ou senha incorretos.");
                 }
             } catch (err) {
-                alert("Erro ao conectar ao servidor.");
+                alert("Servidor indisponível no momento.");
             } finally {
                 btn.disabled = false;
                 btn.innerText = "Entrar no Sistema";
@@ -164,7 +186,7 @@
             if (!nome || !email || !senha) return alert("Preencha todos os campos.");
 
             btn.disabled = true;
-            btn.innerText = "Cadastrando...";
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Criando conta...';
 
             try {
                 const res = await fetch('/api/register', {
@@ -175,10 +197,10 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("Conta criada! Verifique seu e-mail para ativar.");
+                    alert("✅ Conta criada! Verifique seu e-mail para ativar.");
                     trocar('login');
                 } else {
-                    alert(data.error || "Erro ao registrar");
+                    alert(data.error || "Erro ao registrar.");
                 }
             } catch (err) {
                 alert("Erro de conexão.");
@@ -195,7 +217,7 @@
             if (!email) return alert("Informe seu e-mail.");
 
             btn.disabled = true;
-            btn.innerText = "Enviando...";
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Enviando...';
 
             try {
                 const res = await fetch('/api/forgot-password', {
@@ -203,13 +225,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-                const data = await res.json();
-
                 if (res.ok) {
-                    alert("Se o e-mail existir, você receberá as instruções em breve.");
+                    alert("📧 Se o e-mail estiver cadastrado, você receberá o link em instantes.");
                     trocar('login');
                 } else {
-                    alert(data.error || "Erro ao solicitar");
+                    const data = await res.json();
+                    alert(data.error || "Erro ao solicitar.");
                 }
             } catch (err) {
                 alert("Erro de conexão.");

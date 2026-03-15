@@ -3,159 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Gateway DATASUS</title>
+    <title>Dashboard | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Grid de Cards */
-        .grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-            gap: 25px; 
-            padding: 20px; 
-        }
-        
+        /* Estilização da Scrollbar para o Modal */
+        #file-list::-webkit-scrollbar { width: 6px; }
+        #file-list::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.5); }
+        #file-list::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+
         .card { 
-            background: rgba(30, 41, 59, 0.7); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            padding: 30px; 
-            border-radius: 20px; 
-            text-align: center; 
-            cursor: pointer; 
-            transition: 0.3s; 
-            backdrop-filter: blur(10px);
+            background: rgba(30, 41, 59, 0.6); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
         }
         
         .card:hover { 
             border-color: #3b82f6; 
-            transform: translateY(-5px); 
-            background: rgba(30, 41, 59, 0.9);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transform: translateY(-8px); 
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4);
         }
 
         #modal { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(0,0,0,0.85); 
             display: none; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 9999; 
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.2s ease-out;
         }
 
-        #file-list::-webkit-scrollbar { width: 8px; }
-        #file-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        #file-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-
-        .glass-card { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 20px;
-            background: rgba(15, 23, 42, 0.5);
-            margin-bottom: 8px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.03);
         }
-
-        .btn-download {
-            background: #3b82f6;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 0.8rem;
-            transition: 0.2s;
+        .file-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
         }
-
-        .btn-download:hover { background: #2563eb; }
     </style>
     <script>
-        // SEGURANÇA CORRIGIDA: Verifica se o usuário está realmente logado
-        // Adicionada uma verificação de segurança no topo para evitar o loop
-        const token = localStorage.getItem('token');
-        if (!token) {
+        // Bloqueio imediato se não houver token
+        if (!localStorage.getItem('token')) {
             window.location.href = 'index.html';
         }
     </script>
 </head>
-<body style="background: #0f172a; color: white; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif;">
+<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
 
-    <header style="padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); background: #1e293b; position: sticky; top: 0; z-index: 100;">
-        <h2 style="font-weight: 800; margin: 0; cursor: pointer;" onclick="location.reload()">GATEWAY <span style="color: #3b82f6;">SUS</span></h2>
-        
-        <div style="display: flex; align-items: center; gap: 20px;">
-            <div style="text-align: right;">
-                <span id="user-display" style="color: #f8fafc; font-weight: 600; display: block; font-size: 0.9rem;">Carregando...</span>
-                <a href="profile.html" style="color: #3b82f6; text-decoration: none; font-size: 0.75rem; font-weight: bold;">
-                    <i class="fa-solid fa-user-gear mr-1"></i> Editar Perfil
-                </a>
+    <header class="sticky top-0 z-50 bg-[#1e293b]/80 backdrop-blur-md border-b border-white/10 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h2 class="text-xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">
+                GATEWAY <span class="text-blue-500">SUS</span>
+            </h2>
+            
+            <div class="flex items-center gap-6">
+                <div class="text-right hidden sm:block">
+                    <span id="user-display" class="block text-sm font-bold text-white">Carregando...</span>
+                    <a href="profile.html" class="text-[10px] uppercase tracking-widest text-blue-400 hover:text-blue-300 font-bold transition-colors">
+                        <i class="fa-solid fa-user-gear mr-1"></i> Perfil
+                    </a>
+                </div>
+                <button onclick="logout()" class="bg-red-500/10 border border-red-500/50 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i> Sair
+                </button>
             </div>
-            <button onclick="logout()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">
-                <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair
-            </button>
         </div>
     </header>
 
-    <main style="padding: 40px; max-width: 1200px; margin: 0 auto;">
-        <div style="margin-bottom: 30px;">
-            <h3 style="margin: 0; color: #3b82f6; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px; font-weight: 700;">Bases de Dados</h3>
-            <p style="color: #94a3b8; font-size: 1.1rem; margin-top: 5px;">Selecione um repositório para listar os arquivos do Arpoador.</p>
+    <main class="max-w-7xl mx-auto p-8">
+        <div class="mb-10">
+            <h3 class="text-blue-500 uppercase text-xs font-black tracking-[0.2em] mb-2">Repositórios Oficiais</h3>
+            <h1 class="text-3xl font-bold text-white">Bases de Dados Arpoador</h1>
+            <p class="text-slate-400 mt-2">Selecione o sistema para listar arquivos via FTP em tempo real.</p>
         </div>
 
-        <div class="grid">
-            <div class="card" onclick="abrirEListar('SIA')">
-                <div style="font-size: 3rem; margin-bottom: 10px;">📊</div>
-                <h3 style="font-weight: bold;">SIA</h3>
-                <p style="color:#64748b; font-size:0.85rem;">Sistema de Informações Ambulatoriais</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIA')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📊</div>
+                <h3 class="text-lg font-bold text-white">SIA</h3>
+                <p class="text-sm text-slate-500 mt-1">Sist. Inf. Ambulatoriais</p>
             </div>
-            <div class="card" onclick="abrirEListar('BPA')">
-                <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
-                <h3 style="font-weight: bold;">BPA</h3>
-                <p style="color:#64748b; font-size:0.85rem;">Boletim de Produção Ambulatorial</p>
+
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('BPA')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📦</div>
+                <h3 class="text-lg font-bold text-white">BPA</h3>
+                <p class="text-sm text-slate-500 mt-1">Bol. Produção Ambulatorial</p>
             </div>
-            <div class="card" onclick="abrirEListar('RAAS')">
-                <div style="font-size: 3rem; margin-bottom: 10px;">📋</div>
-                <h3 style="font-weight: bold;">RAAS</h3>
-                <p style="color:#64748b; font-size:0.85rem;">Registro de Ações Ambulatoriais</p>
+
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('RAAS')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">📋</div>
+                <h3 class="text-lg font-bold text-white">RAAS</h3>
+                <p class="text-sm text-slate-500 mt-1">Reg. Ações Ambulatoriais</p>
             </div>
-            <div class="card" onclick="abrirEListar('FPO')">
-                <div style="font-size: 3rem; margin-bottom: 10px;">💰</div>
-                <h3 style="font-weight: bold;">FPO</h3>
-                <p style="color:#64748b; font-size:0.85rem;">Programação Físico-Orçamentária</p>
+
+            <div class="card p-8 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('FPO')">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">💰</div>
+                <h3 class="text-lg font-bold text-white">FPO</h3>
+                <p class="text-sm text-slate-500 mt-1">Prog. Físico-Orçamentária</p>
             </div>
         </div>
     </main>
 
-    <div id="modal" onclick="fecharModalFora(event)">
-        <div class="glass-card" style="width: 95%; max-width: 700px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; overflow: hidden;" onclick="event.stopPropagation()">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 25px; background: rgba(15, 23, 42, 0.5); border-bottom: 1px solid #334155;">
+    <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80" onclick="fecharModalFora(event)">
+        <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5">
                 <div>
-                    <h3 id="modal-title" style="margin: 0; color: white; font-size: 1.2rem;">Arquivos</h3>
-                    <small id="modal-subtitle" style="color: #94a3b8;">Conectando...</small>
+                    <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
+                    <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando...</span>
                 </div>
-                <button onclick="fecharModal()" style="color: white; font-size: 1.5rem;">&times;</button>
+                <button onclick="fecharModal()" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
             </div>
-            <div id="file-list" style="max-height: 500px; overflow-y: auto; padding: 20px;"></div>
+
+            <div id="file-list" class="max-height-[60vh] overflow-y-auto p-4 min-h-[300px]">
+                </div>
         </div>
     </div>
 
     <script>
-        // Inicialização
+        // Carrega dados do usuário
         document.addEventListener('DOMContentLoaded', () => {
-            const nomeUsuario = localStorage.getItem('usuario');
-            if (nomeUsuario) {
-                document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
+            const nome = localStorage.getItem('usuario');
+            if (nome) {
+                document.getElementById('user-display').innerText = `Olá, ${nome}`;
             }
         });
 
@@ -165,50 +141,92 @@
             const subtitle = document.getElementById('modal-subtitle');
             
             modal.style.display = 'flex';
-            document.getElementById('modal-title').innerText = `Arquivos ${sistema}`;
-            subtitle.innerText = "Acessando DATASUS...";
-            fileList.innerHTML = `<div class="text-center py-10"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500"></i></div>`;
+            document.body.style.overflow = 'hidden'; // Trava scroll da página
+            document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
+            subtitle.innerText = "Consultando Arpoador...";
+            
+            fileList.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20 text-blue-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i>
+                    <p class="text-slate-400 text-sm animate-pulse">Estabelecendo conexão FTP...</p>
+                </div>`;
 
             try {
                 const res = await fetch(`/api/list/${sistema}`);
-                if (!res.ok) throw new Error();
+                if (!res.ok) throw new Error('Falha na resposta do servidor');
                 
                 const arquivos = await res.json();
                 fileList.innerHTML = '';
 
                 if (arquivos.length === 0) {
-                    fileList.innerHTML = '<p class="text-center text-gray-400">Nenhum arquivo encontrado.</p>';
+                    fileList.innerHTML = `
+                        <div class="text-center py-20">
+                            <i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i>
+                            <p class="text-slate-500">Nenhum arquivo encontrado nesta pasta.</p>
+                        </div>`;
+                    subtitle.innerText = "Pasta Vazia";
                     return;
                 }
 
-                subtitle.innerText = `${arquivos.length} arquivos disponíveis.`;
+                subtitle.innerText = `${arquivos.length} arquivos localizados`;
+                
                 arquivos.forEach(file => {
-                    const div = document.createElement('div');
-                    div.className = 'file-item';
-                    div.innerHTML = `
-                        <div>
-                            <p class="font-bold text-sm">${file.name}</p>
-                            <small class="text-gray-500">${file.size}</small>
+                    const item = document.createElement('div');
+                    item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 group';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <i class="fa-solid fa-file-arrow-down text-slate-500 group-hover:text-blue-500 transition-colors"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-200">${file.name}</p>
+                                <p class="text-[10px] text-slate-500 font-mono">${file.size}</p>
+                            </div>
                         </div>
-                        <button class="btn-download" onclick="baixar('${sistema}', '${file.name}')">Baixar</button>
+                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg transition-all active:scale-95" 
+                                onclick="baixar('${sistema}', '${file.name}', this)">
+                            <i class="fa-solid fa-download mr-1"></i> Baixar
+                        </button>
                     `;
-                    fileList.appendChild(div);
+                    fileList.appendChild(item);
                 });
             } catch (err) {
-                fileList.innerHTML = '<p class="text-center text-red-500">Erro ao listar arquivos. Verifique a conexão FTP.</p>';
+                fileList.innerHTML = `
+                    <div class="text-center py-20 text-red-400">
+                        <i class="fa-solid fa-triangle-exclamation text-4xl mb-4"></i>
+                        <p class="font-bold">Erro de Conexão</p>
+                        <p class="text-xs opacity-70">O servidor FTP do DATASUS pode estar instável.</p>
+                    </div>`;
+                subtitle.innerText = "Erro no FTP";
             }
         }
 
-        function baixar(sistema, arquivo) {
+        function baixar(sistema, arquivo, btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+
+            // Inicia o download
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
+
+            // Restaura o botão após 3 segundos (tempo estimado para o browser capturar o stream)
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+            }, 3000);
         }
 
-        function fecharModal() { document.getElementById('modal').style.display = 'none'; }
-        function fecharModalFora(e) { if (e.target.id === 'modal') fecharModal(); }
+        function fecharModal() { 
+            document.getElementById('modal').style.display = 'none'; 
+            document.body.style.overflow = 'auto';
+        }
+
+        function fecharModalFora(e) { 
+            if (e.target.id === 'modal') fecharModal(); 
+        }
 
         function logout() {
             localStorage.clear();
-            sessionStorage.clear();
             window.location.href = 'index.html';
         }
     </script>
