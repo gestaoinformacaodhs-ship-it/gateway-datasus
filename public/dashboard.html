@@ -45,6 +45,12 @@
 
         .file-item { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.03); }
         .file-item:hover { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+        
+        /* Estilo para o input de busca */
+        .search-container input:focus {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+        }
     </style>
     <script>
         if (!localStorage.getItem('email')) {
@@ -122,14 +128,28 @@
 
     <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80" onclick="fecharModalFora(event)">
         <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5 shrink-0">
-                <div>
-                    <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
-                    <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando via Gateway...</span>
+            <div class="p-6 bg-slate-900/50 border-b border-white/5 shrink-0">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
+                        <span id="modal-subtitle" class="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 block">Acessando via Gateway...</span>
+                    </div>
+                    <button onclick="fecharModal()" class="text-slate-400 hover:text-white transition-colors">
+                        <i class="fa-solid fa-xmark text-2xl"></i>
+                    </button>
                 </div>
-                <button onclick="fecharModal()" class="text-slate-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-2xl"></i>
-                </button>
+                <div class="relative search-container">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </span>
+                    <input 
+                        type="text" 
+                        id="modalSearch" 
+                        placeholder="Pesquisar por nome do arquivo ou competência..." 
+                        class="w-full bg-slate-950/50 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none transition-all"
+                        onkeyup="filtrarArquivosModal()"
+                    >
+                </div>
             </div>
             <div id="file-list" class="overflow-y-auto p-4 flex-1 bg-slate-800/20"></div>
         </div>
@@ -173,12 +193,17 @@
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
         const emailUsuario = localStorage.getItem('email'); 
         const footerOriginal = document.getElementById('chat-footer').innerHTML;
+        
+        // Variáveis para controle de busca
+        let arquivosCache = []; 
+        let sistemaAtual = '';
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
         });
 
+        // --- LÓGICA DO CHAT ---
         socket.on('receber_mensagem', (data) => {
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
@@ -209,15 +234,17 @@
             const box = document.getElementById('chat-messages');
             box.innerHTML = '';
             document.getElementById('chat-footer').innerHTML = footerOriginal;
-            setTimeout(() => {
-                const novoInput = document.getElementById('chat-input');
-                if(novoInput) {
-                    novoInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') enviarMensagem();
-                    });
-                }
-            }, 100);
+            setTimeout(adicionarEventosChat, 100);
         });
+
+        function adicionarEventosChat() {
+            const novoInput = document.getElementById('chat-input');
+            if(novoInput) {
+                novoInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') enviarMensagem();
+                });
+            }
+        }
 
         function toggleChat() {
             const win = document.getElementById('chat-window');
@@ -273,30 +300,59 @@
             box.scrollTop = box.scrollHeight;
         }
 
+        // --- LÓGICA DE FTP E LISTAGEM ---
         async function abrirEListar(sistema) {
+            sistemaAtual = sistema;
             const modal = document.getElementById('modal');
             const fileList = document.getElementById('file-list');
+            const searchInput = document.getElementById('modalSearch');
+            
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; 
+            searchInput.value = ""; 
+            
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
             fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse">Estabelecendo Conexão...</p></div>`;
+            
             try {
                 const res = await fetch(`/api/list/${sistema}`);
-                const arquivos = await res.json();
-                fileList.innerHTML = '';
-                if (!arquivos || arquivos.length === 0) {
-                    fileList.innerHTML = `<p class="text-center py-20 text-slate-500">Nenhum arquivo encontrado.</p>`;
-                    return;
-                }
-                arquivos.forEach(file => {
-                    const item = document.createElement('div');
-                    item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40';
-                    item.innerHTML = `<div><p class="text-sm font-semibold text-white">${file.name}</p><p class="text-[10px] text-slate-500">${file.size}</p></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" onclick="baixar('${sistema}', '${file.name}', this)">Baixar</button>`;
-                    fileList.appendChild(item);
-                });
+                arquivosCache = await res.json();
+                renderizarArquivos(arquivosCache);
             } catch (err) {
                 fileList.innerHTML = `<p class="text-center py-20 text-red-400">Falha ao acessar repositório remoto.</p>`;
             }
+        }
+
+        function renderizarArquivos(lista) {
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            
+            if (!lista || lista.length === 0) {
+                fileList.innerHTML = `<p class="text-center py-20 text-slate-500">Nenhum arquivo encontrado.</p>`;
+                return;
+            }
+
+            lista.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40';
+                item.innerHTML = `
+                    <div>
+                        <p class="text-sm font-semibold text-white">${file.name}</p>
+                        <p class="text-[10px] text-slate-500">${file.size}</p>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" 
+                        onclick="baixar('${sistemaAtual}', '${file.name}', this)">
+                        Baixar
+                    </button>`;
+                fileList.appendChild(item);
+            });
+        }
+
+        // FUNÇÃO DA LUPA: Filtra os arquivos no modal
+        function filtrarArquivosModal() {
+            const termo = document.getElementById('modalSearch').value.toLowerCase();
+            const filtrados = arquivosCache.filter(f => f.name.toLowerCase().includes(termo));
+            renderizarArquivos(filtrados);
         }
 
         function baixar(sistema, arquivo, btn) {
@@ -321,6 +377,7 @@
             window.location.href = 'index.html';
         }
 
+        // Eventos de teclado
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') enviarMensagem();
         });
