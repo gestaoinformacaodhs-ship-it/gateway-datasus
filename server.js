@@ -160,7 +160,7 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// NOVO: Rota para Esqueci a Senha
+// Rota para Solicitar Recuperação de Senha
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
@@ -182,12 +182,43 @@ app.post('/api/forgot-password', async (req, res) => {
                 `Olá ${result.rows[0].nome},<br><br>Clique no link abaixo para redefinir sua senha:<br><a href="${link}">${link}</a><br><br>Este link expira em 1 hora.`
             );
         }
-        
-        // Sempre retornamos sucesso por segurança (evitar enumeração de e-mails)
         res.json({ message: "Se o e-mail existir, as instruções foram enviadas." });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Erro ao processar solicitação." });
+    }
+});
+
+// NOVA ROTA: Gravar a Nova Senha (O que estava faltando!)
+app.post('/api/reset-password', async (req, res) => {
+    const { token, novaSenha } = req.body;
+    if (!token || !novaSenha) return res.status(400).json({ error: "Dados incompletos." });
+
+    try {
+        // Verifica token e validade
+        const result = await pool.query(
+            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()",
+            [token]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: "Token inválido ou expirado." });
+        }
+
+        // Criptografia
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(novaSenha, salt);
+
+        // Atualiza e limpa campos de reset
+        await pool.query(
+            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE reset_token = $2",
+            [hash, token]
+        );
+
+        res.json({ message: "Senha atualizada com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao resetar senha:", err);
+        res.status(500).json({ error: "Erro interno no servidor." });
     }
 });
 
