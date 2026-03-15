@@ -71,7 +71,7 @@
         }
     </script>
 </head>
-<body class="text-slate-200 min-h-screen font-sans">
+<body class="text-slate-200 min-h-screen font-sans flex flex-col">
 
     <header class="sticky top-0 z-40 bg-[#1e293b]/60 backdrop-blur-md border-b border-white/10 px-6 py-4">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
@@ -93,7 +93,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-8">
+    <main class="max-w-7xl mx-auto p-8 flex-1">
         <div class="mb-10">
             <h3 class="text-blue-500 uppercase text-xs font-black tracking-[0.2em] mb-2">Repositórios Oficiais</h3>
             <h1 class="text-3xl font-bold text-white">Bases de Dados Arpoador</h1>
@@ -127,6 +127,12 @@
         </div>
     </main>
 
+    <footer class="p-6 text-center">
+        <button onclick="window.location.href='admin.html'" class="text-slate-800/10 hover:text-blue-500/20 transition-all duration-700">
+            <i class="fa-solid fa-shield-halved text-xs"></i>
+        </button>
+    </footer>
+
     <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80" onclick="fecharModalFora(event)">
         <div class="bg-[#1e293b] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/5 shrink-0">
@@ -155,8 +161,7 @@
             </div>
             <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-minus"></i></button>
         </div>
-        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs text-slate-200 flex flex-col">
-            </div>
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs text-slate-200 flex flex-col"></div>
         
         <div class="p-3 bg-slate-900/50 border-t border-white/5 flex gap-2 items-center">
             <label for="chat-file" class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors px-1">
@@ -184,7 +189,16 @@
             if (display) display.innerText = `Olá, ${nomeUsuario}`;
         });
 
-        // --- LÓGICA DO CHAT ---
+        // --- HISTÓRICO PERSISTENTE ---
+        socket.on('historico_mensagens', (mensagens) => {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML = ''; 
+            mensagens.forEach(msg => {
+                const souEu = msg.usuario === nomeUsuario;
+                adicionarMensagemNaTela(msg.usuario, msg.texto, souEu);
+            });
+        });
+
         socket.on('receber_mensagem', (data) => {
             const win = document.getElementById('chat-window');
             const badge = document.getElementById('chat-badge');
@@ -192,9 +206,8 @@
             
             adicionarMensagemNaTela(data.usuario, data.texto, souEu);
 
-            // Som e Notificação se não for minha mensagem
             if (!souEu) {
-                somNotificacao.play().catch(e => console.log("Áudio aguardando interação."));
+                somNotificacao.play().catch(e => {});
                 if (win.style.display !== 'flex') {
                     badge.classList.remove('hidden');
                 }
@@ -224,19 +237,16 @@
             const fileInput = document.getElementById('chat-file');
             const file = fileInput.files[0];
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) {
-                alert("O arquivo é muito grande! Máximo 2MB.");
-                return;
-            }
+            if (file.size > 2 * 1024 * 1024) { alert("Máximo 2MB!"); return; }
             const reader = new FileReader();
             reader.onload = function(e) {
-                let conteudoHTML = file.type.startsWith('image/') ? 
+                let html = file.type.startsWith('image/') ? 
                     `<img src="${e.target.result}" class="chat-img" onclick="window.open(this.src)" />` : 
                     `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline flex items-center gap-2 mt-1 italic"><i class="fa-solid fa-file-arrow-down"></i> ${file.name}</a>`;
-                socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: conteudoHTML });
+                socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: html });
             };
             reader.readAsDataURL(file);
-            fileInput.value = ""; 
+            fileInput.value = "";
         }
 
         function adicionarMensagemNaTela(autor, texto, souEu) {
@@ -253,7 +263,7 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- LÓGICA DO DASHBOARD / FTP ---
+        // --- LÓGICA FTP ---
         async function abrirEListar(sistema) {
             const modal = document.getElementById('modal');
             const fileList = document.getElementById('file-list');
@@ -262,35 +272,31 @@
             document.body.style.overflow = 'hidden'; 
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
             subtitle.innerText = "Consultando Arpoador...";
-            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse font-bold">Estabelecendo conexão FTP...</p></div>`;
+            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-500"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-400 text-sm animate-pulse font-bold">Conectando FTP...</p></div>`;
             try {
                 const res = await fetch(`/api/list/${sistema}`);
                 const arquivos = await res.json();
                 fileList.innerHTML = '';
                 if (!arquivos || arquivos.length === 0) {
-                    fileList.innerHTML = `<div class="text-center py-20"><i class="fa-solid fa-folder-open text-slate-700 text-5xl mb-4"></i><p class="text-slate-500">Nenhum arquivo encontrado.</p></div>`;
-                    subtitle.innerText = "Pasta Vazia";
+                    fileList.innerHTML = `<div class="text-center py-20"><p class="text-slate-500">Pasta vazia.</p></div>`;
                     return;
                 }
                 subtitle.innerText = `${arquivos.length} arquivos localizados`;
                 arquivos.forEach(file => {
                     const item = document.createElement('div');
                     item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 group';
-                    item.innerHTML = `<div class="flex items-center gap-4"><i class="fa-solid fa-file-code text-slate-500 group-hover:text-blue-500 transition-colors"></i><div><p class="text-sm font-semibold text-slate-200">${file.name}</p><p class="text-[10px] text-slate-500 font-mono">${file.size}</p></div></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg transition-all active:scale-95" onclick="baixar('${sistema}', '${file.name}', this)"><i class="fa-solid fa-download mr-1"></i> Baixar</button>`;
+                    item.innerHTML = `<div class="flex items-center gap-4"><i class="fa-solid fa-file-code text-slate-500 group-hover:text-blue-500 transition-colors"></i><div><p class="text-sm font-semibold text-slate-200">${file.name}</p><p class="text-[10px] text-slate-500">${file.size}</p></div></div><button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase px-4 py-2 rounded-lg" onclick="baixar('${sistema}', '${file.name}', this)">Baixar</button>`;
                     fileList.appendChild(item);
                 });
             } catch (err) {
-                fileList.innerHTML = `<div class="text-center py-20 text-red-400 font-bold">Erro ao conectar ao FTP.</div>`;
-                subtitle.innerText = "Erro no FTP";
+                fileList.innerHTML = `<div class="text-center py-20 text-red-400">Erro FTP.</div>`;
             }
         }
 
         function baixar(sistema, arquivo, btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.disabled = true;
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
+            setTimeout(() => { btn.disabled = false; }, 3000);
         }
 
         function fecharModal() { 

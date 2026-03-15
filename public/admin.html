@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Suporte | Gateway DATASUS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 border-b border-white/10 p-4 shadow-xl">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-black text-white italic">CONSOLE <span class="text-blue-500">SUPORTE</span></h1>
+            <div class="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-green-400">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                Sistema Online
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto p-6 flex flex-col overflow-hidden">
+        <div class="bg-slate-900 border border-white/5 rounded-2xl flex-1 flex flex-col shadow-2xl relative overflow-hidden">
+            
+            <div id="admin-chat" class="flex-1 p-6 overflow-y-auto space-y-4 chat-container">
+                <div class="text-center text-slate-500 text-sm italic">Carregando histórico do servidor...</div>
+            </div>
+
+            <div class="p-4 bg-slate-800/50 border-t border-white/10 flex gap-4 items-center">
+                <input type="text" id="admin-input" 
+                       class="flex-1 bg-slate-950 border border-slate-700 p-4 rounded-xl text-white focus:outline-none focus:border-blue-500 transition-all" 
+                       placeholder="Digite sua resposta como Suporte...">
+                
+                <button onclick="enviarResposta()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2">
+                    ENVIAR <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // TRAVA DE SEGURANÇA (COLE SEMPRE NO TOPO)
+        // ==========================================
+        const SENHA_MESTRA = "2024"; // Altere para a senha que desejar
+        const acesso = prompt("Acesso Restrito. Digite a senha de Administrador:");
+
+        if (acesso !== SENHA_MESTRA) {
+            alert("Senha incorreta. Acesso negado.");
+            window.location.href = "index.html"; // Redireciona para o login
+        }
+        // ==========================================
+
+        const socket = io();
+        const nomeAdmin = "Suporte Arpoador"; 
+
+        socket.on('historico_mensagens', (mensagens) => {
+            const container = document.getElementById('admin-chat');
+            container.innerHTML = '';
+            mensagens.forEach(msg => adicionarNaTela(msg.usuario, msg.texto));
+        });
+
+        socket.on('receber_mensagem', (data) => {
+            adicionarNaTela(data.usuario, data.texto);
+            if(data.usuario !== nomeAdmin) {
+                new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play();
+            }
+        });
+
+        function enviarResposta() {
+            const input = document.getElementById('admin-input');
+            const mensagem = input.value.trim();
+            if (!mensagem) return;
+
+            socket.emit('enviar_mensagem', {
+                nome: nomeAdmin,
+                mensagem: mensagem
+            });
+            input.value = "";
+        }
+
+        function adicionarNaTela(autor, texto) {
+            const container = document.getElementById('admin-chat');
+            const div = document.createElement('div');
+            const isSuporte = (autor === nomeAdmin);
+
+            div.className = `flex flex-col ${isSuporte ? 'items-end' : 'items-start'}`;
+            div.innerHTML = `
+                <span class="text-[10px] font-black mb-1 uppercase ${isSuporte ? 'text-blue-400' : 'text-slate-500'}">
+                    ${autor}
+                </span>
+                <div class="max-w-[80%] p-3 rounded-2xl text-sm ${isSuporte ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-white/5'}">
+                    ${texto}
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        document.getElementById('admin-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') enviarResposta();
+        });
+    </script>
+</body>
+</html>
