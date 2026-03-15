@@ -160,14 +160,13 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// Rota para Solicitar Recuperação de Senha
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
 
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora de validade
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
 
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
@@ -189,40 +188,39 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Gravar a Nova Senha (O que estava faltando!)
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     if (!token || !novaSenha) return res.status(400).json({ error: "Dados incompletos." });
 
     try {
-        // Verifica token e validade
         const result = await pool.query(
-            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()",
+            "SELECT id, reset_expiracao FROM usuarios WHERE reset_token = $1",
             [token]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Token inválido ou expirado." });
-        }
+        if (result.rows.length === 0) return res.status(400).json({ error: "Token inválido." });
 
-        // Criptografia
+        const agora = new Date();
+        const expiracao = new Date(result.rows[0].reset_expiracao);
+
+        if (agora > expiracao) return res.status(400).json({ error: "O link de recuperação expirou." });
+
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(novaSenha, salt);
 
-        // Atualiza e limpa campos de reset
         await pool.query(
-            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE reset_token = $2",
-            [hash, token]
+            "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2",
+            [hash, result.rows[0].id]
         );
 
         res.json({ message: "Senha atualizada com sucesso!" });
     } catch (err) {
-        console.error("Erro ao resetar senha:", err);
+        console.error("Erro no reset-password:", err);
         res.status(500).json({ error: "Erro interno no servidor." });
     }
 });
 
-// --- LÓGICA FTP COM CACHE ---
+// --- LÓGICA FTP ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO', 'CNES': '/cnes',
@@ -240,9 +238,10 @@ function getFtpHost(sistema) {
 
 app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
-    if (!pastasFTP[sistema]) return res.status(400).json({ error: "Inválido." });
+    if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
 
     const agora = Date.now();
+    // Cache de 5 minutos
     if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
         return res.json(cacheFTP[sistema].data);
     }
@@ -252,15 +251,22 @@ app.get('/api/list/:sistema', async (req, res) => {
         await client.access({ host: getFtpHost(sistema), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        const data = list.filter(f => f.isFile).map(f => ({ 
-            name: f.name, 
-            size: (f.size / 1024 / 1024).toFixed(2) + " MB" 
-        })).reverse();
+        
+        // FILTRAGEM, MAPEAMENTO E ORDENAÇÃO POR DATA (MAIS RECENTE PRIMEIRO)
+        const data = list
+            .filter(f => f.isFile)
+            .map(f => ({ 
+                name: f.name, 
+                size: (f.size / 1024 / 1024).toFixed(2) + " MB",
+                rawDate: f.modifiedAt // Enviamos a data para o app.js formatar e exibir
+            }))
+            .sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate)); 
         
         cacheFTP[sistema] = { time: agora, data: data }; 
         res.json(data);
     } catch (e) { 
-        res.status(500).json({ error: "FTP DATASUS instável." }); 
+        console.error("Erro FTP:", e.message);
+        res.status(500).json({ error: "FTP DATASUS instável no momento." }); 
     } finally { client.close(); }
 });
 
@@ -278,7 +284,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         await client.downloadTo(tunnel, decodeURIComponent(arquivo));
-    } catch (e) { if (!res.headersSent) res.status(500).send("Erro download."); } 
+    } catch (e) { if (!res.headersSent) res.status(500).send("Erro no download."); } 
     finally { client.close(); }
 });
 

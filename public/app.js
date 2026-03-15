@@ -34,13 +34,19 @@ function toggleChat() {
 
 // --- AUTENTICAÇÃO: LOGIN ---
 async function entrar() {
-    const email = document.getElementById('l-email')?.value.trim();
-    const senha = document.getElementById('l-pass')?.value;
+    const emailInput = document.getElementById('l-email');
+    const senhaInput = document.getElementById('l-pass');
     const btn = document.getElementById('btn-entrar');
+
+    const email = emailInput?.value.trim();
+    const senha = senhaInput?.value;
 
     if (!email || !senha) return alert("Por favor, preencha todos os campos.");
 
-    if (btn) btn.disabled = true;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Acessando...";
+    }
 
     try {
         const res = await fetch('/api/login', {
@@ -53,7 +59,7 @@ async function entrar() {
 
         if (res.ok) {
             localStorage.setItem('usuario', data.user);
-            localStorage.setItem('email', email); // Importante para o Socket.io
+            localStorage.setItem('email', data.email); 
             window.location.href = 'dashboard.html';
         } else {
             alert(data.error || "E-mail ou senha incorretos.");
@@ -62,7 +68,10 @@ async function entrar() {
         console.error("Erro no login:", err);
         alert("Erro de conexão com o servidor.");
     } finally {
-        if (btn) btn.disabled = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Entrar no Sistema";
+        }
     }
 }
 
@@ -105,7 +114,38 @@ async function registar() {
     }
 }
 
-// --- DASHBOARD: LISTAR ARQUIVOS FTP (ATUALIZADO COM CACHE) ---
+// --- AUTENTICAÇÃO: RECUPERAÇÃO DE SENHA ---
+async function esqueciSenha() {
+    const email = document.getElementById('f-email')?.value.trim();
+    const btn = document.getElementById('btn-forgot');
+
+    if (!email) return alert("Digite seu e-mail.");
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Enviando...";
+    }
+
+    try {
+        const res = await fetch('/api/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+        if (res.ok) trocar('login');
+    } catch (err) {
+        alert("Erro ao solicitar recuperação.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Recuperar Senha";
+        }
+    }
+}
+
+// --- DASHBOARD: LISTAR ARQUIVOS FTP ---
 async function abrirEListar(sistema) {
     sistemaAtivo = sistema;
     const modal = document.getElementById('modal');
@@ -115,13 +155,14 @@ async function abrirEListar(sistema) {
     
     if (modal) modal.style.display = 'flex';
     if (modalTitle) modalTitle.innerText = `Repositório: ${sistema}`;
-    if (inputBusca) inputBusca.value = ""; // Limpa a busca ao abrir novo sistema
+    if (inputBusca) inputBusca.value = ""; 
     
     if (listContainer) {
         listContainer.innerHTML = `
             <div style="text-align:center; padding:40px;">
+                <div class="spinner" style="margin: 0 auto 10px auto;"></div>
                 <p style="color:#3b82f6; font-weight:bold;">Conectando ao DATASUS...</p>
-                <small style="color:#64748b;">Isso pode levar alguns segundos</small>
+                <small style="color:#64748b;">Buscando as remessas mais recentes...</small>
             </div>
         `;
     }
@@ -132,9 +173,8 @@ async function abrirEListar(sistema) {
 
         if (!res.ok) throw new Error(files.error);
 
-        // SALVA NO CACHE PARA A LUPA USAR
+        // O backend já envia ordenado, mas garantimos aqui a integridade do cache
         arquivosCache = files || []; 
-        
         renderizarLista(arquivosCache);
     } catch (err) {
         if (listContainer) {
@@ -143,7 +183,6 @@ async function abrirEListar(sistema) {
     }
 }
 
-// --- NOVA FUNÇÃO: RENDERIZAR LISTA (FILTRÁVEL) ---
 function renderizarLista(lista) {
     const listContainer = document.getElementById('file-list');
     if (!listContainer) return;
@@ -153,30 +192,30 @@ function renderizarLista(lista) {
         return;
     }
 
-    listContainer.innerHTML = lista.map(f => `
-        <div class="file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 border border-white/5 hover:border-blue-500/30 transition-all">
-            <div style="text-align:left;">
-                <span class="text-white text-sm font-medium block">${f.name}</span>
-                <small class="text-slate-500 text-[10px]">${f.size}</small>
+    listContainer.innerHTML = lista.map(f => {
+        // Formata a data vinda do servidor para o padrão brasileiro
+        const dataFormatada = f.rawDate ? new Date(f.rawDate).toLocaleDateString('pt-BR') : 'Data n/d';
+
+        return `
+            <div class="file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 border border-white/5 hover:border-blue-500/30 transition-all">
+                <div style="text-align:left;">
+                    <span class="text-white text-sm font-medium block">${f.name}</span>
+                    <small class="text-slate-500 text-[10px]">📅 ${dataFormatada} | 📦 ${f.size}</small>
+                </div>
+                <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
+                        class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all">
+                    Baixar
+                </button>
             </div>
-            <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
-                    class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all">
-                Baixar
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
-// --- NOVA FUNÇÃO: FILTRAR ARQUIVOS (A LUPA) ---
 function filtrarArquivosModal() {
     const termo = document.getElementById('modalSearch')?.value.toLowerCase();
-    
-    // Filtra o que está guardado no arquivosCache
     const filtrados = arquivosCache.filter(arquivo => 
         arquivo.name.toLowerCase().includes(termo)
     );
-    
-    // Redesenha a lista apenas com os filtrados
     renderizarLista(filtrados);
 }
 
@@ -185,15 +224,21 @@ function baixarDireto(sistema, arquivo, btn) {
     const url = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
     const originalText = btn.innerText;
     
-    btn.innerText = "Baixando...";
+    btn.innerText = "Aguarde...";
     btn.disabled = true;
 
-    window.location.href = url;
+    // Criar link temporário
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = arquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     setTimeout(() => {
         btn.innerText = originalText;
         btn.disabled = false;
-    }, 3000);
+    }, 2000);
 }
 
 function fecharModal() {
@@ -212,15 +257,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Proteção de rota
-    if (window.location.pathname.includes('dashboard.html') && !usuarioLogado) {
+    const isDashboard = window.location.pathname.includes('dashboard.html');
+    if (isDashboard && !usuarioLogado) {
         window.location.href = 'index.html'; 
     }
 
-    // Listener para o Enter no chat (se existir o input na página atual)
+    // Listener para busca automática
+    const inputBusca = document.getElementById('modalSearch');
+    if (inputBusca) {
+        inputBusca.addEventListener('input', filtrarArquivosModal);
+    }
+
+    // Listener para o Enter no chat
     const chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') typeof enviarMensagem === 'function' && enviarMensagem();
+            if (e.key === 'Enter') {
+                const func = window.enviarMensagem;
+                if (typeof func === 'function') func();
+            }
         });
     }
 });
