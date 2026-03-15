@@ -16,7 +16,7 @@ const server = http.createServer(app);
 // --- ATIVAÇÃO DA COMPRESSÃO ---
 app.use(compression()); 
 
-// --- CONFIGURAÇÃO SOCKET.IO PARA PRODUÇÃO ---
+// --- CONFIGURAÇÃO SOCKET.IO ---
 const io = new Server(server, {
     cors: {
         origin: ["https://gateway-datasus.onrender.com", "http://localhost:3000"],
@@ -92,7 +92,7 @@ io.on('connection', (socket) => {
                 [salaId]
             );
             socket.emit('historico_mensagens', historico.rows);
-        } catch (err) { console.error("Erro histórico:", err.message); }
+        } catch (err) { console.error("Erro histórico chat:", err.message); }
     });
 
     socket.on('enviar_mensagem', async (data) => {
@@ -108,7 +108,7 @@ io.on('connection', (socket) => {
             };
             io.to(salaId).emit('receber_mensagem', msgData);
             if (nome !== "Suporte Arpoador") io.to('admin_room').emit('receber_mensagem', msgData);
-        } catch (err) { console.error("Erro mensagem:", err.message); }
+        } catch (err) { console.error("Erro ao enviar mensagem:", err.message); }
     });
 });
 
@@ -125,7 +125,7 @@ async function enviarEmail(emailDestino, assunto, html) {
     } catch (e) { console.error("Erro e-mail:", e.message); }
 }
 
-// --- ROTAS DE AUTENTICAÇÃO E PERFIL ---
+// --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
@@ -154,7 +154,6 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-// --- ROTA DE ATUALIZAÇÃO DE PERFIL ---
 app.post('/api/update-profile', async (req, res) => {
     const { email, nome, novaSenha } = req.body;
     try {
@@ -175,8 +174,8 @@ app.post('/api/update-profile', async (req, res) => {
         }
         res.json({ message: "Perfil atualizado com sucesso!", novoNome: nome });
     } catch (err) { 
-        console.error("❌ Erro ao atualizar perfil no DB:", err);
-        res.status(500).json({ error: "Erro ao atualizar dados no banco de dados." }); 
+        console.error("❌ Erro ao atualizar perfil:", err);
+        res.status(500).json({ error: "Erro ao atualizar dados no banco." }); 
     }
 });
 
@@ -184,7 +183,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora de validade
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
@@ -194,19 +193,22 @@ app.post('/api/forgot-password', async (req, res) => {
             await enviarEmail(email, "Recuperação de Senha", `Olá ${result.rows[0].nome}, redefina sua senha aqui: <a href="${link}">${link}</a>`);
         }
         res.json({ message: "Se o e-mail existir, as instruções foram enviadas." });
-    } catch (err) { res.status(500).json({ error: "Erro ao processar." }); }
+    } catch (err) { res.status(500).json({ error: "Erro ao processar recuperação." }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
-        // Ajuste de segurança: usa o horário do banco de dados (CURRENT_TIMESTAMP) para validar expiração
+        if (!token || !novaSenha) return res.status(400).json({ error: "Dados incompletos." });
+
         const result = await pool.query(
             "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > CURRENT_TIMESTAMP", 
             [token]
         );
         
-        if (result.rows.length === 0) return res.status(400).json({ error: "Token inválido ou expirado." });
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: "Token inválido ou expirado. Tente novamente." });
+        }
         
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(novaSenha, salt);
@@ -217,12 +219,12 @@ app.post('/api/reset-password', async (req, res) => {
         );
         res.json({ message: "Senha atualizada com sucesso!" });
     } catch (err) { 
-        console.error("Erro ao redefinir senha:", err);
-        res.status(500).json({ error: "Erro ao redefinir senha." }); 
+        console.error("Erro técnico ao redefinir senha:", err);
+        res.status(500).json({ error: "Erro interno ao salvar nova senha." }); 
     }
 });
 
-// --- LÓGICA FTP ---
+// --- LÓGICA FTP DATASUS ---
 const pastasFTP = { 
     'BPA': '/siasus/BPA', 'SIA': '/siasus/SIA', 'RAAS': '/siasus/RAAS', 
     'FPO': '/siasus/FPO', 'CNES': '/cnes',
@@ -283,8 +285,8 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     finally { client.close(); }
 });
 
-// --- FINALIZAÇÃO ---
+// --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Gateway DATASUS Online na porta ${PORT}`);
+    console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
 });
