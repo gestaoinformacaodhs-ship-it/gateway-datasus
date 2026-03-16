@@ -26,6 +26,7 @@ const io = new Server(server, {
         methods: ["GET", "POST"],
         credentials: true
     },
+    maxHttpBufferSize: 1e7, // 10MB
     transports: ['websocket', 'polling']
 }); 
 
@@ -36,13 +37,13 @@ if (process.env.BREVO_API_KEY) {
     console.log("✔️ API Brevo configurada com sucesso.");
 }
 
-// --- CONFIGURAÇÃO BANCO DE DADOS ---
+// --- CONFIGURAÇÃO BANCO DE DADOS (PostgreSQL) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 15,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000 // Aumentado para tolerar latência no Render
+    connectionTimeoutMillis: 10000
 });
 
 pool.on('error', (err) => {
@@ -51,7 +52,7 @@ pool.on('error', (err) => {
 
 async function initDB() {
     try {
-        const client = await pool.connect(); // Verifica se consegue conectar
+        const client = await pool.connect();
         await client.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -85,7 +86,10 @@ initDB();
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     
-    socket.on('admin_entrar', () => socket.join('admin_room'));
+    socket.on('admin_entrar', () => {
+        socket.join('admin_room');
+        console.log("🛠️ Admin entrou no monitoramento.");
+    });
     
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
@@ -119,6 +123,7 @@ io.on('connection', (socket) => {
 
             io.to(salaId).emit('receber_mensagem', msgData);
             
+            // Notifica admin caso o usuário comum mande mensagem
             if (nome !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
@@ -128,8 +133,9 @@ io.on('connection', (socket) => {
     socket.on('encerrar_chamado', async (salaId) => {
         if (!salaId) return;
         try {
+            await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
             io.to(salaId).emit('chamado_encerrado', { salaId });
-            console.log(`📢 Chamado ${salaId} encerrado.`);
+            console.log(`🗑️ Chamado ${salaId} encerrado e banco limpo.`);
         } catch (err) {
             console.error("Erro ao encerrar chamado:", err.message);
         }
@@ -150,7 +156,6 @@ async function enviarEmail(emailDestino, assunto, html) {
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
-
 app.post('/api/register', async (req, res) => {
     const { nome, email, senha } = req.body;
     try {
@@ -234,11 +239,12 @@ app.get('/api/list/:sistema', async (req, res) => {
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
     
     const agora = Date.now();
+    // Cache de 5 minutos (300.000ms)
     if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
         return res.json(cacheFTP[sistema].data);
     }
 
-    const client = new ftp.Client(30000); // Aumentado para 30s
+    const client = new ftp.Client(30000); 
     try {
         await client.access({ host: getFtpHost(sistema), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
@@ -258,7 +264,7 @@ app.get('/api/list/:sistema', async (req, res) => {
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
-    const client = new ftp.Client(45000); // Mais tempo para o handshake do download
+    const client = new ftp.Client(60000); // Timeout maior para downloads
     try {
         await client.access({ host: getFtpHost(sistema.toUpperCase()), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema.toUpperCase()]);

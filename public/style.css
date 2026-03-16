@@ -1,3 +1,4 @@
+/* Configurações Globais e Variáveis */
 :root {
     --primary: #3b82f6;
     --primary-hover: #2563eb;
@@ -6,6 +7,8 @@
     --border: rgba(255, 255, 255, 0.1);
     --text: #f1f5f9;
     --text-dim: #94a3b8;
+    --success: #10b981;
+    --error: #ef4444;
 }
 
 * { 
@@ -20,6 +23,7 @@ body {
     color: var(--text);
     min-height: 100vh;
     line-height: 1.5;
+    overflow-x: hidden;
 }
 
 /* Utilitários */
@@ -47,6 +51,7 @@ body {
     font-size: 0.85rem;
     color: var(--text-dim);
     margin-bottom: 6px;
+    font-weight: 500;
 }
 
 input {
@@ -77,6 +82,10 @@ input:focus {
     font-weight: 600; 
     font-size: 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .btn-primary:hover { 
@@ -89,48 +98,124 @@ input:focus {
     transform: translateY(0);
 }
 
-/* Estilização específica do Modal de Arquivos */
-#file-list div:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-
 /* Chat Support Widget */
 #chat-widget { 
     position: fixed; 
     bottom: 25px; 
-    right: 25px; /* Movi para a direita, padrão de suporte */
+    right: 25px; 
     z-index: 9999; 
 }
 
 .chat-btn { 
-    width: 55px; 
-    height: 55px; 
+    width: 60px; 
+    height: 60px; 
     background: var(--primary); 
     border-radius: 50%; 
     display: flex; 
     align-items: center; 
     justify-content: center; 
     cursor: pointer; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    transition: transform 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     font-size: 1.5rem;
+    color: white;
 }
 
 .chat-btn:hover {
-    transform: rotate(15deg) scale(1.1);
+    transform: scale(1.1) rotate(5deg);
 }
 
 .chat-window { 
     position: absolute; 
-    bottom: 70px; 
+    bottom: 80px; 
     right: 0; 
-    width: 300px; 
-    height: 400px; 
-    background: #1e293b; 
+    width: 350px; 
+    height: 500px; 
+    background: #0f172a; 
     border: 1px solid var(--border); 
-    border-radius: 15px; 
-    display: none; /* Controlado via JS e classe hidden */
+    border-radius: 20px; 
+    display: none; 
     flex-direction: column; 
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+}
+
+/* Header do Chat */
+.chat-header {
+    background: var(--primary);
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+}
+
+/* Área de Mensagens */
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(15, 23, 42, 0.4);
+}
+
+/* Estilo das Bolhas de Mensagem */
+.msg {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.msg-user {
+    align-self: flex-end;
+    background: var(--primary);
+    color: white;
+    border-bottom-right-radius: 2px;
+}
+
+.msg-support {
+    align-self: flex-start;
+    background: #334155;
+    color: #f1f5f9;
+    border-bottom-left-radius: 2px;
+}
+
+/* Input de Mensagem no Chat */
+.chat-input-area {
+    padding: 15px;
+    background: #1e293b;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input-area input {
+    padding: 10px;
+    font-size: 0.85rem;
+}
+
+/* Barra de rolagem customizada para o chat */
+.chat-messages::-webkit-scrollbar {
+    width: 5px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+/* Animação de entrada */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-window.active {
+    display: flex;
+    animation: slideUp 0.3s ease-out;
 }

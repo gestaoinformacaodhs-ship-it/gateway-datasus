@@ -46,29 +46,27 @@
         .file-item { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.02); }
         .file-item:hover { background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); }
         
-        .search-container input:focus {
-            box-shadow: 0 0 15px rgba(37, 99, 235, 0.2);
-            border-color: #2563eb;
-        }
-
         .msg-bubble {
             padding: 10px 14px;
             border-radius: 10px;
             font-size: 11px;
             max-width: 95%;
             line-height: 1.4;
+            word-wrap: break-word;
         }
 
         .msg-is-me {
             background: #164e63 !important; 
             color: #e2e8f0 !important;
             border-left: 4px solid #475569;
+            align-self: flex-end;
         }
 
         .msg-is-support {
             background: #1e293b !important; 
             color: #f1f5f9 !important;
             border-left: 4px solid #059669;
+            align-self: flex-start;
         }
 
         .author-name {
@@ -77,6 +75,25 @@
             text-transform: uppercase;
             margin-bottom: 3px;
             display: block;
+        }
+
+        .btn-download-chat {
+            background: rgba(37, 99, 235, 0.2);
+            border: 1px solid rgba(37, 99, 235, 0.4);
+            color: #60a5fa;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+            font-size: 10px;
+            transition: all 0.2s;
+        }
+
+        .btn-download-chat:hover {
+            background: #2563eb;
+            color: white;
         }
     </style>
     <script>
@@ -120,37 +137,31 @@
                 <h3 class="text-md font-bold text-white">SIA</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Sist. Inf. Ambulatoriais</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('BPA')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📦</div>
                 <h3 class="text-md font-bold text-white">BPA</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Bol. Produção Ambulatorial</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('RAAS')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📋</div>
                 <h3 class="text-md font-bold text-white">RAAS</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Reg. Ações Ambulatoriais</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('FPO')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">💰</div>
                 <h3 class="text-md font-bold text-white">FPO</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Prog. Físico-Orçamentária</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('CNES')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">🏥</div>
                 <h3 class="text-md font-bold text-white">CNES</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Cadastro Nac. de Estab.</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIHD')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">🖥️</div>
                 <h3 class="text-md font-bold text-white">SIHD</h3>
                 <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Sist. Inf. Hospitais</p>
             </div>
-
             <div class="card p-6 rounded-2xl text-center cursor-pointer group border-blue-500/30" onclick="abrirEListar('CIHA')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📁</div>
                 <h3 class="text-md font-bold text-white">CIHA</h3>
@@ -158,12 +169,6 @@
             </div>
         </div>
     </main>
-
-    <footer class="p-6 text-center">
-        <button onclick="window.location.href='admin-login.html'" class="text-slate-900/10 hover:text-blue-900/20 transition-all duration-700">
-            <i class="fa-solid fa-shield-halved text-xs"></i>
-        </button>
-    </footer>
 
     <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85" onclick="fecharModalFora(event)">
         <div class="bg-[#111827] w-full max-w-2xl rounded-2xl border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
@@ -177,17 +182,11 @@
                         <i class="fa-solid fa-xmark text-2xl"></i>
                     </button>
                 </div>
-                <div class="relative search-container">
+                <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-600">
                         <i class="fa-solid fa-magnifying-glass text-sm"></i>
                     </span>
-                    <input 
-                        type="text" 
-                        id="modalSearch" 
-                        placeholder="Pesquisar por nome do arquivo ou competência..." 
-                        class="w-full bg-slate-950/80 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none transition-all"
-                        onkeyup="filtrarArquivosModal()"
-                    >
+                    <input type="text" id="modalSearch" placeholder="Pesquisar arquivo..." class="w-full bg-slate-950/80 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:outline-none" onkeyup="filtrarArquivosModal()">
                 </div>
             </div>
             <div id="file-list" class="overflow-y-auto p-4 flex-1 bg-slate-900/40"></div>
@@ -200,10 +199,10 @@
     </div>
 
     <div id="chat-window" class="fixed bottom-24 right-6 w-80 h-96 glass-chat rounded-2xl shadow-2xl hidden flex-col z-50 overflow-hidden">
-        <div class="bg-blue-700 p-4 text-white font-bold flex justify-between items-center border-b border-white/5">
+        <div class="bg-blue-700 p-4 text-white font-bold flex justify-between items-center">
             <div class="flex items-center gap-2 text-sm">
                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                Suporte Arpoador
+                Suporte Técnico
             </div>
             <button onclick="toggleChat()" class="hover:text-slate-300"><i class="fa-solid fa-minus"></i></button>
         </div>
@@ -211,12 +210,12 @@
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 flex flex-col bg-[#0f172a]/50"></div>
         
         <div id="chat-footer" class="p-3 bg-slate-950 border-t border-white/5 flex gap-2 items-center">
-            <label for="chat-file" class="cursor-pointer text-slate-500 hover:text-blue-500 transition-colors px-1">
+            <label for="chat-file" class="cursor-pointer text-slate-500 hover:text-blue-500 px-1">
                 <i class="fa-solid fa-paperclip text-lg"></i>
                 <input type="file" id="chat-file" class="hidden" onchange="enviarArquivo()">
             </label>
-            <input type="text" id="chat-input" class="flex-1 bg-[#0a0f1c] border border-slate-900 p-2 rounded-lg text-white text-xs focus:outline-none focus:border-blue-600" placeholder="Sua mensagem...">
-            <button onclick="enviarMensagem()" class="bg-blue-700 p-2 rounded-lg text-white hover:bg-blue-600 transition-colors">
+            <input type="text" id="chat-input" class="flex-1 bg-[#0a0f1c] border border-slate-900 p-2 rounded-lg text-white text-xs focus:outline-none" placeholder="Digite sua mensagem...">
+            <button onclick="enviarMensagem()" class="bg-blue-700 p-2 rounded-lg text-white hover:bg-blue-600">
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
         </div>
@@ -231,25 +230,26 @@
         const somNotificacao = document.getElementById('notificacao-som');
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
         const emailUsuario = localStorage.getItem('email'); 
-        const footerOriginal = document.getElementById('chat-footer').innerHTML;
         
-        let arquivosCache = []; 
-        let sistemaAtual = '';
-
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
-            adicionarEventosChat();
+            
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') enviarMensagem();
+            });
         });
 
+        // RECEBER MENSAGENS E ARQUIVOS
         socket.on('receber_mensagem', (data) => {
-            const win = document.getElementById('chat-window');
-            const badge = document.getElementById('chat-badge');
             const souEu = (data.usuario === nomeUsuario);
             adicionarMensagemNaTela(data.usuario, data.texto, data.arquivo, data.tipo, souEu);
+            
             if (!souEu) {
                 somNotificacao.play().catch(() => {});
-                if (win.style.display !== 'flex') badge.classList.remove('hidden');
+                if (document.getElementById('chat-window').style.display !== 'flex') {
+                    document.getElementById('chat-badge').classList.remove('hidden');
+                }
             }
         });
 
@@ -261,46 +261,33 @@
             });
         });
 
-        socket.on('conversa_encerrada', () => {
+        // EVENTO: CHAMADO ENCERRADO PELO SUPORTE
+        socket.on('chamado_encerrado', () => {
             const box = document.getElementById('chat-messages');
-            box.innerHTML += `<div class="text-center py-2"><span class="bg-red-950/20 text-red-600 text-[9px] px-2 py-1 rounded uppercase font-bold">Atendimento encerrado</span></div>`;
-            document.getElementById('chat-footer').innerHTML = `<p class="text-[10px] text-slate-600 w-full text-center">Atendimento finalizado pelo suporte.</p>`;
-            box.scrollTop = box.scrollHeight;
+            box.innerHTML = `
+                <div class="text-center py-6">
+                    <div class="bg-red-900/20 text-red-500 text-[10px] p-3 rounded-lg border border-red-900/30 uppercase font-bold">
+                        <i class="fa-solid fa-lock mr-2"></i> Atendimento Encerrado e Histórico Apagado
+                    </div>
+                </div>`;
+            
+            // Bloqueia o rodapé do chat
+            document.getElementById('chat-footer').innerHTML = `
+                <p class="text-[10px] text-slate-500 w-full text-center py-2 italic">
+                    Conexão finalizada por segurança.
+                </p>`;
         });
-
-        socket.on('limpar_tela_chat', () => {
-            const box = document.getElementById('chat-messages');
-            box.innerHTML = '';
-            document.getElementById('chat-footer').innerHTML = footerOriginal;
-            setTimeout(adicionarEventosChat, 100);
-        });
-
-        function adicionarEventosChat() {
-            const novoInput = document.getElementById('chat-input');
-            if(novoInput) {
-                novoInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') enviarMensagem();
-                });
-            }
-        }
-
-        function toggleChat() {
-            const win = document.getElementById('chat-window');
-            const isHidden = win.style.display === 'none' || win.style.display === '';
-            win.style.display = isHidden ? 'flex' : 'none';
-            if (isHidden) {
-                document.getElementById('chat-badge').classList.add('hidden');
-                const input = document.getElementById('chat-input');
-                if(input) input.focus();
-            }
-        }
 
         function enviarMensagem() {
             const input = document.getElementById('chat-input');
-            if (!input) return;
             const mensagem = input.value.trim();
             if (!mensagem || !emailUsuario) return;
-            socket.emit('enviar_mensagem', { nome: nomeUsuario, mensagem: mensagem, salaId: emailUsuario });
+            
+            socket.emit('enviar_mensagem', { 
+                nome: nomeUsuario, 
+                mensagem: mensagem, 
+                salaId: emailUsuario 
+            });
             input.value = "";
         }
 
@@ -308,106 +295,98 @@
             const fileInput = document.getElementById('chat-file');
             const file = fileInput.files[0];
             if (!file) return;
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                socket.emit('enviar_arquivo', { nome: nomeUsuario, arquivo: e.target.result, tipo: file.type, nomeArquivo: file.name, salaId: emailUsuario });
+                socket.emit('enviar_mensagem', { 
+                    nome: nomeUsuario, 
+                    arquivo: e.target.result, 
+                    tipo_arquivo: file.type, 
+                    salaId: emailUsuario 
+                });
             };
             reader.readAsDataURL(file);
-            fileInput.value = "";
+            fileInput.value = ""; // Limpa o input
         }
 
         function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu) {
             const box = document.getElementById('chat-messages');
             const div = document.createElement('div');
+            div.className = `flex flex-col mb-4 ${souEu ? 'items-end' : 'items-start'}`;
+            
             const bubbleStyle = souEu ? 'msg-is-me' : 'msg-is-support';
-            const nameColor = souEu ? 'text-slate-400' : 'text-emerald-500';
+            const nameColor = souEu ? 'text-slate-500' : 'text-emerald-500';
+            
             let corpoHTML = texto ? `<p>${texto}</p>` : '';
+            
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
-                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded mt-2 border border-white/10" onclick="window.open(this.src)">`;
+                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded mt-2 border border-white/10 cursor-zoom-in" onclick="window.open(this.src)">`;
                 } else {
-                    corpoHTML += `<a href="${arquivo}" download class="block mt-2 text-xs underline opacity-80 italic"><i class="fa-solid fa-file-download mr-1"></i>Anexo recebido</a>`;
+                    corpoHTML += `
+                        <a href="${arquivo}" download="anexo_${Date.now()}" class="btn-download-chat">
+                            <i class="fa-solid fa-file-arrow-down"></i> Baixar Anexo
+                        </a>`;
                 }
             }
+
             div.innerHTML = `
-                <div class="flex flex-col mb-4">
-                    <span class="author-name ${nameColor}">${autor} ${souEu ? '(Você)' : ''}</span>
-                    <div class="msg-bubble ${bubbleStyle}">
-                        ${corpoHTML}
-                    </div>
-                </div>
-            `;
+                <span class="author-name ${nameColor}">${autor} ${souEu ? '(Você)' : ''}</span>
+                <div class="msg-bubble ${bubbleStyle}">
+                    ${corpoHTML}
+                </div>`;
+            
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
+        }
+
+        // FUNÇÕES FTP MANTIDAS
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            const isHidden = win.style.display === 'none' || win.style.display === '';
+            win.style.display = isHidden ? 'flex' : 'none';
+            if (isHidden) document.getElementById('chat-badge').classList.add('hidden');
         }
 
         async function abrirEListar(sistema) {
             sistemaAtual = sistema;
             const modal = document.getElementById('modal');
             const fileList = document.getElementById('file-list');
-            const searchInput = document.getElementById('modalSearch');
-            
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; 
-            searchInput.value = ""; 
-            
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
-            fileList.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-blue-600"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p class="text-slate-500 text-sm animate-pulse">Estabelecendo Conexão...</p></div>`;
+            fileList.innerHTML = `<div class="py-20 text-center text-blue-500"><i class="fa-solid fa-spinner fa-spin text-3xl"></i></div>`;
             
             try {
                 const res = await fetch(`/api/list/${sistema}`);
                 arquivosCache = await res.json();
                 renderizarArquivos(arquivosCache);
             } catch (err) {
-                fileList.innerHTML = `<p class="text-center py-20 text-red-600">Falha ao acessar repositório remoto.</p>`;
+                fileList.innerHTML = `<p class="text-center py-20 text-red-500">Erro ao carregar arquivos.</p>`;
             }
         }
 
         function renderizarArquivos(lista) {
             const fileList = document.getElementById('file-list');
             fileList.innerHTML = '';
-            if (!lista || lista.length === 0) {
-                fileList.innerHTML = `<p class="text-center py-20 text-slate-600">Nenhum arquivo encontrado.</p>`;
-                return;
-            }
             lista.forEach(file => {
                 const item = document.createElement('div');
                 item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-900/60';
                 item.innerHTML = `
-                    <div>
-                        <p class="text-sm font-semibold text-white">${file.name}</p>
-                        <p class="text-[10px] text-slate-600">${file.size}</p>
-                    </div>
-                    <button class="bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" 
-                        onclick="baixar('${sistemaAtual}', '${file.name}', this)">
-                        Baixar
-                    </button>`;
+                    <div><p class="text-sm font-semibold text-white">${file.name}</p><p class="text-[10px] text-slate-600">${file.size}</p></div>
+                    <button class="bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" onclick="baixar('${sistemaAtual}', '${file.name}', this)">Baixar</button>`;
                 fileList.appendChild(item);
             });
         }
 
-        function filtrarArquivosModal() {
-            const termo = document.getElementById('modalSearch').value.toLowerCase();
-            const filtrados = arquivosCache.filter(f => f.name.toLowerCase().includes(termo));
-            renderizarArquivos(filtrados);
-        }
-
         function baixar(sistema, arquivo, btn) {
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-            setTimeout(() => { 
-                btn.disabled = false; 
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }, 3000);
         }
 
         function fecharModal() { 
             document.getElementById('modal').style.display = 'none'; 
             document.body.style.overflow = 'auto';
         }
-
-        function fecharModalFora(e) { if (e.target.id === 'modal') fecharModal(); }
 
         function logout() {
             localStorage.clear();
