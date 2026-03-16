@@ -94,7 +94,6 @@ io.on('connection', (socket) => {
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         
-        // Sai de outras salas de chat, exceto a sala do admin
         const salasAtuais = Array.from(socket.rooms);
         salasAtuais.forEach(sala => {
             if (sala !== socket.id && sala !== 'admin_room') socket.leave(sala);
@@ -134,10 +133,8 @@ io.on('connection', (socket) => {
                 timestamp: new Date()
             };
 
-            // Envia para a sala específica
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            // Notifica o admin se não for uma mensagem do próprio suporte
             if (nomeUsuario !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
@@ -228,6 +225,42 @@ app.post('/api/update-profile', async (req, res) => {
         res.json({ message: "Perfil atualizado com sucesso!" });
     } catch (err) {
         res.status(500).json({ error: "Erro ao atualizar perfil." });
+    }
+});
+
+// --- NOVA ROTA: EXCLUSÃO DE CONTA ---
+app.post('/api/delete-account', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Identificação do usuário ausente." });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN'); // Inicia transação
+
+        const emailFormatado = email.toLowerCase().trim();
+
+        // 1. Remove histórico de mensagens de suporte associadas a este e-mail
+        // (Baseado na coluna 'usuario' da sua tabela mensagens_suporte)
+        await client.query("DELETE FROM mensagens_suporte WHERE usuario = $1", [emailFormatado]);
+
+        // 2. Remove o usuário da tabela principal
+        const result = await client.query("DELETE FROM usuarios WHERE email = $1", [emailFormatado]);
+
+        if (result.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: "Usuário não encontrado." });
+        }
+
+        await client.query('COMMIT');
+        console.log(`[Segurança] Conta excluída permanentemente: ${emailFormatado}`);
+        res.json({ message: "Sua conta e dados de suporte foram removidos com sucesso." });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Erro ao deletar conta:", err.message);
+        res.status(500).json({ error: "Erro interno ao processar exclusão." });
+    } finally {
+        client.release();
     }
 });
 
@@ -328,7 +361,6 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const client = new ftp.Client(60000); 
     try {
         const nomeArquivo = decodeURIComponent(arquivo);
-        // Proteção básica contra path traversal
         if (nomeArquivo.includes('..') || nomeArquivo.includes('/')) {
             return res.status(403).send("Acesso negado.");
         }

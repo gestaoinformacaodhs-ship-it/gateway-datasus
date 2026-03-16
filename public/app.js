@@ -1,6 +1,6 @@
 /* --- VARIÁVEIS GLOBAIS --- */
 let arquivosCache = []; 
-let sistemaAtivo = '';  
+let sistemaAtivo = '';  
 let ticketsSuporte = []; // Armazena os tickets carregados na barra lateral
 
 /* --- NAVEGAÇÃO ENTRE TELAS --- */
@@ -15,29 +15,60 @@ function trocar(id) {
     if (alvo) alvo.style.display = 'block';
 }
 
+/* --- FUNÇÃO: EXCLUIR CONTA (NOVA) --- */
+async function deletarMinhaConta() {
+    const emailUsuario = localStorage.getItem('email');
+    
+    if (!emailUsuario) {
+        alert("Erro: Sessão inválida. Faça login novamente.");
+        return logout();
+    }
+
+    const confirmacao = confirm("AVISO CRÍTICO:\n\nEsta ação apagará permanentemente seu usuário e todo o histórico de suporte.\n\nDeseja continuar?");
+    
+    if (confirmacao) {
+        const checkEmail = prompt("Para confirmar a exclusão, digite seu e-mail:");
+        
+        if (checkEmail === emailUsuario) {
+            try {
+                const response = await fetch('/api/delete-account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: emailUsuario })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert("Sua conta e seus dados foram removidos com sucesso.");
+                    logout();
+                } else {
+                    alert("Erro ao excluir: " + (result.error || "Erro desconhecido"));
+                }
+            } catch (err) {
+                alert("Falha na conexão com o servidor de banco de dados.");
+            }
+        } else {
+            alert("E-mail incorreto. Ação cancelada.");
+        }
+    }
+}
+
 /* --- SUPORTE: GERENCIAMENTO DE TICKETS (ADMIN) --- */
 
-// CORREÇÃO: Função para finalizar APENAS um ticket específico
 function finalizarTicket(idParaFinalizar) {
     if (!confirm("Deseja realmente encerrar este atendimento?")) return;
 
-    // Remove apenas o ticket com o ID correspondente
     ticketsSuporte = ticketsSuporte.filter(t => t.id !== idParaFinalizar);
-    
-    // Atualiza a interface da barra lateral
     renderizarListaTicketsSuporte();
 
-    // Limpa a tela de chat se o ticket finalizado for o que estava aberto
-    const chatMessages = document.querySelector('.chat-messages');
+    const chatMessages = document.getElementById('chat-messages') || document.querySelector('.chat-messages');
     const chatHeader = document.querySelector('.chat-header');
     
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatHeader) chatHeader.innerHTML = '<div class="text-slate-500">Selecione um ticket para iniciar</div>';
-    
-    console.log(`Ticket ${idParaFinalizar} finalizado.`);
 }
 
-// Função para renderizar os tickets na barra lateral (Sidebar)
 function renderizarListaTicketsSuporte() {
     const userList = document.querySelector('.user-list');
     if (!userList) return;
@@ -65,15 +96,21 @@ function renderizarListaTicketsSuporte() {
 
 /* --- SUPORTE: CHAT WIDGET (USUÁRIO) --- */
 function toggleChat() {
-    const chatWin = document.getElementById('c-win') || document.getElementById('chat-window');
+    const chatWin = document.getElementById('chat-window') || document.getElementById('c-win');
     const badge = document.getElementById('chat-badge');
     
     if (chatWin) {
-        const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden');
-        chatWin.style.display = isHidden ? 'flex' : 'none';
-        chatWin.classList.toggle('hidden', !isHidden);
+        const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden') || !chatWin.classList.contains('active');
         
-        if (isHidden && badge) badge.classList.add('hidden');
+        // Suporte para ambas as versões de CSS que você enviou
+        if (chatWin.classList.contains('active')) {
+            chatWin.classList.remove('active');
+            chatWin.style.display = 'none';
+        } else {
+            chatWin.classList.add('active');
+            chatWin.style.display = 'flex';
+            if (badge) badge.classList.add('hidden');
+        }
     }
 }
 
@@ -161,13 +198,13 @@ function renderizarLista(lista) {
     }
 
     listContainer.innerHTML = lista.map(f => `
-        <div class="flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 border border-white/5 hover:border-blue-500/30 transition-all">
+        <div class="flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5 hover:border-blue-900 transition-colors">
             <div class="text-left overflow-hidden mr-4">
                 <span class="text-white text-sm font-medium block truncate">${f.name}</span>
-                <small class="text-slate-500 text-[10px] uppercase">📅 ${f.rawDate || 'N/D'} | 📦 ${f.size}</small>
+                <small class="text-slate-600 text-[10px] font-mono">📅 ${f.rawDate || 'N/D'} | 📦 ${f.size || 'N/D'}</small>
             </div>
             <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
-                    class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all">
+                    class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all">
                 BAIXAR
             </button>
         </div>
@@ -187,20 +224,14 @@ async function baixarDireto(sistema, arquivo, btn) {
     btn.disabled = true;
 
     try {
-        const url = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = arquivo;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
     } catch (err) {
         alert("Erro ao iniciar download.");
     } finally {
         setTimeout(() => {
             btn.innerText = originalText;
             btn.disabled = false;
-        }, 1000);
+        }, 1500);
     }
 }
 
@@ -213,10 +244,11 @@ function fecharModal() {
 /* --- INICIALIZAÇÃO --- */
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogado = localStorage.getItem('usuario');
+    const emailLogado = localStorage.getItem('email');
     const isDashboard = window.location.pathname.includes('dashboard.html');
 
     // Proteção de rota
-    if (isDashboard && !usuarioLogado) {
+    if (isDashboard && !emailLogado) {
         window.location.replace('index.html');
         return; 
     }
@@ -224,13 +256,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const display = document.getElementById('user-display');
     if (display) display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
 
-    // Setup de buscas e eventos
+    // Eventos de Busca
     document.getElementById('modalSearch')?.addEventListener('input', filtrarArquivosModal);
     
+    // Evento de Tecla Enter no Chat
     const chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && typeof enviarMensagem === 'function') enviarMensagem();
+            if (e.key === 'Enter') {
+                if (typeof enviarMensagem === 'function') {
+                    enviarMensagem();
+                }
+            }
         });
     }
 

@@ -72,6 +72,10 @@
         
         .chat-btn { position: fixed; bottom: 25px; right: 25px; background: #2563eb; width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; font-size: 24px; z-index: 101; transition: transform 0.2s; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
         .chat-btn:hover { transform: scale(1.1); }
+
+        /* Danger Zone Style */
+        .danger-border { border: 1px solid rgba(220, 38, 38, 0.2); }
+        .danger-border:hover { border-color: #dc2626; }
     </style>
 
     <script>
@@ -91,9 +95,14 @@
             <div class="flex items-center gap-6">
                 <div class="text-right hidden sm:block">
                     <span id="user-display" class="block text-sm font-bold text-white tracking-tight">Carregando...</span>
-                    <a href="profile.html" class="text-[10px] uppercase tracking-widest text-blue-500 hover:text-blue-400 font-bold transition-colors">
-                        <i class="fa-solid fa-user-gear mr-1"></i> Configurações
-                    </a>
+                    <div class="flex gap-3 justify-end mt-1">
+                        <a href="profile.html" class="text-[10px] uppercase tracking-widest text-blue-500 hover:text-blue-400 font-bold transition-colors">
+                            <i class="fa-solid fa-user-gear mr-1"></i> Perfil
+                        </a>
+                        <button onclick="deletarMinhaConta()" class="text-[10px] uppercase tracking-widest text-red-500 hover:text-red-400 font-bold transition-colors">
+                            <i class="fa-solid fa-trash-can mr-1"></i> Excluir Conta
+                        </button>
+                    </div>
                 </div>
                 <button onclick="logout()" class="bg-red-950/20 border border-red-900/50 text-red-500 hover:bg-red-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
                     <i class="fa-solid fa-power-off"></i> Sair
@@ -129,6 +138,14 @@
                     </div>
                 `).join(''));
             </script>
+        </div>
+
+        <div class="mt-20 glass-card p-6 danger-border opacity-60 hover:opacity-100 transition-opacity">
+            <h4 class="text-red-500 text-xs font-black uppercase tracking-widest mb-2">Configurações Críticas</h4>
+            <p class="text-xs text-slate-500 mb-4">A exclusão da conta removerá permanentemente seu acesso ao Gateway e histórico de mensagens.</p>
+            <button onclick="deletarMinhaConta()" class="text-xs bg-red-600/10 border border-red-600/20 text-red-500 px-4 py-2 rounded hover:bg-red-600 hover:text-white transition-all">
+                SOLICITAR EXCLUSÃO DE DADOS
+            </button>
         </div>
     </main>
 
@@ -207,6 +224,38 @@
                 if (e.key === 'Enter') enviarMensagem();
             });
         });
+
+        // --- NOVA FUNÇÃO: EXCLUIR CONTA DEFINITIVO ---
+        async function deletarMinhaConta() {
+            const confirmacao = confirm("AVISO: Esta ação é irreversível. Todos os seus dados vinculados ao Gateway DATASUS serão apagados. Deseja continuar?");
+            
+            if (confirmacao) {
+                const checkEmail = prompt("Para confirmar a exclusão, digite seu e-mail:");
+                
+                if (checkEmail === emailUsuario) {
+                    try {
+                        const response = await fetch('/api/delete-account', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: emailUsuario })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok) {
+                            alert("Sua conta foi deletada com sucesso. Você será redirecionado.");
+                            logout();
+                        } else {
+                            alert("Erro ao excluir: " + result.error);
+                        }
+                    } catch (err) {
+                        alert("Falha na conexão com o servidor de banco de dados.");
+                    }
+                } else {
+                    alert("E-mail incorreto. Ação cancelada.");
+                }
+            }
+        }
 
         // --- LÓGICA DE SOCKET ---
         socket.on('receber_mensagem', (data) => {
