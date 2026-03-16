@@ -93,7 +93,15 @@ io.on('connection', (socket) => {
     
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
+        
+        // Remove de salas anteriores para evitar mensagens duplicadas no cliente
+        const salasAtuais = Array.from(socket.rooms);
+        salasAtuais.forEach(sala => {
+            if (sala !== socket.id && sala !== 'admin_room') socket.leave(sala);
+        });
+
         socket.join(salaId);
+        
         try {
             const historico = await pool.query(
                 "SELECT usuario, texto, arquivo, tipo_arquivo as tipo, timestamp FROM mensagens_suporte WHERE sala_id = $1 ORDER BY timestamp ASC LIMIT 100",
@@ -104,27 +112,32 @@ io.on('connection', (socket) => {
     });
 
     socket.on('enviar_mensagem', async (data) => {
-        const { nome, mensagem, salaId, arquivo, tipo_arquivo } = data; 
+        // Correção para evitar 'undefined': garante que o nome seja extraído corretamente
+        const nomeUsuario = data.nome || data.usuario || "Usuário";
+        const { mensagem, salaId, arquivo, tipo_arquivo } = data; 
+        
         if (!salaId) return;
+
         try {
             await pool.query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)", 
-                [salaId, nome, mensagem || null, arquivo || null, tipo_arquivo || null]
+                [salaId, nomeUsuario, mensagem || null, arquivo || null, tipo_arquivo || null]
             );
 
             const msgData = { 
-                usuario: nome, 
+                usuario: nomeUsuario, 
                 texto: mensagem, 
                 arquivo: arquivo,
                 tipo: tipo_arquivo,
-                salaId, 
+                salaId: salaId, 
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
             };
 
+            // Envia para a sala específica
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            // Notifica admin caso o usuário comum mande mensagem
-            if (nome !== "Suporte Arpoador") {
+            // Se for cliente, avisa o admin_room para atualizar a lista lateral
+            if (nomeUsuario !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
         } catch (err) { console.error("Erro ao enviar mensagem:", err.message); }
@@ -239,7 +252,6 @@ app.get('/api/list/:sistema', async (req, res) => {
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
     
     const agora = Date.now();
-    // Cache de 5 minutos (300.000ms)
     if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
         return res.json(cacheFTP[sistema].data);
     }
@@ -264,7 +276,7 @@ app.get('/api/list/:sistema', async (req, res) => {
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
-    const client = new ftp.Client(60000); // Timeout maior para downloads
+    const client = new ftp.Client(60000); 
     try {
         await client.access({ host: getFtpHost(sistema.toUpperCase()), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema.toUpperCase()]);

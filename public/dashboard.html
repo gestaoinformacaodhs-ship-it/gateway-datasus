@@ -4,99 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Gateway DATASUS</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
     <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body {
-            background: linear-gradient(rgba(10, 15, 28, 0.95), rgba(10, 15, 28, 0.95)), 
-                        url('background.jpg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-
-        #file-list::-webkit-scrollbar, #chat-messages::-webkit-scrollbar { width: 6px; }
-        #file-list::-webkit-scrollbar-track, #chat-messages::-webkit-scrollbar-track { background: rgba(10, 15, 28, 0.5); }
-        #file-list::-webkit-scrollbar-thumb, #chat-messages::-webkit-scrollbar-thumb { background: #1d4ed8; border-radius: 10px; }
-
-        .card { 
-            background: rgba(20, 30, 50, 0.5); 
-            border: 1px solid rgba(255,255,255,0.03); 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(12px);
-        }
-        
-        .card:hover { 
-            border-color: #2563eb; 
-            transform: translateY(-8px); 
-            background: rgba(30, 45, 70, 0.8);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.5);
-        }
-
-        .glass-chat {
-            background: rgba(15, 23, 42, 0.98);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-
-        #modal { display: none; backdrop-filter: blur(10px); animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .file-item { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.02); }
-        .file-item:hover { background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.2); }
-        
-        .msg-bubble {
-            padding: 10px 14px;
-            border-radius: 10px;
-            font-size: 11px;
-            max-width: 95%;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        .msg-is-me {
-            background: #164e63 !important; 
-            color: #e2e8f0 !important;
-            border-left: 4px solid #475569;
-            align-self: flex-end;
-        }
-
-        .msg-is-support {
-            background: #1e293b !important; 
-            color: #f1f5f9 !important;
-            border-left: 4px solid #059669;
-            align-self: flex-start;
-        }
-
-        .author-name {
-            font-size: 9px;
-            font-weight: 800;
-            text-transform: uppercase;
-            margin-bottom: 3px;
-            display: block;
-        }
-
-        .btn-download-chat {
-            background: rgba(37, 99, 235, 0.2);
-            border: 1px solid rgba(37, 99, 235, 0.4);
-            color: #60a5fa;
-            padding: 4px 8px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 5px;
-            font-size: 10px;
-            transition: all 0.2s;
-        }
-
-        .btn-download-chat:hover {
-            background: #2563eb;
-            color: white;
-        }
-    </style>
+    
     <script>
+        // Bloqueio de acesso sem login
         if (!localStorage.getItem('email')) {
             window.location.href = 'index.html';
         }
@@ -132,51 +48,51 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIA')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('SIA')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📊</div>
                 <h3 class="text-md font-bold text-white">SIA</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Sist. Inf. Ambulatoriais</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Ambulatoriais</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('BPA')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('BPA')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📦</div>
                 <h3 class="text-md font-bold text-white">BPA</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Bol. Produção Ambulatorial</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Produção</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('RAAS')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('RAAS')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📋</div>
                 <h3 class="text-md font-bold text-white">RAAS</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Reg. Ações Ambulatoriais</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Ações Amb.</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('FPO')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('FPO')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">💰</div>
                 <h3 class="text-md font-bold text-white">FPO</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Prog. Físico-Orçamentária</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Orçamentária</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('CNES')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('CNES')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">🏥</div>
                 <h3 class="text-md font-bold text-white">CNES</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Cadastro Nac. de Estab.</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Cadastro Nac.</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group" onclick="abrirEListar('SIHD')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('SIHD')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">🖥️</div>
                 <h3 class="text-md font-bold text-white">SIHD</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Sist. Inf. Hospitais</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Hospitais</p>
             </div>
-            <div class="card p-6 rounded-2xl text-center cursor-pointer group border-blue-500/30" onclick="abrirEListar('CIHA')">
+            <div class="glass-card p-6 text-center cursor-pointer group hover:border-blue-500" onclick="abrirEListar('CIHA')">
                 <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">📁</div>
                 <h3 class="text-md font-bold text-white">CIHA</h3>
-                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Inst. Hosp. e Ambulatorial</p>
+                <p class="text-[9px] text-slate-600 mt-1 uppercase tracking-tight">Inst. Hosp.</p>
             </div>
         </div>
     </main>
 
-    <div id="modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85" onclick="fecharModalFora(event)">
-        <div class="bg-[#111827] w-full max-w-2xl rounded-2xl border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onclick="event.stopPropagation()">
+    <div id="modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/85">
+        <div class="bg-[#111827] w-full max-w-2xl rounded-2xl border border-white/5 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div class="p-6 bg-slate-950/60 border-b border-white/5 shrink-0">
                 <div class="flex justify-between items-center mb-4">
                     <div>
                         <h3 id="modal-title" class="text-xl font-bold text-white leading-tight">Arquivos</h3>
-                        <span id="modal-subtitle" class="text-xs text-blue-500 font-bold uppercase tracking-widest mt-1 block">Acessando via Gateway...</span>
+                        <span class="text-xs text-blue-500 font-bold uppercase tracking-widest mt-1 block">Acessando via FTP...</span>
                     </div>
                     <button onclick="fecharModal()" class="text-slate-500 hover:text-white transition-colors">
                         <i class="fa-solid fa-xmark text-2xl"></i>
@@ -193,31 +109,33 @@
         </div>
     </div>
 
-    <div id="chat-icon" onclick="toggleChat()" class="fixed bottom-6 right-6 bg-blue-700 text-white p-4 rounded-full shadow-2xl cursor-pointer hover:scale-110 transition-all z-50">
-        <i class="fa-solid fa-comments text-2xl"></i>
-        <div id="chat-badge" class="hidden absolute top-0 right-0 w-4 h-4 bg-red-600 border-2 border-[#0a0f1c] rounded-full animate-bounce"></div>
-    </div>
-
-    <div id="chat-window" class="fixed bottom-24 right-6 w-80 h-96 glass-chat rounded-2xl shadow-2xl hidden flex-col z-50 overflow-hidden">
-        <div class="bg-blue-700 p-4 text-white font-bold flex justify-between items-center">
-            <div class="flex items-center gap-2 text-sm">
-                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                Suporte Técnico
-            </div>
-            <button onclick="toggleChat()" class="hover:text-slate-300"><i class="fa-solid fa-minus"></i></button>
+    <div id="chat-widget">
+        <div id="chat-icon" onclick="toggleChat()" class="chat-btn">
+            <i class="fa-solid fa-comments"></i>
+            <div id="chat-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-red-600 border-2 border-[#0a0f1c] rounded-full"></div>
         </div>
-        
-        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 flex flex-col bg-[#0f172a]/50"></div>
-        
-        <div id="chat-footer" class="p-3 bg-slate-950 border-t border-white/5 flex gap-2 items-center">
-            <label for="chat-file" class="cursor-pointer text-slate-500 hover:text-blue-500 px-1">
-                <i class="fa-solid fa-paperclip text-lg"></i>
-                <input type="file" id="chat-file" class="hidden" onchange="enviarArquivo()">
-            </label>
-            <input type="text" id="chat-input" class="flex-1 bg-[#0a0f1c] border border-slate-900 p-2 rounded-lg text-white text-xs focus:outline-none" placeholder="Digite sua mensagem...">
-            <button onclick="enviarMensagem()" class="bg-blue-700 p-2 rounded-lg text-white hover:bg-blue-600">
-                <i class="fa-solid fa-paper-plane"></i>
-            </button>
+
+        <div id="chat-window" class="chat-window shadow-2xl">
+            <div class="chat-header">
+                <div class="flex items-center gap-2 text-xs">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    SUPORTE TÉCNICO
+                </div>
+                <button onclick="toggleChat()" class="hover:text-slate-300"><i class="fa-solid fa-minus"></i></button>
+            </div>
+            
+            <div id="chat-messages" class="chat-messages"></div>
+            
+            <div id="chat-footer" class="chat-input-area">
+                <label for="chat-file" class="cursor-pointer text-slate-500 hover:text-blue-500">
+                    <i class="fa-solid fa-paperclip text-lg"></i>
+                    <input type="file" id="chat-file" class="hidden" onchange="enviarArquivo()">
+                </label>
+                <input type="text" id="chat-input" placeholder="Dúvida ou erro? Digite aqui...">
+                <button onclick="enviarMensagem()" class="text-blue-500 hover:text-blue-400">
+                    <i class="fa-solid fa-paper-plane text-xl"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -230,9 +148,13 @@
         const somNotificacao = document.getElementById('notificacao-som');
         const nomeUsuario = localStorage.getItem('usuario') || 'Usuário';
         const emailUsuario = localStorage.getItem('email'); 
-        
+        let sistemaAtual = '';
+        let arquivosCache = [];
+
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
+            
+            // Entra na sala usando o e-mail como ID único
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
             
             document.getElementById('chat-input').addEventListener('keypress', (e) => {
@@ -240,7 +162,7 @@
             });
         });
 
-        // RECEBER MENSAGENS E ARQUIVOS
+        // SOCKET: Receber mensagens
         socket.on('receber_mensagem', (data) => {
             const souEu = (data.usuario === nomeUsuario);
             adicionarMensagemNaTela(data.usuario, data.texto, data.arquivo, data.tipo, souEu);
@@ -253,29 +175,13 @@
             }
         });
 
+        // SOCKET: Histórico
         socket.on('historico_mensagens', (mensagens) => {
             const box = document.getElementById('chat-messages');
             box.innerHTML = ''; 
             mensagens.forEach(msg => {
                 adicionarMensagemNaTela(msg.usuario, msg.texto, msg.arquivo, msg.tipo, msg.usuario === nomeUsuario);
             });
-        });
-
-        // EVENTO: CHAMADO ENCERRADO PELO SUPORTE
-        socket.on('chamado_encerrado', () => {
-            const box = document.getElementById('chat-messages');
-            box.innerHTML = `
-                <div class="text-center py-6">
-                    <div class="bg-red-900/20 text-red-500 text-[10px] p-3 rounded-lg border border-red-900/30 uppercase font-bold">
-                        <i class="fa-solid fa-lock mr-2"></i> Atendimento Encerrado e Histórico Apagado
-                    </div>
-                </div>`;
-            
-            // Bloqueia o rodapé do chat
-            document.getElementById('chat-footer').innerHTML = `
-                <p class="text-[10px] text-slate-500 w-full text-center py-2 italic">
-                    Conexão finalizada por segurança.
-                </p>`;
         });
 
         function enviarMensagem() {
@@ -306,7 +212,7 @@
                 });
             };
             reader.readAsDataURL(file);
-            fileInput.value = ""; // Limpa o input
+            fileInput.value = "";
         }
 
         function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu) {
@@ -314,25 +220,24 @@
             const div = document.createElement('div');
             div.className = `flex flex-col mb-4 ${souEu ? 'items-end' : 'items-start'}`;
             
-            const bubbleStyle = souEu ? 'msg-is-me' : 'msg-is-support';
-            const nameColor = souEu ? 'text-slate-500' : 'text-emerald-500';
+            const bubbleClass = souEu ? 'msg-user' : 'msg-support';
             
             let corpoHTML = texto ? `<p>${texto}</p>` : '';
             
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
-                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded mt-2 border border-white/10 cursor-zoom-in" onclick="window.open(this.src)">`;
+                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded mt-2 border border-white/10 cursor-pointer" onclick="window.open(this.src)">`;
                 } else {
                     corpoHTML += `
-                        <a href="${arquivo}" download="anexo_${Date.now()}" class="btn-download-chat">
+                        <a href="${arquivo}" download="anexo" class="file-attachment">
                             <i class="fa-solid fa-file-arrow-down"></i> Baixar Anexo
                         </a>`;
                 }
             }
 
             div.innerHTML = `
-                <span class="author-name ${nameColor}">${autor} ${souEu ? '(Você)' : ''}</span>
-                <div class="msg-bubble ${bubbleStyle}">
+                <span class="text-[10px] mb-1 font-bold ${souEu ? 'text-slate-500' : 'text-blue-500'}">${autor}</span>
+                <div class="msg ${bubbleClass}">
                     ${corpoHTML}
                 </div>`;
             
@@ -340,14 +245,7 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // FUNÇÕES FTP MANTIDAS
-        function toggleChat() {
-            const win = document.getElementById('chat-window');
-            const isHidden = win.style.display === 'none' || win.style.display === '';
-            win.style.display = isHidden ? 'flex' : 'none';
-            if (isHidden) document.getElementById('chat-badge').classList.add('hidden');
-        }
-
+        // FTP LÓGICA
         async function abrirEListar(sistema) {
             sistemaAtual = sistema;
             const modal = document.getElementById('modal');
@@ -362,7 +260,7 @@
                 arquivosCache = await res.json();
                 renderizarArquivos(arquivosCache);
             } catch (err) {
-                fileList.innerHTML = `<p class="text-center py-20 text-red-500">Erro ao carregar arquivos.</p>`;
+                fileList.innerHTML = `<p class="text-center py-20 text-red-500">Erro de conexão com o FTP.</p>`;
             }
         }
 
@@ -371,16 +269,24 @@
             fileList.innerHTML = '';
             lista.forEach(file => {
                 const item = document.createElement('div');
-                item.className = 'file-item flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-900/60';
+                item.className = 'flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5';
                 item.innerHTML = `
                     <div><p class="text-sm font-semibold text-white">${file.name}</p><p class="text-[10px] text-slate-600">${file.size}</p></div>
-                    <button class="bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition-all" onclick="baixar('${sistemaAtual}', '${file.name}', this)">Baixar</button>`;
+                    <button class="bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-bold px-4 py-2 rounded-lg" onclick="baixar('${sistemaAtual}', '${file.name}')">Baixar</button>`;
                 fileList.appendChild(item);
             });
         }
 
-        function baixar(sistema, arquivo, btn) {
+        function baixar(sistema, arquivo) {
             window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
+        }
+
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            win.classList.toggle('active');
+            if (win.classList.contains('active')) {
+                document.getElementById('chat-badge').classList.add('hidden');
+            }
         }
 
         function fecharModal() { 
