@@ -15,7 +15,7 @@ const server = http.createServer(app);
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
-app.use(express.json({ limit: '50mb' })); // Limite aumentado para arquivos
+app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
 
@@ -39,7 +39,14 @@ if (process.env.BREVO_API_KEY) {
 // --- CONFIGURAÇÃO BANCO DE DADOS ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 15,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+});
+
+pool.on('error', (err) => {
+    console.error('❌ Erro inesperado no cliente PostgreSQL:', err.message);
 });
 
 async function initDB() {
@@ -68,7 +75,7 @@ async function initDB() {
         `);
         console.log("✔️ Banco de Dados pronto.");
     } catch (err) {
-        console.error("❌ Erro no Banco de Dados:", err.message);
+        console.error("❌ Erro na criação das tabelas:", err.message);
     }
 }
 initDB();
@@ -93,7 +100,6 @@ io.on('connection', (socket) => {
         const { nome, mensagem, salaId, arquivo, tipo_arquivo } = data; 
         if (!salaId) return;
         try {
-            // Salva no banco suportando texto e/ou arquivo (Base64)
             await pool.query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)", 
                 [salaId, nome, mensagem || null, arquivo || null, tipo_arquivo || null]
@@ -149,6 +155,8 @@ app.post('/api/login', async (req, res) => {
         const result = await pool.query(`SELECT nome, email, senha, ativo FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(senha, user.senha))) return res.status(401).json({ error: "Credenciais inválidas." });
+        
+        // Remove senha do retorno por segurança
         res.json({ user: user.nome, email: user.email });
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
@@ -157,7 +165,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        const expiracao = new Date(Date.now() + 3600000); 
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
@@ -176,13 +184,10 @@ app.post('/api/reset-password', async (req, res) => {
     const { token, novaSenha } = req.body;
     try {
         const result = await pool.query("SELECT id, reset_expiracao FROM usuarios WHERE reset_token = $1", [token]);
-        
         if (result.rows.length === 0) return res.status(400).json({ error: "Token inválido." });
 
         const usuario = result.rows[0];
-        if (new Date() > new Date(usuario.reset_expiracao)) {
-            return res.status(400).json({ error: "Link expirado." });
-        }
+        if (new Date() > new Date(usuario.reset_expiracao)) return res.status(400).json({ error: "Link expirado." });
         
         const hash = await bcrypt.hash(novaSenha, 10);
         await pool.query(
@@ -201,6 +206,8 @@ const pastasFTP = {
     'CIHA': '/public/sistemas/dsweb/CIHA'
 };
 
+const cacheFTP = {}; 
+
 function getFtpHost(sistema) {
     if (sistema === 'CNES') return "ftp.datasus.gov.br";
     if (sistema === 'SIHD' || sistema === 'CIHA') return "ftp2.datasus.gov.br";
@@ -211,23 +218,33 @@ app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
     
-    const client = new ftp.Client(15000); 
+    // Cache de 5 minutos para não sobrecarregar o FTP
+    const agora = Date.now();
+    if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
+        return res.json(cacheFTP[sistema].data);
+    }
+
+    const client = new ftp.Client(20000); 
     try {
         await client.access({ host: getFtpHost(sistema), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
         const list = await client.list();
-        res.json(list.filter(f => f.isFile).map(f => ({ 
+        const data = list.filter(f => f.isFile).map(f => ({ 
             name: f.name, 
             size: (f.size / 1024 / 1024).toFixed(2) + " MB",
             rawDate: f.modifiedAt 
-        })).sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate)));
-    } catch (e) { res.status(500).json({ error: "FTP instável." }); } 
-    finally { client.close(); }
+        })).sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+        
+        cacheFTP[sistema] = { time: agora, data: data };
+        res.json(data);
+    } catch (e) { 
+        res.status(500).json({ error: "FTP DATASUS instável no momento." }); 
+    } finally { client.close(); }
 });
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
-    const client = new ftp.Client(0); 
+    const client = new ftp.Client(30000); 
     try {
         await client.access({ host: getFtpHost(sistema.toUpperCase()), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema.toUpperCase()]);

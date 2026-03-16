@@ -15,6 +15,7 @@
         
         .chat-img-admin {
             max-width: 100%;
+            max-height: 300px;
             border-radius: 8px;
             margin-top: 8px;
             border: 1px solid rgba(255,255,255,0.1);
@@ -79,7 +80,7 @@
                     class="flex-1 bg-slate-900 border border-slate-700 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-all" 
                     placeholder="Escreva sua resposta...">
                 
-                <button onclick="enviarResposta()" 
+                <button id="btnEnviar" onclick="enviarResposta()" 
                     class="bg-blue-600 hover:bg-blue-500 px-8 py-2 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
                     <span>Enviar</span>
                     <i class="fa-solid fa-paper-plane text-xs"></i>
@@ -94,46 +95,41 @@
 
     <script>
         const socket = io();
-        const nomeAdmin = "Suporte Arpoador"; // Nome que aparece para o usuário
+        const nomeAdmin = "Suporte Arpoador"; 
         const somNotificacao = document.getElementById('notificacao-som');
         
-        let salaAtiva = ""; // Email do usuário que estamos atendendo no momento
-        let usuariosAtivos = {}; // Armazena info dos usuários que mandaram msg
+        let salaAtiva = ""; 
+        let usuariosAtivos = {}; 
 
-        // Ao conectar, avisa que é admin para receber notificações globais
         socket.on('connect', () => {
             console.log("Admin conectado.");
             socket.emit('admin_entrar'); 
         });
 
-        // Recebe mensagens e gerencia a lista à esquerda
         socket.on('receber_mensagem', (data) => {
-            const { usuario, texto, salaId } = data;
+            const { usuario, texto, salaId, arquivo } = data;
             
-            // Adiciona/Atualiza usuário na lista lateral
             if (usuario !== nomeAdmin) {
+                const previewText = arquivo ? "📎 Arquivo recebido" : texto;
                 if (!usuariosAtivos[salaId]) {
                     document.getElementById('no-chats').style.display = 'none';
-                    usuariosAtivos[salaId] = { nome: usuario, ultimaMsg: texto };
-                    criarCardUsuario(salaId, usuario, texto);
+                    usuariosAtivos[salaId] = { nome: usuario, ultimaMsg: previewText };
+                    criarCardUsuario(salaId, usuario, previewText);
                 } else {
-                    atualizarCardUsuario(salaId, texto);
+                    atualizarCardUsuario(salaId, previewText);
                 }
 
-                // Notificações
                 if (salaId !== salaAtiva) {
                     tocarSom();
                     marcarComoNaoLida(salaId);
                 }
             }
 
-            // Se a mensagem for da sala que estou olhando, renderiza na tela
             if (salaId === salaAtiva) {
                 renderizarMensagem(data);
             }
         });
 
-        // Recebe o histórico ao trocar de sala
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('admin-chat-box');
             chatBox.innerHTML = "";
@@ -148,12 +144,13 @@
             document.getElementById('status-badge').className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold";
             document.getElementById('empty-state').style.display = 'none';
             
-            // Highlight na lista
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(`user-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`).classList.add('active');
-            document.getElementById(`unread-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`).classList.add('hidden');
+            const card = document.getElementById(`user-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`);
+            if(card) card.classList.add('active');
+            
+            const dot = document.getElementById(`unread-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`);
+            if(dot) dot.classList.add('hidden');
 
-            // Pede o histórico dessa sala específica
             socket.emit('entrar_na_sala', salaId);
         }
 
@@ -194,11 +191,23 @@
                 "self-end bg-blue-600/20 border border-blue-500/30 p-4 rounded-2xl rounded-tr-none max-w-[70%] text-right shadow-sm" : 
                 "self-start bg-slate-800 border border-white/5 p-4 rounded-2xl rounded-tl-none max-w-[70%] shadow-sm"}`;
             
-            msgDiv.innerHTML = `
-                <p class="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-tighter">${souEu ? 'Você (Suporte)' : data.usuario}</p>
-                <div class="text-sm ${souEu ? 'text-slate-100' : 'text-slate-200'}">${data.texto}</div>
-            `;
+            let conteudoHTML = `<p class="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-tighter">${souEu ? 'Você (Suporte)' : data.usuario}</p>`;
+            
+            if (data.arquivo) {
+                if (data.tipo && data.tipo.startsWith('image/') || data.tipo_arquivo && data.tipo_arquivo.startsWith('image/')) {
+                    conteudoHTML += `<img src="${data.arquivo}" class="chat-img-admin" onclick="window.open(this.src)" title="Clique para ampliar" />`;
+                } else {
+                    conteudoHTML += `<div class="mt-2"><a href="${data.arquivo}" download="arquivo" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs text-blue-300 transition-colors">
+                        <i class="fa-solid fa-file-arrow-down"></i> Baixar Documento
+                    </a></div>`;
+                }
+            } 
+            
+            if (data.texto && data.texto.trim() !== "") {
+                conteudoHTML += `<div class="text-sm mt-1 ${souEu ? 'text-slate-100' : 'text-slate-200'}">${data.texto}</div>`;
+            }
 
+            msgDiv.innerHTML = conteudoHTML;
             chatBox.appendChild(msgDiv);
             if (scroll) chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -211,7 +220,9 @@
             socket.emit('enviar_mensagem', {
                 nome: nomeAdmin,
                 mensagem: mensagem,
-                salaId: salaAtiva // Fundamental: envia para a sala do usuário selecionado
+                salaId: salaAtiva,
+                arquivo: null,
+                tipo_arquivo: null
             });
 
             input.value = "";
@@ -225,14 +236,12 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                let htmlContent = file.type.startsWith('image/') 
-                    ? `<img src="${e.target.result}" class="chat-img-admin" onclick="window.open(this.src)" />`
-                    : `<a href="${e.target.result}" download="${file.name}" class="text-blue-400 underline italic">📄 ${file.name}</a>`;
-
                 socket.emit('enviar_mensagem', {
                     nome: nomeAdmin,
-                    mensagem: htmlContent,
-                    salaId: salaAtiva
+                    mensagem: `Enviou um arquivo: ${file.name}`,
+                    salaId: salaAtiva,
+                    arquivo: e.target.result,
+                    tipo_arquivo: file.type
                 });
             };
             reader.readAsDataURL(file);
