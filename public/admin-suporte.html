@@ -74,9 +74,7 @@
                     <button onclick="encerrarAtendimento()" class="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 px-3 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 transition-all">
                         <i class="fa-solid fa-circle-xmark"></i> Finalizar Chamado
                     </button>
-
                     <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
-                    
                     <button onclick="limparTela()" title="Limpar mensagens da tela" class="text-slate-500 hover:text-red-400 transition-colors">
                         <i class="fa-solid fa-eraser"></i>
                     </button>
@@ -126,7 +124,6 @@
         let salaAtiva = ""; 
         let usuariosAtivos = {}; 
 
-        // Função para limpar caracteres especiais de IDs do DOM
         const formatId = (id) => id.replace(/[^a-zA-Z0-9]/g, '_');
 
         socket.on('connect', () => {
@@ -135,15 +132,17 @@
         });
 
         socket.on('receber_mensagem', (data) => {
-            const { usuario, texto, salaId, arquivo } = data;
-            
-            if (usuario !== nomeAdmin) {
-                const previewText = arquivo ? "📎 [Arquivo/Imagem]" : texto;
+            const usuarioNome = data.usuario || data.nome || "Usuário";
+            const salaId = data.salaId;
+            const isMe = (usuarioNome === nomeAdmin);
+
+            if (!isMe) {
+                const previewText = data.arquivo ? "📎 [Arquivo/Imagem]" : (data.texto || data.mensagem);
                 
                 if (!usuariosAtivos[salaId]) {
                     document.getElementById('no-chats').style.display = 'none';
-                    usuariosAtivos[salaId] = { nome: usuario, ultimaMsg: previewText };
-                    criarCardUsuario(salaId, usuario, previewText);
+                    usuariosAtivos[salaId] = { nome: usuarioNome, ultimaMsg: previewText };
+                    criarCardUsuario(salaId, usuarioNome, previewText);
                 } else {
                     atualizarCardUsuario(salaId, previewText);
                 }
@@ -172,17 +171,15 @@
             const card = document.getElementById(`user-${safeId}`);
             
             if (data.salaId === salaAtiva) {
-                limparTela();
-                document.getElementById('chat-title').innerText = "Encerrado";
+                document.getElementById('chat-title').innerText = "Sessão Encerrada";
                 const badge = document.getElementById('status-badge');
-                badge.innerText = "SESSÃO FINALIZADA";
+                badge.innerText = "FINALIZADO";
                 badge.className = "text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold uppercase";
                 salaAtiva = "";
             }
 
             if (card) card.remove();
             delete usuariosAtivos[data.salaId];
-
             if (Object.keys(usuariosAtivos).length === 0) {
                 document.getElementById('no-chats').style.display = 'block';
             }
@@ -193,12 +190,12 @@
             document.getElementById('chat-title').innerText = nome;
             const badge = document.getElementById('status-badge');
             badge.classList.remove('hidden');
-            badge.innerText = "Atendimento em curso";
+            badge.innerText = "Em atendimento";
             badge.className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold uppercase";
             
             document.getElementById('empty-state').style.display = 'none';
-            
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
+            
             const safeId = formatId(salaId);
             const card = document.getElementById(`user-${safeId}`);
             if(card) card.classList.add('active');
@@ -211,7 +208,7 @@
 
         function encerrarAtendimento() {
             if (!salaAtiva) return;
-            if (confirm(`Finalizar permanentemente o atendimento de ${usuariosAtivos[salaAtiva].nome}?`)) {
+            if (confirm(`Encerrar o atendimento de ${usuariosAtivos[salaAtiva].nome}?`)) {
                 socket.emit('encerrar_chamado', salaAtiva);
             }
         }
@@ -242,40 +239,36 @@
         function renderizarMensagem(data, scroll = true) {
             const chatBox = document.getElementById('admin-chat-box');
             const msgDiv = document.createElement('div');
-            const souEu = data.usuario === nomeAdmin;
+            const autor = data.usuario || data.nome || "Usuário";
+            const souEu = (autor === nomeAdmin);
 
-            msgDiv.className = `message-fade-in flex flex-col ${souEu ? 'items-end' : 'items-start'}`;
+            msgDiv.className = `message-fade-in flex flex-col mb-2 ${souEu ? 'items-end' : 'items-start'}`;
             
             const bubbleClass = souEu ? 
                 "bg-blue-600/20 border border-blue-500/30 text-right rounded-2xl rounded-tr-none" : 
                 "bg-slate-800 border border-white/5 text-left rounded-2xl rounded-tl-none";
 
-            let conteudoHTML = `
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1 px-1">
-                    ${souEu ? 'Você' : data.usuario}
-                </span>
-                <div class="p-4 max-w-[80%] shadow-sm ${bubbleClass}">
-            `;
-            
+            const texto = data.texto || data.mensagem;
             const arquivo = data.arquivo || data.file;
             const tipo = data.tipo || data.tipo_arquivo;
 
+            let corpoHTML = texto ? `<p class="text-sm leading-relaxed">${texto}</p>` : '';
+            
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
-                    conteudoHTML += `<img src="${arquivo}" class="chat-img-admin" onclick="window.open(this.src)" />`;
+                    corpoHTML += `<img src="${arquivo}" class="chat-img-admin" onclick="window.open(this.src)" />`;
                 } else {
-                    conteudoHTML += `<div class="mt-2"><a href="${arquivo}" download="suporte_anexo" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-black p-3 rounded-lg text-xs text-blue-400 transition-all">
-                        <i class="fa-solid fa-file-arrow-down"></i> Baixar Documento
+                    corpoHTML += `<div class="mt-2"><a href="${arquivo}" download="anexo" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-black p-3 rounded-lg text-xs text-blue-400">
+                        <i class="fa-solid fa-file-arrow-down"></i> Baixar Arquivo
                     </a></div>`;
                 }
-            } 
-            
-            if (data.texto && data.texto.trim() !== "" && !data.texto.startsWith("Enviou um arquivo:")) {
-                conteudoHTML += `<p class="text-sm leading-relaxed">${data.texto}</p>`;
             }
 
-            conteudoHTML += `</div>`;
-            msgDiv.innerHTML = conteudoHTML;
+            msgDiv.innerHTML = `
+                <span class="text-[9px] font-bold text-slate-500 uppercase mb-1 px-1">${souEu ? 'Você (Suporte)' : autor}</span>
+                <div class="p-4 max-w-[80%] shadow-sm ${bubbleClass}">${corpoHTML}</div>
+            `;
+            
             chatBox.appendChild(msgDiv);
             if (scroll) chatBox.scrollTop = chatBox.scrollHeight;
         }
