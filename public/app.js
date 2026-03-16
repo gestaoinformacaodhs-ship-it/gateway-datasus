@@ -15,7 +15,7 @@ function trocar(id) {
     if (alvo) alvo.style.display = 'block';
 }
 
-/* --- FUNÇÃO: EXCLUIR CONTA (NOVA) --- */
+/* --- FUNÇÃO: EXCLUIR CONTA --- */
 async function deletarMinhaConta() {
     const emailUsuario = localStorage.getItem('email');
     
@@ -24,12 +24,12 @@ async function deletarMinhaConta() {
         return logout();
     }
 
-    const confirmacao = confirm("AVISO CRÍTICO:\n\nEsta ação apagará permanentemente seu usuário e todo o histórico de suporte.\n\nDeseja continuar?");
+    const confirmacao = confirm("AVISO CRÍTICO:\n\nEsta ação apagará permanentemente seu usuário e todo o histórico de mensagens.\n\nDeseja continuar?");
     
     if (confirmacao) {
-        const checkEmail = prompt("Para confirmar a exclusão, digite seu e-mail:");
+        const checkEmail = prompt("Para confirmar, digite seu e-mail exatamente como cadastrado:");
         
-        if (checkEmail === emailUsuario) {
+        if (checkEmail && checkEmail.toLowerCase().trim() === emailUsuario.toLowerCase().trim()) {
             try {
                 const response = await fetch('/api/delete-account', {
                     method: 'POST',
@@ -40,16 +40,16 @@ async function deletarMinhaConta() {
                 const result = await response.json();
 
                 if (response.ok) {
-                    alert("Sua conta e seus dados foram removidos com sucesso.");
+                    alert(result.message || "Conta removida com sucesso.");
                     logout();
                 } else {
                     alert("Erro ao excluir: " + (result.error || "Erro desconhecido"));
                 }
             } catch (err) {
-                alert("Falha na conexão com o servidor de banco de dados.");
+                alert("Falha na conexão com o servidor.");
             }
         } else {
-            alert("E-mail incorreto. Ação cancelada.");
+            alert("E-mail incorreto ou em branco. Ação cancelada.");
         }
     }
 }
@@ -59,14 +59,21 @@ async function deletarMinhaConta() {
 function finalizarTicket(idParaFinalizar) {
     if (!confirm("Deseja realmente encerrar este atendimento?")) return;
 
+    // Filtra localmente para atualizar a UI rápido
     ticketsSuporte = ticketsSuporte.filter(t => t.id !== idParaFinalizar);
     renderizarListaTicketsSuporte();
 
+    // Limpa a tela de chat se necessário
     const chatMessages = document.getElementById('chat-messages') || document.querySelector('.chat-messages');
     const chatHeader = document.querySelector('.chat-header');
     
     if (chatMessages) chatMessages.innerHTML = '';
     if (chatHeader) chatHeader.innerHTML = '<div class="text-slate-500">Selecione um ticket para iniciar</div>';
+    
+    // Notifica o servidor via Socket se necessário (caso use a função encerrar_chamado)
+    if (typeof socket !== 'undefined') {
+        socket.emit('encerrar_chamado', idParaFinalizar);
+    }
 }
 
 function renderizarListaTicketsSuporte() {
@@ -81,12 +88,12 @@ function renderizarListaTicketsSuporte() {
     userList.innerHTML = ticketsSuporte.map(t => `
         <div class="user-item" onclick="selecionarTicket('${t.id}')" id="ticket-${t.id}">
             <div class="flex justify-between items-start">
-                <div>
-                    <span class="user-name">${t.nome}</span>
-                    <span class="last-msg">${t.email || 'Aguardando...'}</span>
+                <div class="overflow-hidden">
+                    <span class="user-name block truncate">${t.nome}</span>
+                    <span class="last-msg block truncate text-[10px] opacity-60">${t.email || 'Aguardando...'}</span>
                 </div>
                 <button onclick="event.stopPropagation(); finalizarTicket('${t.id}')" 
-                        class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all">
+                        class="ml-2 text-[9px] bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all">
                     FINALIZAR
                 </button>
             </div>
@@ -102,13 +109,12 @@ function toggleChat() {
     if (chatWin) {
         const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden') || !chatWin.classList.contains('active');
         
-        // Suporte para ambas as versões de CSS que você enviou
         if (chatWin.classList.contains('active')) {
             chatWin.classList.remove('active');
-            chatWin.style.display = 'none';
+            setTimeout(() => { chatWin.style.display = 'none'; }, 300); // Espera animação se houver
         } else {
-            chatWin.classList.add('active');
             chatWin.style.display = 'flex';
+            setTimeout(() => { chatWin.classList.add('active'); }, 10);
             if (badge) badge.classList.add('hidden');
         }
     }
@@ -173,7 +179,7 @@ async function abrirEListar(sistema) {
     listContainer.innerHTML = `
         <div class="py-10 text-center">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500 mb-4"></div>
-            <p class="text-blue-400 font-bold">Conectando ao DATASUS...</p>
+            <p class="text-blue-400 font-bold text-sm">Conectando ao DATASUS...</p>
         </div>
     `;
 
@@ -184,7 +190,7 @@ async function abrirEListar(sistema) {
         arquivosCache = Array.isArray(files) ? files : []; 
         renderizarLista(arquivosCache);
     } catch (err) {
-        listContainer.innerHTML = `<div class="p-6 text-center text-red-400">${err.message}</div>`;
+        listContainer.innerHTML = `<div class="p-6 text-center text-red-400 text-sm">${err.message}</div>`;
     }
 }
 
@@ -193,7 +199,7 @@ function renderizarLista(lista) {
     if (!listContainer) return;
 
     if (lista.length === 0) {
-        listContainer.innerHTML = "<p class='text-center py-10 text-slate-500'>Nenhum arquivo encontrado.</p>";
+        listContainer.innerHTML = "<p class='text-center py-10 text-slate-500 text-sm'>Nenhum arquivo encontrado.</p>";
         return;
     }
 
@@ -204,7 +210,7 @@ function renderizarLista(lista) {
                 <small class="text-slate-600 text-[10px] font-mono">📅 ${f.rawDate || 'N/D'} | 📦 ${f.size || 'N/D'}</small>
             </div>
             <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
-                    class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all">
+                    class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all min-w-[80px]">
                 BAIXAR
             </button>
         </div>
@@ -224,6 +230,7 @@ async function baixarDireto(sistema, arquivo, btn) {
     btn.disabled = true;
 
     try {
+        // Redirecionamento direto para o stream do servidor
         window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
     } catch (err) {
         alert("Erro ao iniciar download.");
@@ -231,7 +238,7 @@ async function baixarDireto(sistema, arquivo, btn) {
         setTimeout(() => {
             btn.innerText = originalText;
             btn.disabled = false;
-        }, 1500);
+        }, 2000);
     }
 }
 
@@ -256,22 +263,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const display = document.getElementById('user-display');
     if (display) display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
 
-    // Eventos de Busca
+    // Setup de inputs
     document.getElementById('modalSearch')?.addEventListener('input', filtrarArquivosModal);
     
-    // Evento de Tecla Enter no Chat
     const chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                if (typeof enviarMensagem === 'function') {
-                    enviarMensagem();
-                }
+                e.preventDefault();
+                if (typeof enviarMensagem === 'function') enviarMensagem();
             }
         });
     }
 
-    // Inicializa lista de suporte se estiver no console admin
+    // Inicializa lista de suporte se o elemento existir (Admin)
     if (document.querySelector('.user-list')) {
         renderizarListaTicketsSuporte();
     }

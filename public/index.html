@@ -11,19 +11,12 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
         
         body {
-            /* BACKGROUND COM A IMAGEM TECNOLÓGICA */
-            background: linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8)), 
+            background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), 
                         url('assets/background-dhs.jpg'); 
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
             font-family: 'Inter', sans-serif;
-        }
-
-        /* --- ESTILIZAÇÃO DO LOGOTIPO --- */
-        .logo-container {
-            text-align: center;
-            margin-bottom: 32px;
         }
 
         .logo-text {
@@ -44,26 +37,16 @@
             text-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
         }
 
-        .logo-subtext {
-            font-size: 10px;
-            color: #94a3b8;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            margin-top: 4px;
-            font-weight: 800;
-        }
-
         @keyframes logo-glow {
             0%, 100% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
             50% { filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.6)); }
         }
 
-        /* --- GLASSMORPHISM --- */
         .glass-card {
             border: 1px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(15, 23, 42, 0.75);
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
         }
 
@@ -74,26 +57,14 @@
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
         }
 
-        .toggle-btn {
-            position: absolute;
-            right: 14px;
-            top: 40px;
-            cursor: pointer;
-            color: #475569;
-            transition: color 0.2s;
-        }
-        .toggle-btn:hover { color: #3b82f6; }
-
-        /* Estilização da Scrollbar */
-        #user-chat-box::-webkit-scrollbar { width: 4px; }
-        #user-chat-box::-webkit-scrollbar-track { background: transparent; }
-        #user-chat-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-        .fade-in { animation: fadeIn 0.5s ease-out; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(15px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        #user-chat-box::-webkit-scrollbar { width: 4px; }
+        #user-chat-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
     <script>
         if (localStorage.getItem('token')) {
@@ -104,24 +75,26 @@
 <body class="min-h-screen flex items-center justify-center p-4 text-slate-200">
 
     <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl fade-in">
-        <div class="logo-container">
+        <div class="text-center mb-8">
             <h1 class="logo-text">GATEWAY <span>SUS</span></h1>
-            <p class="logo-subtext">Gestão de Informação DHS</p>
+            <p class="text-[10px] text-slate-400 tracking-[4px] uppercase font-extrabold mt-1">Gestão de Informação DHS</p>
         </div>
         
         <div class="space-y-5">
             <div>
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail de Acesso</label>
-                <input type="email" id="l-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="usuario@dhs.gov.br">
+                <input type="email" id="l-email" autocomplete="email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="usuario@dhs.gov.br">
             </div>
             
             <div class="relative">
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Sua Senha</label>
-                <input type="password" id="l-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="••••••••">
-                <span class="toggle-btn" onclick="toggleView('l-pass', this)"><i class="fa-solid fa-eye"></i></span>
+                <input type="password" id="l-pass" autocomplete="current-password" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="••••••••">
+                <span class="absolute right-4 top-[38px] cursor-pointer text-slate-600 hover:text-blue-400 transition-colors" onclick="toggleView('l-pass', this)">
+                    <i class="fa-solid fa-eye"></i>
+                </span>
             </div>
             
-            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 mt-2">
+            <button onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 mt-2">
                 Entrar no Sistema
             </button>
         </div>
@@ -150,9 +123,11 @@
             <div class="relative">
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Defina uma Senha</label>
                 <input type="password" id="r-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
-                <span class="toggle-btn" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
+                <span class="absolute right-4 top-[38px] cursor-pointer text-slate-600 hover:text-blue-400" onclick="toggleView('r-pass', this)">
+                    <i class="fa-solid fa-eye"></i>
+                </span>
             </div>
-            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/30">
+            <button onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/30">
                 Finalizar Cadastro
             </button>
             <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
@@ -173,7 +148,7 @@
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Cadastrado</label>
                 <input type="email" id="f-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all" placeholder="exemplo@dhs.gov.br">
             </div>
-            <button id="btn-forgot" onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30">
+            <button onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30">
                 Enviar Link de Recuperação
             </button>
             <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
@@ -222,6 +197,7 @@
         
         let emailSala = "";
 
+        // Função para garantir que o usuário está na sala correta (Baseada no email ou ID temporário)
         function atualizarSala() {
             const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
             const emailSalvo = localStorage.getItem('email');
@@ -244,11 +220,10 @@
         }
 
         function trocar(tela) {
-            document.querySelectorAll('.glass-card').forEach(c => {
-                if(c.id !== 'chat-window') c.classList.add('hidden');
-            });
-            const target = document.getElementById(tela + '-container');
-            target.classList.remove('hidden');
+            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('signup-container').classList.add('hidden');
+            document.getElementById('forgot-container').classList.add('hidden');
+            document.getElementById(tela + '-container').classList.remove('hidden');
         }
 
         function toggleChat() {
@@ -256,7 +231,7 @@
             badge.classList.add('hidden');
             if (!chatWindow.classList.contains('hidden')) {
                 atualizarSala();
-                setTimeout(() => chatBox.scrollTop = chatBox.scrollHeight, 100);
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
         }
 
@@ -291,16 +266,13 @@
             }`;
             
             const texto = data.texto || data.mensagem || "";
-            const arquivo = data.arquivo || data.file;
-            const tipo = data.tipo || data.tipo_arquivo;
-
             let conteudo = `<p class="text-[7px] font-black opacity-40 mb-1 uppercase tracking-widest">${souEu ? 'Você' : autor}</p>`;
             
-            if (arquivo) {
-                if (tipo && tipo.startsWith('image/')) {
-                    conteudo += `<img src="${arquivo}" class="chat-img-user" onclick="window.open(this.src)">`;
+            if (data.arquivo) {
+                if (data.tipo?.startsWith('image/')) {
+                    conteudo += `<img src="${data.arquivo}" class="rounded-lg max-w-full cursor-pointer" onclick="window.open(this.src)">`;
                 } else {
-                    conteudo += `<a href="${arquivo}" download class="text-[10px] text-blue-400 underline block mt-1"><i class="fa-solid fa-download mr-1"></i> Anexo</a>`;
+                    conteudo += `<a href="${data.arquivo}" download class="text-[10px] text-blue-400 underline block mt-1"><i class="fa-solid fa-download mr-1"></i> Anexo</a>`;
                 }
             }
             if (texto) conteudo += `<p class="text-[11px] leading-relaxed">${texto}</p>`;
@@ -321,12 +293,13 @@
                 salaId: emailSala 
             });
             input.value = "";
+            input.focus();
         }
 
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
-            if (!email || !senha) return;
+            if (!email || !senha) return alert("Preencha as credenciais.");
 
             try {
                 const res = await fetch('/api/login', {
@@ -363,7 +336,7 @@
                     const data = await res.json();
                     alert(data.error);
                 }
-            } catch (err) { alert("Erro ao conectar ao servidor."); }
+            } catch (err) { alert("Erro de conexão."); }
         }
 
         async function solicitarRecuperacao() {
@@ -380,10 +353,18 @@
             } catch (err) { alert("Erro de conexão."); }
         }
 
+        // Lógica inteligente para o "Enter"
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
-                else if (document.getElementById('login-container').offsetParent !== null) entrar();
+                if (!chatWindow.classList.contains('hidden')) {
+                    enviarMensagemUsuario();
+                } else if (!document.getElementById('login-container').classList.contains('hidden')) {
+                    entrar();
+                } else if (!document.getElementById('signup-container').classList.contains('hidden')) {
+                    registrar();
+                } else if (!document.getElementById('forgot-container').classList.contains('hidden')) {
+                    solicitarRecuperacao();
+                }
             }
         });
     </script>

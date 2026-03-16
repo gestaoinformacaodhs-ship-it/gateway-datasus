@@ -20,131 +20,137 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(12px);
             background: rgba(30, 41, 59, 0.5);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
         }
 
         input:focus {
             outline: none;
             border-color: #3b82f6 !important;
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+            background: rgba(15, 23, 42, 0.8) !important;
         }
 
         .toggle-password {
             position: absolute;
-            right: 12px;
+            right: 14px;
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
             color: #475569;
             transition: color 0.2s;
+            z-index: 10;
         }
         .toggle-password:hover { color: #3b82f6; }
+
+        /* Animação suave para a barra de força */
+        #barra-forca { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s; }
     </style>
     <script>
-        // Proteção de rota simples
         if (!localStorage.getItem('token')) {
             window.location.href = 'index.html';
         }
     </script>
 </head>
-<body class="text-slate-200 min-h-screen">
+<body class="text-slate-200 min-h-screen pb-12">
 
     <nav class="border-b border-white/5 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
             <h1 class="text-xl font-black tracking-tighter text-blue-500">GATEWAY <span class="text-white">SUS</span></h1>
             <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-widest flex items-center">
-                <i class="fa-solid fa-arrow-left mr-2"></i> Dashboard
+                <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Painel
             </a>
         </div>
     </nav>
 
     <main class="max-w-2xl mx-auto p-6 mt-8">
-        <div class="glass-card rounded-3xl overflow-hidden shadow-2xl">
+        <div class="glass-card rounded-3xl overflow-hidden">
             <div class="bg-blue-600 p-8">
-                <div class="flex items-center gap-4">
-                    <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30">
+                <div class="flex items-center gap-5">
+                    <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30 shadow-inner">
                         <i class="fa-solid fa-user-gear text-3xl text-white"></i>
                     </div>
                     <div>
                         <h2 class="text-2xl font-black text-white tracking-tight">Configurações de Perfil</h2>
-                        <p class="text-blue-100/70 text-sm font-medium">Gerencie sua identidade no ecossistema DATASUS.</p>
+                        <p class="text-blue-100/70 text-sm font-medium">Atualize suas informações e segurança.</p>
                     </div>
                 </div>
             </div>
 
             <form id="form-perfil" class="p-8 space-y-6">
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Nome Completo</label>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 ml-1">Nome Completo</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
                             <i class="fa-solid fa-id-card text-sm"></i>
                         </span>
-                        <input type="text" id="nome" required
-                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-4 py-3.5 focus:outline-none border border-white/5 transition-all">
+                        <input type="text" id="nome" required placeholder="Seu nome"
+                            class="w-full bg-slate-950/40 text-white rounded-xl pl-11 pr-4 py-3.5 border border-white/5 transition-all">
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">E-mail de Acesso (Permanente)</label>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 ml-1">E-mail Institucional</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-600">
                             <i class="fa-solid fa-envelope text-sm"></i>
                         </span>
                         <input type="email" id="email" readonly
-                            class="w-full bg-slate-800/30 text-slate-500 rounded-xl pl-11 pr-4 py-3.5 border border-white/5 cursor-not-allowed italic">
+                            class="w-full bg-slate-800/20 text-slate-500 rounded-xl pl-11 pr-4 py-3.5 border border-white/5 cursor-not-allowed italic">
                     </div>
                 </div>
 
-                <div class="py-2">
+                <div class="py-4">
                     <div class="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Nova Senha (Opcional)</label>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 ml-1">Alterar Senha (Opcional)</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
                             <i class="fa-solid fa-key text-sm"></i>
                         </span>
-                        <input type="password" id="senha" placeholder="Mínimo 6 caracteres" oninput="avaliarForca()"
-                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-12 py-3.5 focus:outline-none border border-white/5 transition-all">
+                        <input type="password" id="senha" placeholder="Nova senha (mín. 6 chars)" oninput="avaliarForca()"
+                            class="w-full bg-slate-950/40 text-white rounded-xl pl-11 pr-12 py-3.5 border border-white/5 transition-all">
                         <span class="toggle-password" onclick="togglePass('senha')"><i class="fa-solid fa-eye"></i></span>
                     </div>
                     
                     <div class="px-1 mt-3">
                         <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div id="barra-forca" class="w-0 h-full transition-all duration-500 bg-red-500"></div>
+                            <div id="barra-forca" class="w-0 h-full bg-red-500"></div>
                         </div>
-                        <p id="label-forca" class="text-[9px] uppercase font-bold text-slate-600 mt-1 tracking-widest text-right">Senha ausente</p>
+                        <p id="label-forca" class="text-[9px] uppercase font-bold text-slate-600 mt-2 tracking-widest text-right">Senha não informada</p>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Confirmar Nova Senha</label>
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 ml-1">Confirmar Nova Senha</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
                             <i class="fa-solid fa-shield-check text-sm"></i>
                         </span>
                         <input type="password" id="confirmar_senha" placeholder="Repita a nova senha"
-                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-12 py-3.5 focus:outline-none border border-white/5 transition-all">
+                            class="w-full bg-slate-950/40 text-white rounded-xl pl-11 pr-12 py-3.5 border border-white/5 transition-all">
                         <span class="toggle-password" onclick="togglePass('confirmar_senha')"><i class="fa-solid fa-eye"></i></span>
                     </div>
                 </div>
 
-                <div class="pt-6">
+                <div class="pt-4">
                     <button type="submit" id="btn-salvar"
-                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-blue-600/10 flex justify-center items-center active:scale-[0.98] group">
-                        <i class="fa-solid fa-check-circle mr-2 group-hover:scale-110 transition-transform"></i> Atualizar Perfil
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-600/20 flex justify-center items-center active:scale-[0.98] group">
+                        <i class="fa-solid fa-floppy-disk mr-2 group-hover:rotate-12 transition-transform"></i> 
+                        <span>Salvar Alterações</span>
                     </button>
                 </div>
             </form>
         </div>
         
         <p class="text-center text-slate-600 text-[10px] mt-8 font-bold uppercase tracking-[0.2em]">
-            Gateway DATASUS &copy; 2026 - Sistema de Segurança DHS
+            Gateway DATASUS &copy; 2026 - Gestão de Acesso Seguro
         </p>
     </main>
 
     <script>
-        // Carregar dados iniciais
+        // Inicialização
         window.onload = () => {
             const userNome = localStorage.getItem('usuario');
             const userEmail = localStorage.getItem('email');
@@ -153,16 +159,16 @@
             if (userEmail) document.getElementById('email').value = userEmail;
         };
 
-        // Mostrar/Ocultar Senha
+        // Função para alternar visibilidade da senha
         function togglePass(id) {
             const input = document.getElementById(id);
-            const icon = input.nextElementSibling.querySelector('i');
+            const icon = input.parentElement.querySelector('.toggle-password i');
             input.type = input.type === 'password' ? 'text' : 'password';
             icon.classList.toggle('fa-eye');
             icon.classList.toggle('fa-eye-slash');
         }
 
-        // Avaliação de força com texto explicativo
+        // Sistema de validação de força de senha
         function avaliarForca() {
             const senha = document.getElementById('senha').value;
             const barra = document.getElementById('barra-forca');
@@ -179,46 +185,50 @@
             barra.style.width = forca + "%";
             
             if (forca === 0) {
-                label.innerText = "Senha ausente";
-                label.className = "text-[9px] uppercase font-bold text-slate-600 mt-1 tracking-widest text-right";
+                label.innerText = "Senha não informada";
+                label.className = "text-[9px] uppercase font-bold text-slate-600 mt-2 tracking-widest text-right";
+                barra.style.backgroundColor = "transparent";
             } else if (forca <= 25) {
+                label.innerText = "Fraca";
+                label.className = "text-[9px] uppercase font-bold text-red-500 mt-2 tracking-widest text-right";
                 barra.style.backgroundColor = "#ef4444";
-                label.innerText = "Muito Fraca";
-                label.classList.replace('text-slate-600', 'text-red-500');
             } else if (forca <= 50) {
-                barra.style.backgroundColor = "#eab308";
                 label.innerText = "Razoável";
-                label.className = "text-[9px] uppercase font-bold text-yellow-500 mt-1 tracking-widest text-right";
+                label.className = "text-[9px] uppercase font-bold text-yellow-500 mt-2 tracking-widest text-right";
+                barra.style.backgroundColor = "#eab308";
             } else if (forca <= 75) {
-                barra.style.backgroundColor = "#3b82f6";
                 label.innerText = "Forte";
-                label.className = "text-[9px] uppercase font-bold text-blue-500 mt-1 tracking-widest text-right";
+                label.className = "text-[9px] uppercase font-bold text-blue-500 mt-2 tracking-widest text-right";
+                barra.style.backgroundColor = "#3b82f6";
             } else {
+                label.innerText = "Segurança Máxima";
+                label.className = "text-[9px] uppercase font-bold text-green-500 mt-2 tracking-widest text-right";
                 barra.style.backgroundColor = "#10b981";
-                label.innerText = "Excelente";
-                label.className = "text-[9px] uppercase font-bold text-green-500 mt-1 tracking-widest text-right";
             }
         }
 
-        // Envio do formulário
-        const form = document.getElementById('form-perfil');
-        const btn = document.getElementById('btn-salvar');
-
-        form.addEventListener('submit', async (e) => {
+        // Logica de submissão
+        document.getElementById('form-perfil').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const btn = document.getElementById('btn-salvar');
             const nome = document.getElementById('nome').value.trim();
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            if (senha && (senha.length < 6 || senha !== confirma)) {
-                return alert(senha.length < 6 ? "A senha deve ter no mínimo 6 caracteres." : "As senhas não coincidem.");
+            // Validações básicas
+            if (senha && senha.length < 6) {
+                return alert("A nova senha deve conter pelo menos 6 caracteres.");
+            }
+            if (senha !== confirma) {
+                return alert("As senhas não coincidem.");
             }
 
-            const originalText = btn.innerHTML;
+            // Estado de loading
+            const originalHTML = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Salvando...`;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Atualizando...`;
 
             try {
                 const res = await fetch('/api/update-profile', {
@@ -233,17 +243,17 @@
 
                 if (res.ok) {
                     localStorage.setItem('usuario', nome);
-                    alert("✅ Perfil atualizado com sucesso!");
+                    alert("✅ Alterações salvas com sucesso!");
                     window.location.reload();
                 } else {
                     const data = await res.json();
-                    alert("❌ Erro: " + data.error);
+                    alert("❌ Erro ao atualizar: " + (data.error || "Tente novamente."));
                 }
             } catch (err) {
-                alert("❌ Servidor indisponível.");
+                alert("❌ Erro de conexão com o servidor.");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = originalText;
+                btn.innerHTML = originalHTML;
             }
         });
     </script>
