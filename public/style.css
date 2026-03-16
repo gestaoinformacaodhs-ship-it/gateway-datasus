@@ -3,8 +3,8 @@
     --primary: #3b82f6;
     --primary-hover: #2563eb;
     --bg: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
-    --border: rgba(255, 255, 255, 0.1);
+    --card-bg: rgba(15, 23, 42, 0.75); 
+    --border: rgba(255, 255, 255, 0.08);
     --text: #f1f5f9;
     --text-dim: #94a3b8;
     --success: #10b981;
@@ -21,25 +21,47 @@
 }
 
 body {
-    background: radial-gradient(circle at top left, #1e293b, #0f172a);
+    /* BACKGROUND TECNOLÓGICO */
+    background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), 
+                url('assets/background-dhs.jpg'); 
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
     line-height: 1.5;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Utilitários */
 .hidden { display: none !important; }
 
-/* --- EFEITO GLASSMORPHISM --- */
+/* --- LOGOTIPO (ESTILO GATEWAY SUS) --- */
+.logo-text {
+    font-weight: 900;
+    background: linear-gradient(135deg, #ffffff 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    animation: logo-glow 3s infinite ease-in-out;
+}
+
+@keyframes logo-glow {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
+    50% { filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.6)); }
+}
+
+/* --- EFEITO GLASSMORPHISM REFINADO --- */
 .glass-card {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
     border-radius: 20px;
     padding: 30px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
 /* --- LAYOUT DO CONSOLE DE SUPORTE (ADMIN) --- */
@@ -47,7 +69,8 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
-    background: var(--bg);
+    background: rgba(15, 23, 42, 0.6); 
+    backdrop-filter: blur(10px);
 }
 
 .sidebar {
@@ -67,6 +90,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 1.5px;
     font-size: 0.85rem;
+    text-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
 }
 
 .user-list {
@@ -85,24 +109,22 @@ body {
 }
 
 .user-item:hover {
-    background: rgba(59, 130, 246, 0.08);
+    background: rgba(59, 130, 246, 0.1);
 }
 
 .user-item.active {
     background: rgba(59, 130, 246, 0.15);
     border-left: 4px solid var(--primary);
-    padding-left: 16px; /* Compensação da borda */
+    box-shadow: inset 10px 0 20px -10px rgba(59, 130, 246, 0.3);
 }
 
 .user-item .user-name {
-    display: block;
     font-weight: 600;
     font-size: 0.95rem;
     color: var(--text);
 }
 
 .user-item .last-msg {
-    display: block;
     font-size: 0.8rem;
     color: var(--text-dim);
     white-space: nowrap;
@@ -115,19 +137,17 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: rgba(15, 23, 42, 0.3);
+    background: transparent;
     position: relative;
 }
 
-/* Cabeçalho do Chat Selecionado */
 .chat-header {
     padding: 15px 25px;
-    background: rgba(30, 41, 59, 0.5);
+    background: rgba(30, 41, 59, 0.6);
     border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(12px);
 }
 
-/* Mensagens */
 .chat-messages {
     flex: 1;
     padding: 25px;
@@ -136,6 +156,7 @@ body {
     flex-direction: column;
     gap: 16px;
     scroll-behavior: smooth;
+    background: rgba(15, 23, 42, 0.2);
 }
 
 .msg {
@@ -162,45 +183,47 @@ body {
     background: var(--primary);
     color: white;
     border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 .msg-support {
     align-self: flex-start;
-    background: #334155;
+    background: #1e293b;
     color: #f1f5f9;
     border-bottom-left-radius: 4px;
     border: 1px solid var(--border);
 }
 
-/* Estilo para Arquivos Recebidos */
+/* Arquivos */
 .file-attachment {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 10px;
     text-decoration: none;
     color: var(--text);
     margin-top: 8px;
-    border: 1px solid transparent;
+    border: 1px solid var(--border);
     transition: var(--transition);
 }
 
 .file-attachment:hover {
     border-color: var(--primary);
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
 }
 
 /* Input do Chat */
 .chat-input-area {
     padding: 20px 30px;
-    background: #1e293b;
+    background: rgba(15, 23, 42, 0.9);
     border-top: 1px solid var(--border);
     display: flex;
     gap: 15px;
     align-items: center;
+    backdrop-filter: blur(10px);
 }
 
 .chat-input-area input {
@@ -208,7 +231,7 @@ body {
     padding: 14px 18px; 
     border-radius: 12px; 
     border: 1px solid var(--border);
-    background: rgba(15, 23, 42, 0.8); 
+    background: rgba(30, 41, 59, 0.4); 
     color: white; 
     outline: none;
     transition: var(--transition);
@@ -216,11 +239,11 @@ body {
 
 .chat-input-area input:focus {
     border-color: var(--primary);
-    background: rgba(15, 23, 42, 1);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    background: rgba(30, 41, 59, 0.6);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
 }
 
-/* Botões do Chat */
+/* Botões */
 .btn-icon {
     background: transparent;
     border: none;
@@ -236,9 +259,10 @@ body {
 .btn-icon:hover {
     color: var(--primary);
     transform: scale(1.1);
+    filter: drop-shadow(0 0 8px var(--primary));
 }
 
-/* --- WIDGET DO USUÁRIO (Lado Direito Inferior) --- */
+/* --- WIDGET DO USUÁRIO --- */
 #chat-widget { 
     position: fixed; 
     bottom: 25px; 
@@ -254,14 +278,9 @@ body {
     color: white;
     border: none;
     cursor: pointer;
-    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.5);
     font-size: 1.5rem;
     transition: var(--transition);
-}
-
-.btn-toggle-chat:hover {
-    transform: rotate(15deg) scale(1.1);
-    background: var(--primary-hover);
 }
 
 .chat-window { 
@@ -270,12 +289,13 @@ body {
     right: 0; 
     width: 360px; 
     height: 550px; 
-    background: #0f172a; 
+    background: rgba(15, 23, 42, 0.95); 
+    backdrop-filter: blur(20px);
     border: 1px solid var(--border); 
     border-radius: 24px; 
     display: none; 
     flex-direction: column; 
-    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6);
     overflow: hidden;
 }
 
@@ -299,22 +319,14 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { 
-    background: var(--border); 
+    background: rgba(255, 255, 255, 0.1); 
     border-radius: 10px; 
-    transition: var(--transition);
 }
-::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-/* Responsividade Básica Admin */
+/* Responsividade */
 @media (max-width: 768px) {
-    .sidebar {
-        width: 80px;
-    }
-    .sidebar-header, .user-name, .last-msg {
-        display: none;
-    }
-    .user-item {
-        align-items: center;
-        justify-content: center;
-    }
+    .sidebar { width: 80px; }
+    .sidebar-header, .user-name, .last-msg { display: none; }
+    .user-item { align-items: center; justify-content: center; }
 }

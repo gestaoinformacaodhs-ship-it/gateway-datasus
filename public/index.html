@@ -11,26 +11,67 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
         
         body {
-            background: linear-gradient(rgba(10, 15, 28, 0.85), rgba(10, 15, 28, 0.85)), 
-                        url('https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=2080&auto=format&fit=crop');
+            /* BACKGROUND COM A IMAGEM TECNOLÓGICA */
+            background: linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8)), 
+                        url('assets/background-dhs.jpg'); 
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
             font-family: 'Inter', sans-serif;
         }
 
+        /* --- ESTILIZAÇÃO DO LOGOTIPO --- */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo-text {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #ffffff 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            animation: logo-glow 3s infinite ease-in-out;
+        }
+
+        .logo-text span {
+            color: #60a5fa;
+            -webkit-text-fill-color: initial;
+            background: none;
+            text-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
+        }
+
+        .logo-subtext {
+            font-size: 10px;
+            color: #94a3b8;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-top: 4px;
+            font-weight: 800;
+        }
+
+        @keyframes logo-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3)); }
+            50% { filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.6)); }
+        }
+
+        /* --- GLASSMORPHISM --- */
         .glass-card {
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(16px);
-            background: rgba(30, 41, 59, 0.45);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.7);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
         }
 
         input:focus {
             outline: none;
-            border-color: #2563eb !important;
-            background: rgba(15, 23, 42, 0.9) !important;
-            box-shadow: 0 0 15px rgba(37, 99, 235, 0.2);
+            border-color: #3b82f6 !important;
+            background: rgba(15, 23, 42, 0.95) !important;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
         }
 
         .toggle-btn {
@@ -43,22 +84,14 @@
         }
         .toggle-btn:hover { color: #3b82f6; }
 
-        /* Estilização da Scrollbar do Chat */
+        /* Estilização da Scrollbar */
         #user-chat-box::-webkit-scrollbar { width: 4px; }
         #user-chat-box::-webkit-scrollbar-track { background: transparent; }
-        #user-chat-box::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        #user-chat-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-        .chat-img-user {
-            max-width: 100%;
-            border-radius: 8px;
-            margin-top: 8px;
-            cursor: zoom-in;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .fade-in { animation: fadeIn 0.4s ease-out; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
@@ -71,24 +104,24 @@
 <body class="min-h-screen flex items-center justify-center p-4 text-slate-200">
 
     <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl fade-in">
-        <div class="text-center mb-8">
-            <h2 class="text-3xl font-black tracking-tighter text-white">GATEWAY <span class="text-blue-500">SUS</span></h2>
-            <p class="text-slate-400 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">Gestão de Informação DHS</p>
+        <div class="logo-container">
+            <h1 class="logo-text">GATEWAY <span>SUS</span></h1>
+            <p class="logo-subtext">Gestão de Informação DHS</p>
         </div>
         
         <div class="space-y-5">
             <div>
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail de Acesso</label>
-                <input type="email" id="l-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-600" placeholder="usuario@dhs.gov.br">
+                <input type="email" id="l-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="usuario@dhs.gov.br">
             </div>
             
             <div class="relative">
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Sua Senha</label>
-                <input type="password" id="l-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-600" placeholder="••••••••">
+                <input type="password" id="l-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="••••••••">
                 <span class="toggle-btn" onclick="toggleView('l-pass', this)"><i class="fa-solid fa-eye"></i></span>
             </div>
             
-            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20 mt-2">
+            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 mt-2">
                 Entrar no Sistema
             </button>
         </div>
@@ -119,7 +152,7 @@
                 <input type="password" id="r-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
                 <span class="toggle-btn" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
             </div>
-            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/20">
+            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/30">
                 Finalizar Cadastro
             </button>
             <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
@@ -140,7 +173,7 @@
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Cadastrado</label>
                 <input type="email" id="f-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all" placeholder="exemplo@dhs.gov.br">
             </div>
-            <button id="btn-forgot" onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20">
+            <button id="btn-forgot" onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30">
                 Enviar Link de Recuperação
             </button>
             <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
@@ -164,8 +197,7 @@
                 <button onclick="toggleChat()" class="hover:rotate-90 transition-transform"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 scroll-smooth">
-                </div>
+            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 scroll-smooth"></div>
 
             <div class="p-3 bg-slate-950/50 border-t border-white/5 flex gap-2">
                 <input type="text" id="user-input" placeholder="Dúvida ou problema..." 
@@ -228,7 +260,6 @@
             }
         }
 
-        // --- LÓGICA DO CHAT ---
         socket.on('historico_mensagens', (mensagens) => {
             chatBox.innerHTML = ""; 
             if (mensagens.length === 0) {
@@ -292,7 +323,6 @@
             input.value = "";
         }
 
-        // --- API INTEGRATION ---
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
@@ -350,7 +380,6 @@
             } catch (err) { alert("Erro de conexão."); }
         }
 
-        // Atalho teclado
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
