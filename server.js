@@ -82,6 +82,8 @@ initDB();
 
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
+    
+    // Admin entra em uma sala global para receber notificações de novas mensagens
     socket.on('admin_entrar', () => socket.join('admin_room'));
     
     socket.on('entrar_na_sala', async (salaId) => {
@@ -114,9 +116,29 @@ io.on('connection', (socket) => {
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
             };
 
+            // Envia para todos na sala específica
             io.to(salaId).emit('receber_mensagem', msgData);
-            if (nome !== "Suporte Arpoador") io.to('admin_room').emit('receber_mensagem', msgData);
+            
+            // Se não for o admin enviando, avisa o admin na sala global para atualizar a lista lateral
+            if (nome !== "Suporte Arpoador") {
+                io.to('admin_room').emit('receber_mensagem', msgData);
+            }
         } catch (err) { console.error("Erro ao enviar mensagem:", err.message); }
+    });
+
+    // --- NOVA LÓGICA: ENCERRAR CHAMADO ---
+    socket.on('encerrar_chamado', async (salaId) => {
+        if (!salaId) return;
+        try {
+            // Opcional: Se quiser apagar as mensagens do banco ao encerrar, descomente a linha abaixo:
+            // await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
+
+            // Avisa a todos na sala (Admin e Usuário) que acabou
+            io.to(salaId).emit('chamado_encerrado', { salaId });
+            console.log(`📢 Chamado ${salaId} encerrado.`);
+        } catch (err) {
+            console.error("Erro ao encerrar chamado:", err.message);
+        }
     });
 });
 
@@ -156,7 +178,6 @@ app.post('/api/login', async (req, res) => {
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(senha, user.senha))) return res.status(401).json({ error: "Credenciais inválidas." });
         
-        // Remove senha do retorno por segurança
         res.json({ user: user.nome, email: user.email });
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
@@ -218,7 +239,6 @@ app.get('/api/list/:sistema', async (req, res) => {
     const sistema = req.params.sistema.toUpperCase();
     if (!pastasFTP[sistema]) return res.status(400).json({ error: "Sistema inválido." });
     
-    // Cache de 5 minutos para não sobrecarregar o FTP
     const agora = Date.now();
     if (cacheFTP[sistema] && (agora - cacheFTP[sistema].time < 300000)) {
         return res.json(cacheFTP[sistema].data);

@@ -54,10 +54,15 @@
                     <span id="status-badge" class="text-[10px] bg-slate-500/20 text-slate-400 px-2 py-1 rounded border border-slate-500/30 font-bold">AGUARDANDO</span>
                 </div>
                 
-                <div class="flex items-center gap-4">
-                    <button onclick="testarSom()" class="text-slate-500 hover:text-blue-400 transition-colors text-xs flex items-center gap-1">
+                <div class="flex items-center gap-3">
+                    <button onclick="encerrarAtendimento()" class="bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/30 px-3 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 transition-all">
+                        <i class="fa-solid fa-circle-xmark"></i> Finalizar Chamado
+                    </button>
+
+                    <button onclick="testarSom()" class="text-slate-500 hover:text-blue-400 transition-colors text-xs p-2">
                         <i class="fa-solid fa-volume-high"></i>
                     </button>
+                    
                     <button onclick="limparTela()" class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-tighter">
                         <i class="fa-solid fa-trash-can"></i> Limpar Tela
                     </button>
@@ -71,10 +76,10 @@
             </div>
 
             <div class="p-4 bg-slate-800 border-t border-slate-700 flex gap-4 shadow-2xl items-center">
-                <label for="admin-file" class="cursor-pointer text-slate-400 hover:text-blue-500 transition-colors px-2">
+                <button type="button" onclick="document.getElementById('admin-file').click()" class="text-slate-400 hover:text-blue-500 transition-colors px-2">
                     <i class="fa-solid fa-paperclip text-xl"></i>
-                    <input type="file" id="admin-file" class="hidden" accept="image/*, .pdf, .docx, .txt" onchange="adminEnviarArquivo()">
-                </label>
+                </button>
+                <input type="file" id="admin-file" class="hidden" accept="image/*, .pdf, .docx, .txt" onchange="adminEnviarArquivo()">
 
                 <input type="text" id="admin-input" 
                     class="flex-1 bg-slate-900 border border-slate-700 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-all" 
@@ -102,7 +107,7 @@
         let usuariosAtivos = {}; 
 
         socket.on('connect', () => {
-            console.log("Admin conectado.");
+            console.log("✔️ Admin conectado via Socket.");
             socket.emit('admin_entrar'); 
         });
 
@@ -112,7 +117,9 @@
             if (usuario !== nomeAdmin) {
                 const previewText = arquivo ? "📎 Arquivo recebido" : texto;
                 if (!usuariosAtivos[salaId]) {
-                    document.getElementById('no-chats').style.display = 'none';
+                    const noChats = document.getElementById('no-chats');
+                    if(noChats) noChats.style.display = 'none';
+                    
                     usuariosAtivos[salaId] = { nome: usuario, ultimaMsg: previewText };
                     criarCardUsuario(salaId, usuario, previewText);
                 } else {
@@ -137,21 +144,60 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         });
 
+        // --- LÓGICA DE ENCERRAMENTO (OUVINTE) ---
+        socket.on('chamado_encerrado', (data) => {
+            const safeId = data.salaId.replace(/[^a-zA-Z0-9]/g, '');
+            const card = document.getElementById(`user-${safeId}`);
+            
+            // Se o chamado encerrado for o que o admin está vendo agora
+            if (data.salaId === salaAtiva) {
+                limparTela();
+                document.getElementById('chat-title').innerText = "Nenhum";
+                const badge = document.getElementById('status-badge');
+                badge.innerText = "ENCERRADO";
+                badge.className = "text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold";
+                salaAtiva = "";
+            }
+
+            // Remove da lista lateral e do objeto de controle
+            if (card) card.remove();
+            delete usuariosAtivos[data.salaId];
+
+            // Se a lista ficar vazia, mostra o aviso
+            if (Object.keys(usuariosAtivos).length === 0) {
+                const noChats = document.getElementById('no-chats');
+                if(noChats) noChats.style.display = 'block';
+            }
+        });
+
         function selecionarUsuario(salaId, nome) {
             salaAtiva = salaId;
             document.getElementById('chat-title').innerText = nome;
-            document.getElementById('status-badge').innerText = "ATENDENDO";
-            document.getElementById('status-badge').className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold";
-            document.getElementById('empty-state').style.display = 'none';
+            const badge = document.getElementById('status-badge');
+            badge.innerText = "ATENDENDO";
+            badge.className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold";
+            
+            const emptyState = document.getElementById('empty-state');
+            if(emptyState) emptyState.style.display = 'none';
             
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-            const card = document.getElementById(`user-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`);
+            const safeId = salaId.replace(/[^a-zA-Z0-9]/g, '');
+            const card = document.getElementById(`user-${safeId}`);
             if(card) card.classList.add('active');
             
-            const dot = document.getElementById(`unread-${salaId.replace(/[^a-zA-Z0-9]/g, '')}`);
+            const dot = document.getElementById(`unread-${safeId}`);
             if(dot) dot.classList.add('hidden');
 
             socket.emit('entrar_na_sala', salaId);
+        }
+
+        // FUNÇÃO PARA DISPARAR O ENCERRAMENTO
+        function encerrarAtendimento() {
+            if (!salaAtiva) return alert("Selecione um atendimento para encerrar!");
+            
+            if (confirm(`Deseja finalizar o atendimento de ${document.getElementById('chat-title').innerText}?`)) {
+                socket.emit('encerrar_chamado', salaAtiva);
+            }
         }
 
         function criarCardUsuario(salaId, nome, texto) {
@@ -193,17 +239,20 @@
             
             let conteudoHTML = `<p class="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-tighter">${souEu ? 'Você (Suporte)' : data.usuario}</p>`;
             
-            if (data.arquivo) {
-                if (data.tipo && data.tipo.startsWith('image/') || data.tipo_arquivo && data.tipo_arquivo.startsWith('image/')) {
-                    conteudoHTML += `<img src="${data.arquivo}" class="chat-img-admin" onclick="window.open(this.src)" title="Clique para ampliar" />`;
+            const arquivo = data.arquivo || data.file;
+            const tipo = data.tipo || data.tipo_arquivo;
+
+            if (arquivo) {
+                if (tipo && tipo.startsWith('image/')) {
+                    conteudoHTML += `<img src="${arquivo}" class="chat-img-admin" onclick="window.open(this.src)" title="Clique para ampliar" />`;
                 } else {
-                    conteudoHTML += `<div class="mt-2"><a href="${data.arquivo}" download="arquivo" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs text-blue-300 transition-colors">
+                    conteudoHTML += `<div class="mt-2"><a href="${arquivo}" download="arquivo" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs text-blue-300 transition-colors">
                         <i class="fa-solid fa-file-arrow-down"></i> Baixar Documento
                     </a></div>`;
                 }
             } 
             
-            if (data.texto && data.texto.trim() !== "") {
+            if (data.texto && data.texto.trim() !== "" && !data.texto.startsWith("Enviou um arquivo:")) {
                 conteudoHTML += `<div class="text-sm mt-1 ${souEu ? 'text-slate-100' : 'text-slate-200'}">${data.texto}</div>`;
             }
 
@@ -229,9 +278,10 @@
             input.focus();
         }
 
-        function adminEnviarArquivo() {
+        window.adminEnviarArquivo = function() {
             const fileInput = document.getElementById('admin-file');
             const file = fileInput.files[0];
+            
             if (!file || !salaAtiva) return;
 
             const reader = new FileReader();
@@ -245,17 +295,17 @@
                 });
             };
             reader.readAsDataURL(file);
-            fileInput.value = "";
+            fileInput.value = ""; 
         }
 
         function tocarSom() {
-            somNotificacao.currentTime = 0;
-            somNotificacao.play().catch(() => {});
+            if(somNotificacao) {
+                somNotificacao.currentTime = 0;
+                somNotificacao.play().catch(() => {});
+            }
         }
 
-        function testarSom() {
-            tocarSom();
-        }
+        function testarSom() { tocarSom(); }
 
         function limparTela() {
             document.getElementById('admin-chat-box').innerHTML = "";

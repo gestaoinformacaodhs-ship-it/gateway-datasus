@@ -37,6 +37,13 @@
 
         #user-chat-box::-webkit-scrollbar { width: 4px; }
         #user-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        
+        .chat-img-user {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+            cursor: zoom-in;
+        }
     </style>
     <script>
         if (localStorage.getItem('token')) {
@@ -129,7 +136,7 @@
             <span id="badge-notificacao" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-[#0f172a]">!</span>
         </button>
 
-        <div id="chat-window" class="hidden glass-card bg-slate-900/95 w-80 h-[400px] rounded-2xl flex flex-col overflow-hidden mb-4 border border-white/10">
+        <div id="chat-window" class="hidden glass-card bg-slate-900/95 w-80 h-[450px] rounded-2xl flex flex-col overflow-hidden mb-4 border border-white/10">
             <div class="bg-blue-600 p-4 text-white flex justify-between items-center shadow-lg">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -138,7 +145,8 @@
                 <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs"></div>
+            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs">
+                </div>
 
             <div class="p-3 bg-slate-900 border-t border-white/5 flex gap-2">
                 <input type="text" id="user-input" placeholder="Sua mensagem..." 
@@ -159,15 +167,19 @@
         const somUser = document.getElementById('user-notificacao-som');
         const chatWindow = document.getElementById('chat-window');
         const badge = document.getElementById('badge-notificacao');
+        const chatBox = document.getElementById('user-chat-box');
         
         let emailSala = "";
 
+        // Gerenciar entrada na sala baseado no e-mail ou sessão
         function atualizarSala() {
             const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
             const emailSalvo = localStorage.getItem('email');
+            
+            // Prioridade: Email logado > Email digitado no campo > ID do Socket (Visitante)
             let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socket.id);
             
-            if (novaSala !== emailSala) {
+            if (novaSala && novaSala !== emailSala) {
                 emailSala = novaSala;
                 socket.emit('entrar_na_sala', emailSala);
             }
@@ -176,10 +188,16 @@
         socket.on('connect', atualizarSala);
         document.getElementById('l-email').addEventListener('blur', atualizarSala);
 
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                if (document.getElementById('login-container').style.display !== 'none') entrar();
-                else if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
+        // Ouvinte para Encerramento de Chamado
+        socket.on('chamado_encerrado', (data) => {
+            if (data.salaId === emailSala) {
+                chatBox.innerHTML = "";
+                renderizarMensagemUser({ 
+                    usuario: "Sistema", 
+                    texto: "🔒 Este atendimento foi encerrado pelo suporte. Obrigado!" 
+                });
+                document.getElementById('user-input').disabled = true;
+                document.getElementById('user-input').placeholder = "Atendimento encerrado.";
             }
         });
 
@@ -204,102 +222,14 @@
         function toggleChat() {
             chatWindow.classList.toggle('hidden');
             badge.classList.add('hidden');
-            if (!chatWindow.classList.contains('hidden')) atualizarSala();
-        }
-
-        // --- API CALLS ---
-        async function entrar() {
-            const email = document.getElementById('l-email').value;
-            const senha = document.getElementById('l-pass').value;
-            const btn = document.getElementById('btn-entrar');
-            if (!email || !senha) return alert("Preencha todos os campos.");
-            
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Entrando...';
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, senha })
-                });
-                const data = await res.json();
-                
-                if (res.ok) {
-                    localStorage.setItem('usuario', data.user);
-                    localStorage.setItem('email', data.email);
-                    localStorage.setItem('token', 'sessao_ativa');
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert(data.error || "Erro ao fazer login.");
-                }
-            } catch (err) {
-                alert("Erro de conexão com o servidor.");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Entrar no Sistema";
+            if (!chatWindow.classList.contains('hidden')) {
+                atualizarSala();
+                setTimeout(() => chatBox.scrollTop = chatBox.scrollHeight, 100);
             }
         }
 
-        async function registrar() {
-            const nome = document.getElementById('r-nome').value;
-            const email = document.getElementById('r-email').value;
-            const senha = document.getElementById('r-pass').value;
-            const btn = document.getElementById('btn-registrar');
-            
-            if (!nome || !email || !senha) return alert("Preencha todos os campos.");
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processando...';
-            
-            try {
-                const res = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, email, senha })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    alert("Cadastro realizado! Verifique seu e-mail para ativar a conta.");
-                    trocar('login');
-                } else {
-                    alert(data.error || "Erro no cadastro.");
-                }
-            } catch (err) { alert("Erro de rede."); }
-            finally { btn.disabled = false; btn.innerText = "Finalizar Cadastro"; }
-        }
-
-        async function solicitarRecuperacao() {
-            const emailField = document.getElementById('f-email');
-            const email = emailField.value;
-            const btn = document.getElementById('btn-forgot');
-
-            if (!email) return alert("Informe seu e-mail.");
-            
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Enviando...';
-
-            try {
-                const res = await fetch('/api/forgot-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: email.trim().toLowerCase() })
-                });
-                
-                // Resposta genérica por segurança
-                alert("Se o e-mail estiver cadastrado, você receberá as instruções em instantes.");
-                emailField.value = "";
-                trocar('login');
-            } catch (err) { 
-                alert("Erro ao processar solicitação de recuperação."); 
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Enviar Instruções";
-            }
-        }
-
-        // --- CHAT LOGIC ---
+        // --- LÓGICA DO CHAT ---
         socket.on('historico_mensagens', (mensagens) => {
-            const chatBox = document.getElementById('user-chat-box');
             chatBox.innerHTML = ""; 
             if (mensagens.length === 0) {
                 renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar você hoje?" });
@@ -311,6 +241,7 @@
         socket.on('receber_mensagem', (data) => {
             renderizarMensagemUser(data);
             const nomeAtual = localStorage.getItem('usuario') || "Visitante";
+            
             if (data.usuario !== nomeAtual) {
                 somUser.play().catch(()=>{});
                 if (chatWindow.classList.contains('hidden')) badge.classList.remove('hidden');
@@ -318,14 +249,33 @@
         });
 
         function renderizarMensagemUser(data) {
-            const chatBox = document.getElementById('user-chat-box');
             const nomeAtual = localStorage.getItem('usuario') || "Visitante";
-            const souEu = data.usuario === nomeAtual;
-            
+            const souEu = data.usuario === nomeAtual || data.usuario === "Você";
             const msgDiv = document.createElement('div');
-            msgDiv.className = `p-3 rounded-xl max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300 ${souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'}`;
-            msgDiv.innerHTML = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p><p>${data.texto}</p>`;
             
+            msgDiv.className = `p-3 rounded-xl max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'
+            }`;
+            
+            let conteudo = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${data.usuario}</p>`;
+            
+            // Suporte a arquivos enviados pelo Admin
+            const arquivo = data.arquivo || data.file;
+            const tipo = data.tipo || data.tipo_arquivo;
+
+            if (arquivo) {
+                if (tipo && tipo.startsWith('image/')) {
+                    conteudo += `<img src="${arquivo}" class="chat-img-user" onclick="window.open(this.src)">`;
+                } else {
+                    conteudo += `<a href="${arquivo}" download class="text-blue-400 underline block mt-1"><i class="fa-solid fa-file-download"></i> Baixar Arquivo</a>`;
+                }
+            }
+
+            if (data.texto && !data.texto.startsWith("Enviou um arquivo:")) {
+                conteudo += `<p>${data.texto}</p>`;
+            }
+
+            msgDiv.innerHTML = conteudo;
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -333,7 +283,7 @@
         function enviarMensagemUsuario() {
             const input = document.getElementById('user-input');
             const msg = input.value.trim();
-            if (!msg) return;
+            if (!msg || input.disabled) return;
             
             atualizarSala();
             socket.emit('enviar_mensagem', { 
@@ -342,6 +292,37 @@
                 salaId: emailSala 
             });
             input.value = "";
+        }
+
+        // Enviar com Enter
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const loginVisivel = document.getElementById('login-container').style.display !== 'none';
+                if (loginVisivel) entrar();
+                else if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
+            }
+        });
+
+        // --- AUTH API (Resumo) ---
+        async function entrar() {
+            const email = document.getElementById('l-email').value;
+            const senha = document.getElementById('l-pass').value;
+            if (!email || !senha) return alert("Preencha os campos.");
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, senha })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('usuario', data.user);
+                    localStorage.setItem('email', data.email);
+                    localStorage.setItem('token', 'sessao_ativa');
+                    window.location.href = 'dashboard.html';
+                } else { alert(data.error); }
+            } catch (err) { alert("Erro de conexão."); }
         }
     </script>
 </body>
