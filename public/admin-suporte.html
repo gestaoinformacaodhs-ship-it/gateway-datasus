@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Admin | Suporte Gateway</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     
+    <script>
+        if (sessionStorage.getItem('admin_autenticado') !== 'true') {
+            window.location.href = 'admin-login.html';
+        }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="/socket.io/socket.io.js"></script>
+    
     <style>
         #admin-chat-box::-webkit-scrollbar { width: 6px; }
         #admin-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
@@ -19,94 +25,95 @@
         .chat-img-admin {
             max-width: 100%;
             max-height: 300px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-top: 8px;
             border: 1px solid rgba(255,255,255,0.1);
             cursor: zoom-in;
             display: block;
+            transition: transform 0.2s;
         }
+        .chat-img-admin:hover { transform: scale(1.02); }
+
         .user-item.active {
-            background-color: rgba(30, 41, 59, 0.8);
+            background-color: rgba(59, 130, 246, 0.1);
             border-left: 4px solid #3b82f6;
         }
         .unread-dot {
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             background-color: #3b82f6;
             border-radius: 50%;
-            box-shadow: 0 0 8px #3b82f6;
+            box-shadow: 0 0 10px #3b82f6;
         }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 overflow-hidden">
+<body class="bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
 
     <div class="flex h-screen">
-        <div class="w-1/3 border-r border-slate-700 p-4 flex flex-col bg-[#0f172a]">
-            <h2 class="font-bold text-xl mb-6 text-white flex items-center gap-2">
-                <i class="fa-solid fa-headset text-blue-500"></i> Atendimentos
-            </h2>
+        <div class="w-1/3 border-r border-slate-800 p-4 flex flex-col bg-[#0f172a]">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-headset text-blue-500"></i> Atendimentos
+                </h2>
+                <button onclick="sessionStorage.clear(); window.location.reload();" class="text-slate-500 hover:text-white text-xs uppercase font-bold transition-colors">Sair</button>
+            </div>
             
             <div id="user-list" class="space-y-2 overflow-y-auto flex-1 pr-2">
-                <div id="no-chats" class="text-center p-10 text-slate-500 text-xs italic">
-                    Nenhum usuário ativo no momento...
+                <div id="no-chats" class="text-center py-20 text-slate-600">
+                    <i class="fa-solid fa-ghost text-3xl mb-3 block opacity-20"></i>
+                    <p class="text-xs italic">Aguardando novos chamados...</p>
                 </div>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-slate-700 text-[10px] text-slate-500 font-mono flex justify-between items-center">
-                <span>GATEWAY SUS v1.0</span>
+            <div class="mt-4 pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-mono flex justify-between items-center">
+                <span>GATEWAY SUS v1.1</span>
                 <span class="flex items-center gap-1 text-green-500">
-                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> ONLINE
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> SERVER ONLINE
                 </span>
             </div>
         </div>
 
-        <div class="flex-1 flex flex-col bg-slate-900/30">
-            <div class="p-4 border-b border-slate-700 bg-[#0f172a]/80 flex justify-between items-center">
+        <div class="flex-1 flex flex-col bg-slate-900/20">
+            <div class="p-4 border-b border-slate-800 bg-[#0f172a]/80 flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col">
-                        <span class="text-[10px] text-slate-500 uppercase font-black tracking-widest">Chat Ativo</span>
-                        <span id="chat-title" class="text-sm font-bold text-blue-400">Nenhum selecionado</span>
+                        <span class="text-[9px] text-slate-500 uppercase font-black tracking-[0.2em]">Interagindo com</span>
+                        <span id="chat-title" class="text-sm font-bold text-blue-400">Selecione um usuário</span>
                     </div>
-                    <span id="status-badge" class="hidden text-[10px] px-2 py-1 rounded border font-bold uppercase">Aguardando</span>
+                    <span id="status-badge" class="hidden text-[10px] px-2 py-0.5 rounded border font-bold uppercase"></span>
                 </div>
                 
                 <div class="flex items-center gap-4">
-                    <button onclick="encerrarAtendimento()" class="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 px-3 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 transition-all">
-                        <i class="fa-solid fa-circle-xmark"></i> Finalizar Chamado
+                    <button onclick="encerrarAtendimento()" class="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 px-4 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-check-double"></i> Finalizar Chamado
                     </button>
-                    <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
-                    <button onclick="limparTela()" title="Limpar mensagens da tela" class="text-slate-500 hover:text-red-400 transition-colors">
+                    <div class="h-6 w-[1px] bg-slate-800 mx-1"></div>
+                    <button onclick="limparTela()" title="Limpar Tela" class="text-slate-500 hover:text-white transition-colors">
                         <i class="fa-solid fa-eraser"></i>
-                    </button>
-                    <button onclick="testarSom()" title="Testar Som" class="text-slate-500 hover:text-blue-400 transition-colors">
-                        <i class="fa-solid fa-volume-high"></i>
                     </button>
                 </div>
             </div>
 
             <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
-                <div id="empty-state" class="self-center mt-20 text-center">
-                    <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
-                        <i class="fa-solid fa-message text-slate-600 text-xl"></i>
-                    </div>
-                    <p class="text-slate-500 text-xs italic">Selecione um atendimento à esquerda para visualizar</p>
+                <div id="empty-state" class="m-auto text-center opacity-30">
+                    <i class="fa-solid fa-comments text-6xl mb-4 block"></i>
+                    <p class="text-sm">Clique em um atendimento para iniciar</p>
                 </div>
             </div>
 
-            <div class="p-4 bg-[#0f172a] border-t border-slate-700 flex gap-4 shadow-2xl items-center">
-                <button type="button" onclick="document.getElementById('admin-file').click()" class="text-slate-400 hover:text-blue-500 transition-colors px-2">
+            <div class="p-4 bg-[#0f172a] border-t border-slate-800 flex gap-4 shadow-2xl items-center">
+                <button type="button" onclick="document.getElementById('admin-file').click()" class="text-slate-500 hover:text-blue-500 transition-colors p-2">
                     <i class="fa-solid fa-paperclip text-xl"></i>
                 </button>
                 <input type="file" id="admin-file" class="hidden" onchange="adminEnviarArquivo()">
 
                 <input type="text" id="admin-input" 
-                    class="flex-1 bg-slate-900 border border-slate-800 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-600" 
-                    placeholder="Digite sua resposta para o usuário...">
+                    class="flex-1 bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 text-sm" 
+                    placeholder="Escreva sua mensagem aqui...">
                 
                 <button id="btnEnviar" onclick="enviarResposta()" 
-                    class="bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
-                    <span>ENVIAR</span>
-                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                    class="bg-blue-600 hover:bg-blue-500 px-6 py-3.5 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
                 </button>
             </div>
         </div>
@@ -123,32 +130,27 @@
         
         let salaAtiva = ""; 
         let usuariosAtivos = {}; 
-        const mensagensProcessadas = new Set(); // Controle para evitar mensagens duplicadas
+        const mensagensProcessadas = new Set();
 
-        const formatId = (id) => id ? id.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+        const formatId = (id) => id ? id.toString().replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
 
         socket.on('connect', () => {
-            console.log("✔️ Admin online no Socket.");
             socket.emit('admin_entrar'); 
         });
 
         socket.on('receber_mensagem', (data) => {
-            // Unificação de propriedades para evitar 'undefined'
-            const autor = data.nome || data.usuario || "Usuário";
-            const textoMensagem = data.mensagem || data.texto || "";
+            const autor = data.usuario || data.nome || "Usuário";
+            const texto = data.texto || data.mensagem || "";
             const salaId = data.salaId;
             const isMe = (autor === nomeAdmin);
 
-            // Gerar ID único para a mensagem para evitar duplicatas
-            const msgHash = `${salaId}-${autor}-${textoMensagem}-${data.arquivo ? 'file' : 'text'}`;
-            
             if (!isMe) {
-                const previewText = data.arquivo ? "📎 [Arquivo/Imagem]" : textoMensagem;
+                const previewText = (data.arquivo || data.tipo_arquivo) ? "📎 [Anexo]" : texto;
                 
                 if (!usuariosAtivos[salaId]) {
                     const noChats = document.getElementById('no-chats');
                     if (noChats) noChats.style.display = 'none';
-                    usuariosAtivos[salaId] = { nome: autor, ultimaMsg: previewText };
+                    usuariosAtivos[salaId] = { nome: autor };
                     criarCardUsuario(salaId, autor, previewText);
                 } else {
                     atualizarCardUsuario(salaId, previewText);
@@ -161,7 +163,6 @@
                 }
             }
 
-            // Só renderiza se for a sala aberta e não for duplicada
             if (salaId === salaAtiva) {
                 renderizarMensagem(data);
             }
@@ -170,7 +171,7 @@
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('admin-chat-box');
             chatBox.innerHTML = "";
-            mensagensProcessadas.clear(); // Limpa o controle ao trocar de sala
+            mensagensProcessadas.clear();
             mensagens.forEach(data => renderizarMensagem(data, false));
             chatBox.scrollTop = chatBox.scrollHeight;
         });
@@ -182,13 +183,14 @@
             if (data.salaId === salaAtiva) {
                 document.getElementById('chat-title').innerText = "Sessão Encerrada";
                 const badge = document.getElementById('status-badge');
-                badge.innerText = "FINALIZADO";
-                badge.className = "text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30 font-bold uppercase";
+                badge.innerText = "Finalizado";
+                badge.className = "text-[10px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase";
                 salaAtiva = "";
             }
 
             if (card) card.remove();
             delete usuariosAtivos[data.salaId];
+            
             if (Object.keys(usuariosAtivos).length === 0) {
                 document.getElementById('no-chats').style.display = 'block';
             }
@@ -196,13 +198,13 @@
 
         function selecionarUsuario(salaId, nome) {
             salaAtiva = salaId;
-            mensagensProcessadas.clear(); // Reseta duplicatas para a nova sala
+            mensagensProcessadas.clear();
             
             document.getElementById('chat-title').innerText = nome;
             const badge = document.getElementById('status-badge');
             badge.classList.remove('hidden');
-            badge.innerText = "Em atendimento";
-            badge.className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold uppercase";
+            badge.innerText = "Em Atendimento";
+            badge.className = "text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded border border-green-500/20 font-bold uppercase";
             
             const emptyState = document.getElementById('empty-state');
             if (emptyState) emptyState.style.display = 'none';
@@ -221,7 +223,7 @@
 
         function encerrarAtendimento() {
             if (!salaAtiva) return;
-            if (confirm(`Encerrar o atendimento de ${usuariosAtivos[salaAtiva]?.nome || 'este usuário'}?`)) {
+            if (confirm(`Confirmar encerramento do atendimento?`)) {
                 socket.emit('encerrar_chamado', salaAtiva);
             }
         }
@@ -229,13 +231,11 @@
         function criarCardUsuario(salaId, nome, texto) {
             const safeId = formatId(salaId);
             const userList = document.getElementById('user-list');
-            
-            // Evita criar card duplicado
             if (document.getElementById(`user-${safeId}`)) return;
 
             const card = document.createElement('div');
             card.id = `user-${safeId}`;
-            card.className = "user-item p-4 bg-slate-800/20 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-800/40 transition-all relative mb-2";
+            card.className = "user-item p-4 bg-slate-800/10 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-800/30 transition-all relative mb-2";
             card.onclick = () => selecionarUsuario(salaId, nome);
             
             card.innerHTML = `
@@ -254,12 +254,12 @@
         }
 
         function renderizarMensagem(data, scroll = true) {
-            const autor = data.nome || data.usuario || "Usuário";
-            const texto = data.mensagem || data.texto || "";
+            const autor = data.usuario || data.nome || "Usuário";
+            const texto = data.texto || data.mensagem || "";
             const arquivo = data.arquivo || data.file;
+            const tipo = data.tipo || data.tipo_arquivo;
             
-            // Chave de ID único para evitar renderizar a mesma msg duas vezes
-            const msgId = data.id || `${autor}-${texto}-${arquivo ? 'file' : 'text'}-${new Date().getTime()}`;
+            const msgId = data.id || `${autor}-${texto}-${arquivo ? 'file' : 'text'}-${data.timestamp}`;
             if (mensagensProcessadas.has(msgId)) return;
             mensagensProcessadas.add(msgId);
 
@@ -267,13 +267,11 @@
             const msgDiv = document.createElement('div');
             const souEu = (autor === nomeAdmin);
 
-            msgDiv.className = `message-fade-in flex flex-col mb-2 ${souEu ? 'items-end' : 'items-start'}`;
+            msgDiv.className = `message-fade-in flex flex-col mb-4 ${souEu ? 'items-end' : 'items-start'}`;
             
             const bubbleClass = souEu ? 
-                "bg-blue-600/20 border border-blue-500/30 text-right rounded-2xl rounded-tr-none" : 
-                "bg-slate-800 border border-white/5 text-left rounded-2xl rounded-tl-none";
-
-            const tipo = data.tipo || data.tipo_arquivo;
+                "bg-blue-600/10 border border-blue-500/20 text-white rounded-2xl rounded-tr-none" : 
+                "bg-slate-800 border border-white/5 text-slate-200 rounded-2xl rounded-tl-none";
 
             let corpoHTML = texto ? `<p class="text-sm leading-relaxed">${texto}</p>` : '';
             
@@ -281,15 +279,15 @@
                 if (tipo && tipo.startsWith('image/')) {
                     corpoHTML += `<img src="${arquivo}" class="chat-img-admin" onclick="window.open(this.src)" />`;
                 } else {
-                    corpoHTML += `<div class="mt-2"><a href="${arquivo}" download="anexo" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-black p-3 rounded-lg text-xs text-blue-400">
-                        <i class="fa-solid fa-file-arrow-down"></i> Baixar Arquivo
+                    corpoHTML += `<div class="mt-2"><a href="${arquivo}" download="arquivo" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-black p-3 rounded-lg text-xs text-blue-400 transition-colors">
+                        <i class="fa-solid fa-file-arrow-down"></i> Baixar Anexo
                     </a></div>`;
                 }
             }
 
             msgDiv.innerHTML = `
-                <span class="text-[9px] font-bold text-slate-500 uppercase mb-1 px-1">${souEu ? 'Você (Suporte)' : autor}</span>
-                <div class="p-4 max-w-[80%] shadow-sm ${bubbleClass}">${corpoHTML}</div>
+                <span class="text-[9px] font-bold text-slate-600 uppercase mb-1.5 px-1">${souEu ? 'Você' : autor}</span>
+                <div class="p-4 max-w-[85%] shadow-sm ${bubbleClass}">${corpoHTML}</div>
             `;
             
             chatBox.appendChild(msgDiv);
@@ -334,7 +332,6 @@
             somNotificacao.play().catch(() => {});
         }
 
-        function testarSom() { tocarSom(); }
         function limparTela() { 
             document.getElementById('admin-chat-box').innerHTML = ""; 
             mensagensProcessadas.clear();

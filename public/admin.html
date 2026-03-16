@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Suporte | Gateway DATASUS</title>
+    <title>Console Suporte | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="/socket.io/socket.io.js"></script>
@@ -11,17 +11,20 @@
         body { background: #0f172a; color: #e2e8f0; height: 100vh; overflow: hidden; }
         .chat-container::-webkit-scrollbar { width: 6px; }
         .chat-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-        .glass-header { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); }
-        .user-item.active { background: rgba(59, 130, 246, 0.2); border-left: 4px solid #3b82f6; }
+        .glass-header { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); }
+        .user-item.active { background: rgba(59, 130, 246, 0.15); border-left: 4px solid #3b82f6; }
         
         .msg-bubble-admin {
-            max-width: 85%;
-            padding: 12px;
-            border-radius: 16px;
-            font-size: 13px;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 13.5px;
             line-height: 1.5;
             word-wrap: break-word;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+        .message-in { animation: slideUp 0.2s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
     <script>
         if (sessionStorage.getItem('admin_autenticado') !== 'true') {
@@ -29,79 +32,78 @@
         }
     </script>
 </head>
-<body class="flex flex-col">
+<body class="flex flex-col font-sans">
 
-    <header class="glass-header border-b border-white/10 p-4 shadow-xl z-50">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+    <header class="glass-header border-b border-white/10 p-4 sticky top-0 z-50">
+        <div class="max-w-full mx-auto flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <button onclick="window.location.href='dashboard.html'" class="text-slate-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-arrow-left"></i>
+                <button onclick="window.location.href='dashboard.html'" class="bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-arrow-left text-xs"></i>
                 </button>
-                <h1 class="text-xl font-black text-white italic leading-none">CONSOLE <span class="text-blue-500">SUPORTE</span></h1>
+                <h1 class="text-lg font-black text-white italic tracking-tighter uppercase">Console <span class="text-blue-500">Suporte</span></h1>
             </div>
             
             <div class="flex items-center gap-6">
-                <div class="flex flex-col items-end">
-                    <span id="status-conexao" class="text-[10px] text-red-500 font-bold uppercase">● Desconectado</span>
-                    <span class="text-[9px] text-slate-500 uppercase tracking-tighter">Gateway SUS v2.0</span>
+                <div class="text-right">
+                    <span id="status-conexao" class="text-[10px] text-red-500 font-bold uppercase block tracking-widest">● Desconectado</span>
+                    <span class="text-[9px] text-slate-500 uppercase font-mono">Build 2.0.4 - 2026</span>
                 </div>
-                <button onclick="logoutAdmin()" class="text-slate-400 hover:text-red-500 text-xs font-bold uppercase tracking-widest transition-colors">
-                    Sair <i class="fa-solid fa-right-from-bracket ml-1"></i>
+                <button onclick="logoutAdmin()" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black transition-all">
+                    LOGOUT <i class="fa-solid fa-power-off ml-1"></i>
                 </button>
             </div>
         </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
-        <aside class="w-80 border-r border-white/10 bg-slate-900/50 flex flex-col">
-            <div class="p-4 border-b border-white/10 bg-slate-950/20">
-                <h2 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Conversas Ativas</h2>
+        <aside class="w-80 border-r border-white/10 bg-slate-900/40 flex flex-col">
+            <div class="p-4 border-b border-white/5 bg-black/20">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Tickets em Aberto</h2>
             </div>
             <div id="lista-usuarios" class="flex-1 overflow-y-auto">
-                <div class="p-10 text-center text-xs text-slate-600">
-                    <i class="fa-solid fa-circle-notch fa-spin mb-2 text-lg"></i><br>
-                    Aguardando interações...
+                <div id="empty-list" class="p-10 text-center text-xs text-slate-600 italic">
+                    <i class="fa-solid fa-headset mb-3 text-2xl opacity-10 block"></i>
+                    Aguardando solicitações...
                 </div>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col bg-slate-950/20">
-            <div id="status-chat" class="p-4 bg-slate-900/40 border-b border-white/5 text-sm font-bold text-blue-400 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <button id="btn-encerrar" onclick="encerrarAtendimento()" class="hidden bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white p-2 px-3 rounded-lg transition-all border border-red-500/20 text-xs flex items-center gap-2">
-                        <i class="fa-solid fa-lock"></i> ENCERRAR CHAMADO
+        <main class="flex-1 flex flex-col relative bg-[#0b1120]">
+            <div id="status-chat" class="p-4 bg-slate-900/60 border-b border-white/5 flex justify-between items-center min-h-[70px]">
+                <div class="flex items-center gap-4">
+                    <button id="btn-encerrar" onclick="encerrarAtendimento()" class="hidden bg-red-600 hover:bg-red-700 text-white p-2 px-4 rounded-full transition-all text-[10px] font-black flex items-center gap-2 shadow-lg shadow-red-600/20">
+                        <i class="fa-solid fa-circle-xmark"></i> FINALIZAR
                     </button>
-                    <span id="nome-atendimento" class="text-slate-400">Selecione um cliente para iniciar</span>
+                    <span id="nome-atendimento" class="text-sm font-bold text-slate-400">Nenhum atendimento selecionado</span>
                 </div>
-                <div id="badge-online" class="hidden flex items-center gap-2 text-[10px] text-green-500 bg-green-500/10 px-2 py-1 rounded">
+                <div id="badge-online" class="hidden flex items-center gap-2 text-[10px] font-black text-green-500 bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                     </span>
-                    CLIENTE ONLINE
+                    CONECTADO
                 </div>
             </div>
 
             <div id="admin-chat" class="flex-1 p-6 overflow-y-auto space-y-4 chat-container flex flex-col">
-                <div class="text-center text-slate-700 py-20">
-                    <i class="fa-solid fa-headset text-6xl mb-4 opacity-10"></i>
-                    <p class="text-sm font-medium">Painel de Atendimento em Tempo Real</p>
-                    <p class="text-[10px] uppercase tracking-widest opacity-40">Selecione um usuário na barra lateral</p>
+                <div class="m-auto text-center text-slate-800">
+                    <i class="fa-solid fa-terminal text-6xl mb-4 opacity-5 block"></i>
+                    <p class="text-xs font-bold uppercase tracking-widest opacity-20">Selecione uma sessão lateral</p>
                 </div>
             </div>
 
-            <div class="p-4 bg-slate-900/60 border-t border-white/10 flex gap-3 items-center">
+            <div class="p-4 bg-slate-900/80 border-t border-white/10 flex gap-3 items-center backdrop-blur-md">
                 <input type="file" id="file-input" class="hidden" onchange="processarArquivo(this)">
-                <button onclick="document.getElementById('file-input').click()" id="btn-file" disabled class="text-slate-500 hover:text-blue-500 transition-colors p-2 disabled:opacity-30">
+                <button onclick="document.getElementById('file-input').click()" id="btn-file" disabled class="text-slate-500 hover:text-blue-400 transition-colors p-2 disabled:opacity-20">
                     <i class="fa-solid fa-paperclip text-xl"></i>
                 </button>
 
                 <input type="text" id="admin-input" disabled
-                       class="flex-1 bg-slate-950 border border-slate-800 p-4 rounded-2xl text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-700 disabled:opacity-50 text-sm" 
-                       placeholder="Escreva sua resposta técnica...">
+                       class="flex-1 bg-black/40 border border-white/5 p-4 rounded-2xl text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-700 disabled:opacity-30 text-sm" 
+                       placeholder="Digite sua mensagem técnica...">
                 
                 <button id="btn-enviar" onclick="enviarResposta()" disabled
-                        class="bg-blue-600 hover:bg-blue-500 text-white px-8 h-[56px] rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-50">
+                        class="bg-blue-600 hover:bg-blue-500 text-white px-8 h-[52px] rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20 active:scale-95 disabled:opacity-30">
                     ENVIAR <i class="fa-solid fa-paper-plane"></i>
                 </button>
             </div>
@@ -114,49 +116,56 @@
         let salaAtual = null;
         let usuariosConhecidos = new Set();
 
+        const formatarId = (id) => id.replace(/[^a-zA-Z0-9]/g, '_');
+
         socket.on('connect', () => {
             document.getElementById('status-conexao').innerText = "● Painel Online";
-            document.getElementById('status-conexao').classList.replace('text-red-500', 'text-green-500');
-            socket.emit('admin_entrar'); // Avisa ao servidor que o admin está pronto
+            document.getElementById('status-conexao').className = "text-[10px] text-green-500 font-bold uppercase block tracking-widest";
+            socket.emit('admin_entrar');
         });
 
         socket.on('disconnect', () => {
             document.getElementById('status-conexao').innerText = "● Desconectado";
-            document.getElementById('status-conexao').classList.replace('text-green-500', 'text-red-500');
+            document.getElementById('status-conexao').className = "text-[10px] text-red-500 font-bold uppercase block tracking-widest";
         });
 
-        // Receber Mensagens
         socket.on('receber_mensagem', (data) => {
-            // Se a mensagem for de um novo usuário, adiciona na lista
-            if (data.nome !== nomeAdmin) {
-                adicionarUsuarioLista(data.nome, data.salaId);
+            const salaId = data.salaId;
+            const nomeUsuario = data.nome || data.usuario;
+
+            if (nomeUsuario !== nomeAdmin) {
+                adicionarUsuarioLista(nomeUsuario, salaId);
             }
 
-            // Se a mensagem pertencer à conversa aberta no momento
-            if (data.salaId === salaAtual) {
-                adicionarNaTela(data.nome, data.mensagem, data.arquivo, data.tipo_arquivo);
+            if (salaId === salaAtual) {
+                adicionarNaTela(nomeUsuario, data.mensagem || data.texto, data.arquivo, data.tipo_arquivo || data.tipo);
             } else {
-                // Notificação visual para outras conversas
-                marcarComoNaoLida(data.salaId);
+                marcarComoNaoLida(salaId);
                 new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play().catch(()=>{});
             }
         });
 
-        // Carregar Histórico quando abrir sala
         socket.on('historico_mensagens', (mensagens) => {
             const container = document.getElementById('admin-chat');
             container.innerHTML = '';
-            if(mensagens.length === 0) {
-                container.innerHTML = '<div class="text-center text-slate-600 text-[10px] italic py-4">Início do atendimento. Histórico limpo.</div>';
+            
+            if(!mensagens || mensagens.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-700 text-[10px] font-bold uppercase py-10 opacity-30">Início da transmissão</div>';
+            } else {
+                mensagens.forEach(msg => {
+                    adicionarNaTela(msg.usuario || msg.nome, msg.texto || msg.mensagem, msg.arquivo, msg.tipo || msg.tipo_arquivo);
+                });
             }
-            mensagens.forEach(msg => {
-                adicionarNaTela(msg.usuario, msg.texto, msg.arquivo, msg.tipo);
-            });
         });
 
         function selecionarUsuario(nome, salaId) {
+            if (salaAtual === salaId) return;
+            
             salaAtual = salaId;
-            document.getElementById('nome-atendimento').innerText = `Atendimento: ${nome}`;
+            const container = document.getElementById('admin-chat');
+            container.innerHTML = '<div class="m-auto flex items-center gap-2 text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando dados...</div>';
+            
+            document.getElementById('nome-atendimento').innerText = nome;
             document.getElementById('nome-atendimento').classList.replace('text-slate-400', 'text-white');
             document.getElementById('btn-encerrar').classList.remove('hidden');
             document.getElementById('badge-online').classList.remove('hidden');
@@ -166,34 +175,36 @@
             document.getElementById('btn-file').disabled = false;
             document.getElementById('admin-input').focus();
 
-            // Entra na sala específica do usuário para receber as mensagens dele
             socket.emit('entrar_na_sala', salaId);
 
-            // Interface
-            const idFormatado = salaId.replace(/[@.]/g, '_');
+            const idClean = formatarId(salaId);
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(`user-${idFormatado}`).classList.add('active');
-            document.getElementById(`badge-${idFormatado}`).classList.add('hidden');
+            const card = document.getElementById(`user-${idClean}`);
+            if(card) card.classList.add('active');
+            
+            const badge = document.getElementById(`badge-${idClean}`);
+            if(badge) badge.classList.add('hidden');
         }
 
         function adicionarUsuarioLista(nome, salaId) {
-            const idFormatado = salaId.replace(/[@.]/g, '_');
             if (usuariosConhecidos.has(salaId)) return;
 
             usuariosConhecidos.add(salaId);
             const lista = document.getElementById('lista-usuarios');
-            if (usuariosConhecidos.size === 1) lista.innerHTML = '';
+            const empty = document.getElementById('empty-list');
+            if (empty) empty.remove();
 
+            const idClean = formatarId(salaId);
             const div = document.createElement('div');
-            div.id = `user-${idFormatado}`;
-            div.className = "user-item p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all flex justify-between items-center";
+            div.id = `user-${idClean}`;
+            div.className = "user-item p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all flex justify-between items-center group";
             div.onclick = () => selecionarUsuario(nome, salaId);
             div.innerHTML = `
                 <div class="flex flex-col overflow-hidden">
-                    <span class="text-sm font-bold text-white truncate">${nome}</span>
-                    <span class="text-[10px] text-slate-500 truncate">${salaId}</span>
+                    <span class="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">${nome}</span>
+                    <span class="text-[9px] text-slate-500 font-mono truncate uppercase">${salaId.substring(0, 15)}...</span>
                 </div>
-                <span id="badge-${idFormatado}" class="hidden w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
+                <span id="badge-${idClean}" class="hidden w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
             `;
             lista.prepend(div);
         }
@@ -202,28 +213,28 @@
             const container = document.getElementById('admin-chat');
             const isSuporte = (autor === nomeAdmin);
             const div = document.createElement('div');
-            div.className = `flex flex-col ${isSuporte ? 'items-end' : 'items-start'} mb-4 w-full`;
+            div.className = `flex flex-col ${isSuporte ? 'items-end' : 'items-start'} mb-4 w-full message-in`;
 
             let corpoHTML = texto ? `<p>${texto}</p>` : '';
 
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
-                    corpoHTML += `<img src="${arquivo}" class="max-w-xs rounded-lg border border-white/10 mt-2 shadow-lg cursor-zoom-in" onclick="window.open(this.src)">`;
+                    corpoHTML += `<img src="${arquivo}" class="max-w-xs rounded-xl border border-white/10 mt-2 shadow-2xl cursor-pointer" onclick="window.open(this.src)">`;
                 } else {
                     corpoHTML += `
-                        <a href="${arquivo}" download class="flex items-center gap-2 bg-slate-900 p-3 rounded-xl border border-white/5 hover:bg-slate-800 mt-2 transition-all">
-                            <i class="fa-solid fa-file-arrow-down text-blue-500 text-xl"></i>
+                        <a href="${arquivo}" download class="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-white/10 hover:border-blue-500/50 mt-2 transition-all group">
+                            <i class="fa-solid fa-file-pdf text-red-500 text-2xl group-hover:scale-110 transition-transform"></i>
                             <div class="text-left">
-                                <span class="text-[10px] block text-slate-400">Documento Recebido</span>
-                                <span class="text-[9px] text-blue-500 font-black uppercase">Baixar Arquivo</span>
+                                <span class="text-[10px] block text-slate-500 uppercase font-bold">Documento Anexo</span>
+                                <span class="text-[11px] text-blue-400 font-black">DOWNLOAD</span>
                             </div>
                         </a>`;
                 }
             }
 
             div.innerHTML = `
-                <span class="text-[9px] font-black mb-1 uppercase tracking-tighter ${isSuporte ? 'text-blue-400' : 'text-emerald-500'}">
-                    ${autor} ${isSuporte ? '(SISTEMA)' : ''}
+                <span class="text-[9px] font-black mb-1.5 uppercase tracking-widest ${isSuporte ? 'text-blue-500' : 'text-emerald-500'}">
+                    ${isSuporte ? 'SISTEMA GATEWAY' : autor}
                 </span>
                 <div class="msg-bubble-admin ${isSuporte ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-white/5'}">
                     ${corpoHTML}
@@ -252,11 +263,11 @@
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                socket.emit('enviar_arquivo', {
+                socket.emit('enviar_mensagem', { // Unificado com enviar_mensagem para consistência
                     nome: nomeAdmin,
                     arquivo: e.target.result,
-                    tipo: file.type,
-                    nomeArquivo: file.name,
+                    tipo_arquivo: file.type,
+                    mensagem: `📎 Arquivo enviado: ${file.name}`,
                     salaId: salaAtual
                 });
             };
@@ -265,38 +276,21 @@
         }
 
         function encerrarAtendimento() {
-            if (confirm("ATENÇÃO: Isso apagará todo o histórico do banco de dados e encerrará a conexão do usuário. Prosseguir?")) {
+            if (confirm("Confirmar encerramento? O histórico será removido.")) {
                 socket.emit('encerrar_chamado', salaAtual);
-                
-                // Remove da lista lateral
-                const idFormatado = salaAtual.replace(/[@.]/g, '_');
-                const elemento = document.getElementById(`user-${idFormatado}`);
-                if (elemento) elemento.remove();
-                
-                usuariosConhecidos.delete(salaAtual);
-                
-                // Reseta tela central
-                document.getElementById('admin-chat').innerHTML = '<div class="text-center text-slate-700 py-20"><i class="fa-solid fa-check-double text-5xl mb-4 opacity-20"></i><p>Atendimento Finalizado com Sucesso</p></div>';
-                document.getElementById('nome-atendimento').innerText = "Selecione um cliente para iniciar";
-                document.getElementById('btn-encerrar').classList.add('hidden');
-                document.getElementById('badge-online').classList.add('hidden');
-                document.getElementById('admin-input').disabled = true;
-                document.getElementById('btn-enviar').disabled = true;
-                document.getElementById('btn-file').disabled = true;
-                
-                salaAtual = null;
+                location.reload(); // Recarrega para limpar todos os estados
             }
         }
 
         function marcarComoNaoLida(salaId) {
-            const idFormatado = salaId.replace(/[@.]/g, '_');
-            const badge = document.getElementById(`badge-${idFormatado}`);
+            const idClean = formatarId(salaId);
+            const badge = document.getElementById(`badge-${idClean}`);
             if (badge) badge.classList.remove('hidden');
         }
 
         function logoutAdmin() {
-            sessionStorage.removeItem('admin_autenticado');
-            window.location.href = 'dashboard.html';
+            sessionStorage.clear();
+            window.location.href = 'admin-login.html';
         }
 
         document.getElementById('admin-input').addEventListener('keypress', (e) => {

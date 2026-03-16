@@ -3,107 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Perfil - Gateway DATASUS</title>
+    <title>Meu Perfil | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body {
+            background: #0f172a;
+            font-family: 'Inter', sans-serif;
+            background-image: radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent),
+                              radial-gradient(circle at bottom left, rgba(30, 41, 59, 0.5), transparent);
+        }
 
-    <nav class="bg-slate-800 border-b border-slate-700 p-4 mb-8">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold text-blue-500">GATEWAY <span class="text-white">SUS</span></h1>
-            <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-sm flex items-center">
-                <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Dashboard
+        .glass-card {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            background: rgba(30, 41, 59, 0.5);
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #475569;
+            transition: color 0.2s;
+        }
+        .toggle-password:hover { color: #3b82f6; }
+    </style>
+    <script>
+        // Proteção de rota simples
+        if (!localStorage.getItem('token')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</head>
+<body class="text-slate-200 min-h-screen">
+
+    <nav class="border-b border-white/5 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-black tracking-tighter text-blue-500">GATEWAY <span class="text-white">SUS</span></h1>
+            <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-widest flex items-center">
+                <i class="fa-solid fa-arrow-left mr-2"></i> Dashboard
             </a>
         </div>
     </nav>
 
-    <div class="max-w-2xl mx-auto p-4">
-        <div class="bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-            <div class="bg-blue-600 p-6">
-                <h2 class="text-2xl font-bold text-white">Configurações de Perfil</h2>
-                <p class="text-blue-100 opacity-80 text-sm">Mantenha seus dados de acesso atualizados.</p>
+    <main class="max-w-2xl mx-auto p-6 mt-8">
+        <div class="glass-card rounded-3xl overflow-hidden shadow-2xl">
+            <div class="bg-blue-600 p-8">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30">
+                        <i class="fa-solid fa-user-gear text-3xl text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-black text-white tracking-tight">Configurações de Perfil</h2>
+                        <p class="text-blue-100/70 text-sm font-medium">Gerencie sua identidade no ecossistema DATASUS.</p>
+                    </div>
+                </div>
             </div>
 
             <form id="form-perfil" class="p-8 space-y-6">
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Nome Completo</label>
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Nome Completo</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                            <i class="fa-solid fa-user"></i>
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                            <i class="fa-solid fa-id-card text-sm"></i>
                         </span>
                         <input type="text" id="nome" required
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
+                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-4 py-3.5 focus:outline-none border border-white/5 transition-all">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">E-mail de Acesso (Não alterável)</label>
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">E-mail de Acesso (Permanente)</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-600">
-                            <i class="fa-solid fa-envelope"></i>
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-600">
+                            <i class="fa-solid fa-envelope text-sm"></i>
                         </span>
-                        <input type="email" id="email" required readonly
-                            class="w-full bg-slate-800/50 text-slate-500 rounded-lg pl-10 pr-4 py-3 focus:outline-none border border-slate-700 cursor-not-allowed italic">
+                        <input type="email" id="email" readonly
+                            class="w-full bg-slate-800/30 text-slate-500 rounded-xl pl-11 pr-4 py-3.5 border border-white/5 cursor-not-allowed italic">
                     </div>
                 </div>
 
-                <hr class="border-slate-700 my-4">
+                <div class="py-2">
+                    <div class="h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+                </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Alterar Senha (deixe em branco para manter)</label>
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Nova Senha (Opcional)</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                            <i class="fa-solid fa-lock"></i>
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                            <i class="fa-solid fa-key text-sm"></i>
                         </span>
-                        <input type="password" id="senha" placeholder="Nova senha" oninput="avaliarForca()"
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
+                        <input type="password" id="senha" placeholder="Mínimo 6 caracteres" oninput="avaliarForca()"
+                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-12 py-3.5 focus:outline-none border border-white/5 transition-all">
+                        <span class="toggle-password" onclick="togglePass('senha')"><i class="fa-solid fa-eye"></i></span>
                     </div>
-                    <div class="w-full h-1.5 bg-slate-900 rounded-full mt-3 overflow-hidden">
-                        <div id="barra-forca" class="w-0 h-full transition-all duration-300 bg-red-500"></div>
+                    
+                    <div class="px-1 mt-3">
+                        <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="barra-forca" class="w-0 h-full transition-all duration-500 bg-red-500"></div>
+                        </div>
+                        <p id="label-forca" class="text-[9px] uppercase font-bold text-slate-600 mt-1 tracking-widest text-right">Senha ausente</p>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Confirmar Nova Senha</label>
+                    <label class="block text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2 ml-1">Confirmar Nova Senha</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                            <i class="fa-solid fa-check-double"></i>
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                            <i class="fa-solid fa-shield-check text-sm"></i>
                         </span>
                         <input type="password" id="confirmar_senha" placeholder="Repita a nova senha"
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
+                            class="w-full bg-slate-950/50 text-white rounded-xl pl-11 pr-12 py-3.5 focus:outline-none border border-white/5 transition-all">
+                        <span class="toggle-password" onclick="togglePass('confirmar_senha')"><i class="fa-solid fa-eye"></i></span>
                     </div>
                 </div>
 
-                <div class="pt-4">
+                <div class="pt-6">
                     <button type="submit" id="btn-salvar"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-lg shadow-blue-900/30 flex justify-center items-center active:scale-95">
-                        <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Alterações
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-blue-600/10 flex justify-center items-center active:scale-[0.98] group">
+                        <i class="fa-solid fa-check-circle mr-2 group-hover:scale-110 transition-transform"></i> Atualizar Perfil
                     </button>
                 </div>
             </form>
         </div>
-    </div>
+        
+        <p class="text-center text-slate-600 text-[10px] mt-8 font-bold uppercase tracking-[0.2em]">
+            Gateway DATASUS &copy; 2026 - Sistema de Segurança DHS
+        </p>
+    </main>
 
     <script>
-        // 1. CARREGAR DADOS AO ABRIR
+        // Carregar dados iniciais
         window.onload = () => {
             const userNome = localStorage.getItem('usuario');
             const userEmail = localStorage.getItem('email');
-
-            if (!userEmail) {
-                window.location.href = 'index.html'; 
-                return;
-            }
-
-            document.getElementById('nome').value = userNome || "";
-            document.getElementById('email').value = userEmail;
+            
+            if (userNome) document.getElementById('nome').value = userNome;
+            if (userEmail) document.getElementById('email').value = userEmail;
         };
 
-        // 2. AVALIAR FORÇA DA SENHA
+        // Mostrar/Ocultar Senha
+        function togglePass(id) {
+            const input = document.getElementById(id);
+            const icon = input.nextElementSibling.querySelector('i');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        }
+
+        // Avaliação de força com texto explicativo
         function avaliarForca() {
             const senha = document.getElementById('senha').value;
             const barra = document.getElementById('barra-forca');
+            const label = document.getElementById('label-forca');
             let forca = 0;
 
             if (senha.length > 0) {
@@ -114,13 +177,30 @@
             }
 
             barra.style.width = forca + "%";
-            if (forca <= 25) barra.style.backgroundColor = "#ef4444";
-            else if (forca <= 50) barra.style.backgroundColor = "#eab308";
-            else if (forca <= 75) barra.style.backgroundColor = "#3b82f6";
-            else barra.style.backgroundColor = "#10b981";
+            
+            if (forca === 0) {
+                label.innerText = "Senha ausente";
+                label.className = "text-[9px] uppercase font-bold text-slate-600 mt-1 tracking-widest text-right";
+            } else if (forca <= 25) {
+                barra.style.backgroundColor = "#ef4444";
+                label.innerText = "Muito Fraca";
+                label.classList.replace('text-slate-600', 'text-red-500');
+            } else if (forca <= 50) {
+                barra.style.backgroundColor = "#eab308";
+                label.innerText = "Razoável";
+                label.className = "text-[9px] uppercase font-bold text-yellow-500 mt-1 tracking-widest text-right";
+            } else if (forca <= 75) {
+                barra.style.backgroundColor = "#3b82f6";
+                label.innerText = "Forte";
+                label.className = "text-[9px] uppercase font-bold text-blue-500 mt-1 tracking-widest text-right";
+            } else {
+                barra.style.backgroundColor = "#10b981";
+                label.innerText = "Excelente";
+                label.className = "text-[9px] uppercase font-bold text-green-500 mt-1 tracking-widest text-right";
+            }
         }
 
-        // 3. SALVAR ALTERAÇÕES
+        // Envio do formulário
         const form = document.getElementById('form-perfil');
         const btn = document.getElementById('btn-salvar');
 
@@ -132,59 +212,37 @@
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            // Validações
-            if (!nome) return alert("⚠️ O nome não pode ficar vazio.");
-
-            if (senha) {
-                if (senha.length < 6) {
-                    return alert("⚠️ A nova senha deve ter pelo menos 6 caracteres.");
-                }
-                if (senha !== confirma) {
-                    return alert("⚠️ As senhas não coincidem!");
-                }
+            if (senha && (senha.length < 6 || senha !== confirma)) {
+                return alert(senha.length < 6 ? "A senha deve ter no mínimo 6 caracteres." : "As senhas não coincidem.");
             }
 
-            // Feedback de Carregamento
             const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.classList.add('opacity-70', 'cursor-not-allowed');
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Processando...`;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Salvando...`;
 
             try {
                 const res = await fetch('/api/update-profile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        nome: nome, 
-                        email: email, 
-                        novaSenha: senha.trim() === "" ? null : senha 
+                        nome, 
+                        email, 
+                        novaSenha: senha || null 
                     })
                 });
 
-                const data = await res.json();
-
                 if (res.ok) {
-                    // Atualiza o localStorage
                     localStorage.setItem('usuario', nome);
-                    
                     alert("✅ Perfil atualizado com sucesso!");
-                    
-                    // Limpa campos de senha
-                    document.getElementById('senha').value = "";
-                    document.getElementById('confirmar_senha').value = "";
-                    document.getElementById('barra-forca').style.width = "0%";
-                    
-                    // Opcional: recarrega para atualizar elementos visuais
                     window.location.reload();
                 } else {
-                    alert("❌ Erro ao salvar: " + (data.error || "Tente novamente."));
+                    const data = await res.json();
+                    alert("❌ Erro: " + data.error);
                 }
             } catch (err) {
-                console.error(err);
-                alert("❌ Erro técnico ao conectar com o servidor.");
+                alert("❌ Servidor indisponível.");
             } finally {
                 btn.disabled = false;
-                btn.classList.remove('opacity-70', 'cursor-not-allowed');
                 btn.innerHTML = originalText;
             }
         });

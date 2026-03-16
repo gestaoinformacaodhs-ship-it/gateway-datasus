@@ -8,41 +8,58 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
         body {
-            background: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.9)), 
-                        url('background.jpg');
+            background: linear-gradient(rgba(10, 15, 28, 0.85), rgba(10, 15, 28, 0.85)), 
+                        url('https://images.unsplash.com/photo-1576086213369-97a306d36557?q=80&w=2080&auto=format&fit=crop');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
         }
+
         .glass-card {
-            border: 1px solid rgba(255,255,255,0.1);
-            backdrop-filter: blur(12px);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            background: rgba(30, 41, 59, 0.45);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
+
         input:focus {
             outline: none;
-            border-color: #3b82f6 !important;
-            box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+            border-color: #2563eb !important;
+            background: rgba(15, 23, 42, 0.9) !important;
+            box-shadow: 0 0 15px rgba(37, 99, 235, 0.2);
         }
+
         .toggle-btn {
             position: absolute;
-            right: 12px;
-            top: 42px;
+            right: 14px;
+            top: 40px;
             cursor: pointer;
-            color: #64748b;
-            transition: 0.2s;
+            color: #475569;
+            transition: color 0.2s;
         }
         .toggle-btn:hover { color: #3b82f6; }
 
+        /* Estilização da Scrollbar do Chat */
         #user-chat-box::-webkit-scrollbar { width: 4px; }
-        #user-chat-box::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-        
+        #user-chat-box::-webkit-scrollbar-track { background: transparent; }
+        #user-chat-box::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+
         .chat-img-user {
             max-width: 100%;
             border-radius: 8px;
-            margin-top: 5px;
+            margin-top: 8px;
             cursor: zoom-in;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
     <script>
@@ -51,107 +68,110 @@
         }
     </script>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 font-sans text-slate-200">
+<body class="min-h-screen flex items-center justify-center p-4 text-slate-200">
 
-    <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/40">
+    <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl fade-in">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-black tracking-tighter text-white">GATEWAY <span class="text-blue-500">SUS</span></h2>
-            <p class="text-slate-400 text-sm mt-1 font-medium uppercase tracking-widest">Gestão de Informação DHS</p>
+            <p class="text-slate-400 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">Gestão de Informação DHS</p>
         </div>
         
         <div class="space-y-5">
             <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail de Acesso</label>
-                <input type="email" id="l-email" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="nome@exemplo.com">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail de Acesso</label>
+                <input type="email" id="l-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-600" placeholder="usuario@dhs.gov.br">
             </div>
             
             <div class="relative">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Sua Senha</label>
-                <input type="password" id="l-pass" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="••••••••">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Sua Senha</label>
+                <input type="password" id="l-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-600" placeholder="••••••••">
                 <span class="toggle-btn" onclick="toggleView('l-pass', this)"><i class="fa-solid fa-eye"></i></span>
             </div>
             
-            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+            <button id="btn-entrar" onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20 mt-2">
                 Entrar no Sistema
             </button>
         </div>
         
-        <div class="mt-8 flex justify-between items-center text-xs font-bold uppercase tracking-tighter">
-            <a href="javascript:void(0)" onclick="trocar('forgot')" class="text-slate-400 hover:text-blue-400 transition-colors">Esqueci a senha</a>
+        <div class="mt-8 flex justify-between items-center text-[11px] font-bold uppercase tracking-wider">
+            <a href="javascript:void(0)" onclick="trocar('forgot')" class="text-slate-500 hover:text-blue-400 transition-colors">Esqueci a senha</a>
             <a href="javascript:void(0)" onclick="trocar('signup')" class="text-blue-500 hover:text-blue-400 transition-colors underline underline-offset-4">Criar Conta</a>
         </div>
     </div>
 
-    <div id="signup-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/40 hidden">
+    <div id="signup-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl hidden fade-in">
         <div class="text-center mb-6">
             <h3 class="text-xl font-bold text-white">Nova Conta</h3>
-            <p class="text-slate-400 text-sm">Preencha os dados para acesso.</p>
+            <p class="text-slate-400 text-sm">Solicite seu acesso ao Gateway.</p>
         </div>
 
         <div class="space-y-4">
             <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Nome Completo</label>
-                <input type="text" id="r-nome" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome Completo</label>
+                <input type="text" id="r-nome" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
             </div>
             <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail</label>
-                <input type="email" id="r-email" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Institucional</label>
+                <input type="email" id="r-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
             </div>
             <div class="relative">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Senha</label>
-                <input type="password" id="r-pass" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Defina uma Senha</label>
+                <input type="password" id="r-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
                 <span class="toggle-btn" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
             </div>
-            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-95 mt-2">
+            <button id="btn-registrar" onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/20">
                 Finalizar Cadastro
             </button>
-            <button onclick="trocar('login')" class="w-full text-slate-400 text-xs font-bold uppercase py-2 hover:text-white transition-colors">
-                ← Voltar ao Login
+            <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
+                <i class="fa-solid fa-chevron-left mr-1"></i> Voltar ao Login
             </button>
         </div>
     </div>
 
-    <div id="forgot-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl bg-slate-800/40 hidden text-center">
-        <i class="fa-solid fa-lock-open text-blue-500 text-4xl mb-4"></i>
+    <div id="forgot-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl hidden fade-in text-center">
+        <div class="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
+            <i class="fa-solid fa-shield-halved text-blue-500 text-2xl"></i>
+        </div>
         <h3 class="text-xl font-bold text-white mb-2">Recuperar Senha</h3>
-        <p class="text-slate-400 text-sm mb-6">Enviaremos um link de redefinição para o seu e-mail.</p>
+        <p class="text-slate-400 text-sm mb-6 leading-relaxed">Insira seu e-mail para receber as instruções de redefinição.</p>
 
         <div class="space-y-4">
             <div class="text-left">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E-mail Cadastrado</label>
-                <input type="email" id="f-email" class="w-full bg-slate-900/80 border border-slate-700 p-3 rounded-xl text-white transition-all" placeholder="seu@email.com">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Cadastrado</label>
+                <input type="email" id="f-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all" placeholder="exemplo@dhs.gov.br">
             </div>
             <button id="btn-forgot" onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20">
-                Enviar Instruções
+                Enviar Link de Recuperação
             </button>
-            <button onclick="trocar('login')" class="w-full text-slate-400 text-xs font-bold uppercase py-2 hover:text-white transition-colors">
-                ← Voltar ao Login
+            <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
+                <i class="fa-solid fa-chevron-left mr-1"></i> Voltar ao Login
             </button>
         </div>
     </div>
 
     <div id="chat-container" class="fixed bottom-6 right-6 z-50">
-        <button onclick="toggleChat()" id="chat-button" class="bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-2xl transition-all active:scale-95 flex items-center justify-center relative">
-            <i class="fa-solid fa-comments text-2xl"></i>
-            <span id="badge-notificacao" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-[#0f172a]">!</span>
+        <button onclick="toggleChat()" id="chat-button" class="bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-2xl transition-all active:scale-90 flex items-center justify-center relative group">
+            <i class="fa-solid fa-headset text-xl group-hover:rotate-12 transition-transform"></i>
+            <span id="badge-notificacao" class="hidden absolute top-0 right-0 bg-red-500 w-3 h-3 rounded-full border-2 border-[#0a0f1c]"></span>
         </button>
 
-        <div id="chat-window" class="hidden glass-card bg-slate-900/95 w-80 h-[450px] rounded-2xl flex flex-col overflow-hidden mb-4 border border-white/10">
-            <div class="bg-blue-600 p-4 text-white flex justify-between items-center shadow-lg">
+        <div id="chat-window" class="hidden glass-card bg-slate-900/98 w-[320px] h-[480px] rounded-2xl flex flex-col overflow-hidden mb-4 border border-white/10 shadow-2xl">
+            <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span class="font-bold text-xs uppercase tracking-widest">Suporte Online</span>
+                    <span class="font-bold text-[10px] uppercase tracking-[0.2em]">Plantão Suporte</span>
                 </div>
-                <button onclick="toggleChat()" class="hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="toggleChat()" class="hover:rotate-90 transition-transform"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-xs"></div>
+            <div id="user-chat-box" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3 scroll-smooth">
+                </div>
 
-            <div class="p-3 bg-slate-900 border-t border-white/5 flex gap-2">
-                <input type="text" id="user-input" placeholder="Sua mensagem..." 
-                    class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-blue-500">
-                <button onclick="enviarMensagemUsuario()" class="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-500 transition-all">
-                    <i class="fa-solid fa-paper-plane"></i>
+            <div class="p-3 bg-slate-950/50 border-t border-white/5 flex gap-2">
+                <input type="text" id="user-input" placeholder="Dúvida ou problema..." 
+                    class="flex-1 bg-slate-800/80 border border-white/5 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-blue-500">
+                <button onclick="enviarMensagemUsuario()" class="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-500 transition-all">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
                 </button>
             </div>
         </div>
@@ -173,7 +193,6 @@
         function atualizarSala() {
             const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
             const emailSalvo = localStorage.getItem('email');
-            
             let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socket.id);
             
             if (novaSala && novaSala !== emailSala) {
@@ -184,18 +203,6 @@
 
         socket.on('connect', atualizarSala);
 
-        socket.on('chamado_encerrado', (data) => {
-            if (data.salaId === emailSala) {
-                chatBox.innerHTML = "";
-                renderizarMensagemUser({ 
-                    usuario: "Sistema", 
-                    texto: "🔒 Este atendimento foi encerrado pelo suporte. Obrigado!" 
-                });
-                document.getElementById('user-input').disabled = true;
-                document.getElementById('user-input').placeholder = "Atendimento encerrado.";
-            }
-        });
-
         function toggleView(inputId, btn) {
             const input = document.getElementById(inputId);
             const icon = btn.querySelector('i');
@@ -205,13 +212,11 @@
         }
 
         function trocar(tela) {
-            ['login-container', 'signup-container', 'forgot-container'].forEach(c => {
-                document.getElementById(c).classList.add('hidden');
-                document.getElementById(c).style.display = 'none';
+            document.querySelectorAll('.glass-card').forEach(c => {
+                if(c.id !== 'chat-window') c.classList.add('hidden');
             });
             const target = document.getElementById(tela + '-container');
             target.classList.remove('hidden');
-            target.style.display = 'block';
         }
 
         function toggleChat() {
@@ -250,27 +255,24 @@
             const souEu = (autor === nomeAtual || autor === "Você");
             
             const msgDiv = document.createElement('div');
-            msgDiv.className = `p-3 rounded-xl max-w-[85%] mb-2 ${
-                souEu ? 'bg-blue-600 text-white self-end rounded-tr-none shadow-md' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'
+            msgDiv.className = `p-3 rounded-2xl max-w-[90%] mb-1 ${
+                souEu ? 'bg-blue-600 text-white self-end rounded-tr-none' : 'bg-slate-800 text-slate-200 self-start rounded-tl-none border border-white/5'
             }`;
             
             const texto = data.texto || data.mensagem || "";
             const arquivo = data.arquivo || data.file;
             const tipo = data.tipo || data.tipo_arquivo;
 
-            let conteudo = `<p class="text-[8px] font-bold opacity-50 mb-1 uppercase">${souEu ? 'Você' : autor}</p>`;
+            let conteudo = `<p class="text-[7px] font-black opacity-40 mb-1 uppercase tracking-widest">${souEu ? 'Você' : autor}</p>`;
             
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
                     conteudo += `<img src="${arquivo}" class="chat-img-user" onclick="window.open(this.src)">`;
                 } else {
-                    conteudo += `<a href="${arquivo}" download class="text-blue-400 underline block mt-1"><i class="fa-solid fa-file-download"></i> Baixar Arquivo</a>`;
+                    conteudo += `<a href="${arquivo}" download class="text-[10px] text-blue-400 underline block mt-1"><i class="fa-solid fa-download mr-1"></i> Anexo</a>`;
                 }
             }
-
-            if (texto) {
-                conteudo += `<p>${texto}</p>`;
-            }
+            if (texto) conteudo += `<p class="text-[11px] leading-relaxed">${texto}</p>`;
 
             msgDiv.innerHTML = conteudo;
             chatBox.appendChild(msgDiv);
@@ -280,8 +282,7 @@
         function enviarMensagemUsuario() {
             const input = document.getElementById('user-input');
             const msg = input.value.trim();
-            if (!msg || input.disabled) return;
-            
+            if (!msg) return;
             atualizarSala();
             socket.emit('enviar_mensagem', { 
                 nome: localStorage.getItem('usuario') || "Visitante", 
@@ -291,11 +292,11 @@
             input.value = "";
         }
 
-        // --- FUNÇÕES DE API ---
+        // --- API INTEGRATION ---
         async function entrar() {
             const email = document.getElementById('l-email').value;
             const senha = document.getElementById('l-pass').value;
-            if (!email || !senha) return alert("Preencha os campos.");
+            if (!email || !senha) return;
 
             try {
                 const res = await fetch('/api/login', {
@@ -310,13 +311,14 @@
                     localStorage.setItem('token', 'sessao_ativa');
                     window.location.href = 'dashboard.html';
                 } else { alert(data.error); }
-            } catch (err) { alert("Erro de conexão."); }
+            } catch (err) { alert("Servidor offline."); }
         }
 
         async function registrar() {
             const nome = document.getElementById('r-nome').value;
             const email = document.getElementById('r-email').value;
             const senha = document.getElementById('r-pass').value;
+            if(!nome || !email || !senha) return alert("Preencha todos os campos.");
 
             try {
                 const res = await fetch('/api/registrar', {
@@ -324,35 +326,35 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nome, email, senha })
                 });
-                const data = await res.json();
                 if (res.ok) {
-                    alert("Conta criada! Faça login.");
+                    alert("Cadastro realizado com sucesso!");
                     trocar('login');
-                } else { alert(data.error); }
-            } catch (err) { alert("Erro ao registrar."); }
+                } else {
+                    const data = await res.json();
+                    alert(data.error);
+                }
+            } catch (err) { alert("Erro ao conectar ao servidor."); }
         }
 
         async function solicitarRecuperacao() {
             const email = document.getElementById('f-email').value;
-            if (!email) return alert("Digite seu e-mail.");
-
+            if (!email) return alert("Informe seu e-mail.");
             try {
                 const res = await fetch('/api/recuperar-senha', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-                const data = await res.json();
-                if (res.ok) alert("Instruções enviadas para seu e-mail!");
-                else alert(data.error || "Erro ao processar.");
+                if (res.ok) alert("Verifique sua caixa de entrada.");
+                else alert("E-mail não encontrado.");
             } catch (err) { alert("Erro de conexão."); }
         }
 
+        // Atalho teclado
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                const loginVisivel = document.getElementById('login-container').style.display !== 'none';
-                if (loginVisivel) entrar();
-                else if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
+                if (!chatWindow.classList.contains('hidden')) enviarMensagemUsuario();
+                else if (document.getElementById('login-container').offsetParent !== null) entrar();
             }
         });
     </script>
