@@ -112,17 +112,21 @@ io.on('connection', (socket) => {
     });
 });
 
-// --- FUNÇÃO AUXILIAR E-MAIL ---
+// --- FUNÇÃO AUXILIAR E-MAIL (MELHORADA) ---
 async function enviarEmail(emailDestino, assunto, html) {
     try {
-        if (!process.env.BREVO_API_KEY) return;
+        if (!process.env.BREVO_API_KEY) {
+            console.warn("⚠️ BREVO_API_KEY não encontrada. E-mail não enviado.");
+            return;
+        }
         const sendSmtpEmail = new Brevo.SendSmtpEmail();
         sendSmtpEmail.subject = assunto;
-        sendSmtpEmail.htmlContent = html;
+        sendSmtpEmail.htmlContent = html; // Usando htmlContent para renderizar visualmente
         sendSmtpEmail.sender = { name: "Gateway SUS", email: "gestaoinformacaodhs@gmail.com" };
         sendSmtpEmail.to = [{ email: emailDestino }];
         await apiInstance.sendTransacEmail(sendSmtpEmail);
-    } catch (e) { console.error("Erro e-mail:", e.message); }
+        console.log(`📧 E-mail enviado para: ${emailDestino}`);
+    } catch (e) { console.error("❌ Erro e-mail:", e.message); }
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
@@ -188,12 +192,33 @@ app.post('/api/forgot-password', async (req, res) => {
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
         );
+        
         if (result.rowCount > 0) {
-            const link = `https://${req.headers.host}/reset-password.html?token=${token}`;
-            await enviarEmail(email, "Recuperação de Senha", `Olá ${result.rows[0].nome}, redefina sua senha aqui: <a href="${link}">${link}</a>`);
+            const userName = result.rows[0].nome;
+            const link = `https://gateway-datasus.onrender.com/reset-password.html?token=${token}`;
+            
+            // E-MAIL FORMATADO COM BOTÃO E LOGO
+            const htmlEmail = `
+                <div style="font-family: Arial, sans-serif; text-align: center; color: #333; padding: 20px;">
+                    <h1 style="color: #007bff;">Gateway SUS</h1>
+                    <p>Olá <strong>${userName}</strong>,</p>
+                    <p>Você solicitou a redefinição de sua senha. Clique no botão abaixo para prosseguir:</p>
+                    <div style="margin: 30px 0;">
+                        <a href="${link}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                            REDEFINIR MINHA SENHA
+                        </a>
+                    </div>
+                    <p style="font-size: 12px; color: #777;">Este link é válido por 1 hora. Se você não solicitou isso, ignore este e-mail.</p>
+                </div>
+            `;
+
+            await enviarEmail(email, "Recuperação de Senha - Gateway SUS", htmlEmail);
         }
         res.json({ message: "Se o e-mail existir, as instruções foram enviadas." });
-    } catch (err) { res.status(500).json({ error: "Erro ao processar recuperação." }); }
+    } catch (err) { 
+        console.error("Erro no forgot-password:", err);
+        res.status(500).json({ error: "Erro ao processar recuperação." }); 
+    }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -201,8 +226,9 @@ app.post('/api/reset-password', async (req, res) => {
     try {
         if (!token || !novaSenha) return res.status(400).json({ error: "Dados incompletos." });
 
+        // Verificação robusta do token e data
         const result = await pool.query(
-            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > CURRENT_TIMESTAMP", 
+            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()", 
             [token]
         );
         
