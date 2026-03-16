@@ -187,7 +187,7 @@ app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora de validade
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
@@ -202,13 +202,13 @@ app.post('/api/forgot-password', async (req, res) => {
                     <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
                         <h1 style="color: #007bff;">Gateway SUS</h1>
                         <p>Olá <strong>${userName}</strong>,</p>
-                        <p>Você solicitou a redefinição de sua senha. Clique no botão abaixo para prosseguir:</p>
+                        <p>Você solicitou a redefinição de sua senha. Clique no botão abaixo:</p>
                         <div style="margin: 30px 0;">
                             <a href="${link}" style="background-color: #007bff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
                                 REDEFINIR MINHA SENHA
                             </a>
                         </div>
-                        <p style="font-size: 12px; color: #777;">Link válido por 1 hora. Se não foi você, ignore este e-mail.</p>
+                        <p style="font-size: 12px; color: #777;">Link válido por 1 hora.</p>
                     </div>
                 </div>
             `;
@@ -226,13 +226,21 @@ app.post('/api/reset-password', async (req, res) => {
     try {
         if (!token || !novaSenha) return res.status(400).json({ error: "Dados incompletos." });
 
+        // Busca o usuário apenas pelo token para validar a data manualmente (evita erro de fuso horário)
         const result = await pool.query(
-            "SELECT id FROM usuarios WHERE reset_token = $1 AND reset_expiracao > NOW()", 
+            "SELECT id, reset_expiracao FROM usuarios WHERE reset_token = $1", 
             [token]
         );
         
         if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Token inválido ou expirado." });
+            return res.status(400).json({ error: "Token inválido ou já utilizado." });
+        }
+
+        const usuario = result.rows[0];
+        const agora = new Date();
+
+        if (usuario.reset_expiracao && agora > new Date(usuario.reset_expiracao)) {
+            return res.status(400).json({ error: "Este link de recuperação expirou." });
         }
         
         const salt = await bcrypt.genSalt(10);
@@ -240,7 +248,7 @@ app.post('/api/reset-password', async (req, res) => {
         
         await pool.query(
             "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2", 
-            [hash, result.rows[0].id]
+            [hash, usuario.id]
         );
         res.json({ message: "Senha atualizada com sucesso!" });
     } catch (err) { 
@@ -310,7 +318,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     finally { client.close(); }
 });
 
-// --- INICIALIZAÇÃO DO SERVIDOR (Ajustado para Host 0.0.0.0) ---
+// --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
