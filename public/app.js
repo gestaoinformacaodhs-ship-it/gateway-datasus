@@ -1,8 +1,9 @@
-// --- VARIÁVEIS GLOBAIS PARA BUSCA ---
+/* --- VARIÁVEIS GLOBAIS --- */
 let arquivosCache = []; 
-let sistemaAtivo = '';  
+let sistemaAtivo = '';  
+let ticketsSuporte = []; // Armazena os tickets carregados na barra lateral
 
-// --- NAVEGAÇÃO ENTRE TELAS ---
+/* --- NAVEGAÇÃO ENTRE TELAS --- */
 function trocar(id) {
     const containers = ['login-container', 'signup-container', 'forgot-container'];
     containers.forEach(c => {
@@ -14,13 +15,61 @@ function trocar(id) {
     if (alvo) alvo.style.display = 'block';
 }
 
-// --- SUPORTE: CHAT WIDGET ---
+/* --- SUPORTE: GERENCIAMENTO DE TICKETS (ADMIN) --- */
+
+// CORREÇÃO: Função para finalizar APENAS um ticket específico
+function finalizarTicket(idParaFinalizar) {
+    if (!confirm("Deseja realmente encerrar este atendimento?")) return;
+
+    // Remove apenas o ticket com o ID correspondente
+    ticketsSuporte = ticketsSuporte.filter(t => t.id !== idParaFinalizar);
+    
+    // Atualiza a interface da barra lateral
+    renderizarListaTicketsSuporte();
+
+    // Limpa a tela de chat se o ticket finalizado for o que estava aberto
+    const chatMessages = document.querySelector('.chat-messages');
+    const chatHeader = document.querySelector('.chat-header');
+    
+    if (chatMessages) chatMessages.innerHTML = '';
+    if (chatHeader) chatHeader.innerHTML = '<div class="text-slate-500">Selecione um ticket para iniciar</div>';
+    
+    console.log(`Ticket ${idParaFinalizar} finalizado.`);
+}
+
+// Função para renderizar os tickets na barra lateral (Sidebar)
+function renderizarListaTicketsSuporte() {
+    const userList = document.querySelector('.user-list');
+    if (!userList) return;
+
+    if (ticketsSuporte.length === 0) {
+        userList.innerHTML = '<p class="p-4 text-xs text-slate-500">Nenhum ticket aberto.</p>';
+        return;
+    }
+
+    userList.innerHTML = ticketsSuporte.map(t => `
+        <div class="user-item" onclick="selecionarTicket('${t.id}')" id="ticket-${t.id}">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="user-name">${t.nome}</span>
+                    <span class="last-msg">${t.email || 'Aguardando...'}</span>
+                </div>
+                <button onclick="event.stopPropagation(); finalizarTicket('${t.id}')" 
+                        class="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all">
+                    FINALIZAR
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+/* --- SUPORTE: CHAT WIDGET (USUÁRIO) --- */
 function toggleChat() {
     const chatWin = document.getElementById('c-win') || document.getElementById('chat-window');
     const badge = document.getElementById('chat-badge');
     
     if (chatWin) {
-        const isHidden = chatWin.classList.contains('hidden') || chatWin.style.display === 'none';
+        const isHidden = chatWin.style.display === 'none' || chatWin.classList.contains('hidden');
         chatWin.style.display = isHidden ? 'flex' : 'none';
         chatWin.classList.toggle('hidden', !isHidden);
         
@@ -28,7 +77,7 @@ function toggleChat() {
     }
 }
 
-// --- AUTENTICAÇÃO: LOGIN ---
+/* --- AUTENTICAÇÃO --- */
 async function entrar() {
     const emailInput = document.getElementById('l-email');
     const senhaInput = document.getElementById('l-pass');
@@ -70,7 +119,7 @@ async function entrar() {
     }
 }
 
-// --- DASHBOARD: LISTAR ARQUIVOS FTP ---
+/* --- DASHBOARD: LISTAR ARQUIVOS --- */
 async function abrirEListar(sistema) {
     sistemaAtivo = sistema;
     const modal = document.getElementById('modal');
@@ -79,11 +128,10 @@ async function abrirEListar(sistema) {
     
     if (modal) {
         modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Trava scroll do fundo
+        document.body.style.overflow = 'hidden';
     }
     
     if (modalTitle) modalTitle.innerText = `Repositório: ${sistema}`;
-    document.getElementById('modalSearch').value = ""; 
     
     listContainer.innerHTML = `
         <div class="py-10 text-center">
@@ -95,17 +143,11 @@ async function abrirEListar(sistema) {
     try {
         const res = await fetch(`/api/list/${sistema}`);
         const files = await res.json();
-
         if (!res.ok) throw new Error(files.error || "Erro ao listar arquivos.");
-
         arquivosCache = Array.isArray(files) ? files : []; 
         renderizarLista(arquivosCache);
     } catch (err) {
-        listContainer.innerHTML = `
-            <div class="p-6 text-center border border-red-500/20 rounded-xl bg-red-500/5">
-                <p class="text-red-400 text-sm font-bold">${err.message}</p>
-                <button onclick="abrirEListar('${sistema}')" class="mt-4 text-[10px] underline text-slate-500">Tentar novamente</button>
-            </div>`;
+        listContainer.innerHTML = `<div class="p-6 text-center text-red-400">${err.message}</div>`;
     }
 }
 
@@ -118,44 +160,34 @@ function renderizarLista(lista) {
         return;
     }
 
-    listContainer.innerHTML = lista.map(f => {
-        const dataFormatada = f.rawDate ? new Date(f.rawDate).toLocaleDateString('pt-BR') : 'Data n/d';
-        return `
-            <div class="flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 border border-white/5 hover:border-blue-500/30 transition-all">
-                <div class="text-left overflow-hidden mr-4">
-                    <span class="text-white text-sm font-medium block truncate" title="${f.name}">${f.name}</span>
-                    <small class="text-slate-500 text-[10px] font-mono uppercase tracking-tighter">
-                        📅 ${dataFormatada} | 📦 ${f.size}
-                    </small>
-                </div>
-                <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
-                        class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all shrink-0">
-                    BAIXAR
-                </button>
+    listContainer.innerHTML = lista.map(f => `
+        <div class="flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-800/40 border border-white/5 hover:border-blue-500/30 transition-all">
+            <div class="text-left overflow-hidden mr-4">
+                <span class="text-white text-sm font-medium block truncate">${f.name}</span>
+                <small class="text-slate-500 text-[10px] uppercase">📅 ${f.rawDate || 'N/D'} | 📦 ${f.size}</small>
             </div>
-        `;
-    }).join('');
+            <button onclick="baixarDireto('${sistemaAtivo}', '${f.name}', this)" 
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-lg transition-all">
+                BAIXAR
+            </button>
+        </div>
+    `).join('');
 }
 
 function filtrarArquivosModal() {
     const termo = document.getElementById('modalSearch')?.value.toLowerCase();
-    const filtrados = arquivosCache.filter(arquivo => 
-        arquivo.name.toLowerCase().includes(termo)
-    );
+    const filtrados = arquivosCache.filter(f => f.name.toLowerCase().includes(termo));
     renderizarLista(filtrados);
 }
 
-// --- DASHBOARD: DOWNLOAD ---
+/* --- DOWNLOAD --- */
 async function baixarDireto(sistema, arquivo, btn) {
     const originalText = btn.innerText;
     btn.innerText = "AGUARDE...";
     btn.disabled = true;
 
     try {
-        // Em vez de criar link <a> direto, verificamos a disponibilidade via fetch (opcional)
-        // Ou mantemos o download via URL para arquivos grandes
         const url = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-        
         const a = document.createElement('a');
         a.href = url;
         a.download = arquivo;
@@ -168,46 +200,43 @@ async function baixarDireto(sistema, arquivo, btn) {
         setTimeout(() => {
             btn.innerText = originalText;
             btn.disabled = false;
-        }, 1500);
+        }, 1000);
     }
 }
 
 function fecharModal() {
     const modal = document.getElementById('modal');
     if (modal) modal.style.display = 'none';
-    document.body.style.overflow = 'auto'; // Restaura o scroll
+    document.body.style.overflow = 'auto';
 }
 
-// --- INICIALIZAÇÃO E PROTEÇÃO DE ROTA ---
+/* --- INICIALIZAÇÃO --- */
 document.addEventListener('DOMContentLoaded', () => {
     const usuarioLogado = localStorage.getItem('usuario');
     const isDashboard = window.location.pathname.includes('dashboard.html');
 
-    // Proteção de rota imediata
+    // Proteção de rota
     if (isDashboard && !usuarioLogado) {
         window.location.replace('index.html');
         return; 
     }
 
     const display = document.getElementById('user-display');
-    if (display) {
-        display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
-    }
+    if (display) display.innerText = usuarioLogado ? `Olá, ${usuarioLogado}` : "Olá, Usuário";
 
-    // Listener para busca automática (com debouncing simples)
-    const inputBusca = document.getElementById('modalSearch');
-    if (inputBusca) {
-        inputBusca.addEventListener('input', filtrarArquivosModal);
-    }
-
-    // Listener para o Enter no chat
+    // Setup de buscas e eventos
+    document.getElementById('modalSearch')?.addEventListener('input', filtrarArquivosModal);
+    
     const chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                if (typeof window.enviarMensagem === 'function') window.enviarMensagem();
-            }
+            if (e.key === 'Enter' && typeof enviarMensagem === 'function') enviarMensagem();
         });
+    }
+
+    // Inicializa lista de suporte se estiver no console admin
+    if (document.querySelector('.user-list')) {
+        renderizarListaTicketsSuporte();
     }
 });
 
