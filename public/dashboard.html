@@ -74,11 +74,9 @@
         .chat-btn:hover { transform: scale(1.1); }
 
         .danger-border { border: 1px solid rgba(220, 38, 38, 0.2); }
-        .danger-border:hover { border-color: #dc2626; }
     </style>
 
     <script>
-        // Proteção de Rota
         if (!localStorage.getItem('email')) {
             window.location.href = 'index.html';
         }
@@ -99,7 +97,7 @@
                         <a href="profile.html" class="text-[10px] uppercase tracking-widest text-blue-500 hover:text-blue-400 font-bold transition-colors">
                             <i class="fa-solid fa-user-gear mr-1"></i> Perfil
                         </a>
-                        <button onclick="deletarMinhaConta()" class="text-[10px] uppercase tracking-widest text-red-500 hover:text-red-400 font-bold transition-colors">
+                        <button onclick="abrirConfirmacaoExclusao()" class="text-[10px] uppercase tracking-widest text-red-500 hover:text-red-400 font-bold transition-colors">
                             <i class="fa-solid fa-trash-can mr-1"></i> Excluir Conta
                         </button>
                     </div>
@@ -118,13 +116,12 @@
             <p class="text-slate-500 mt-2">Repositórios FTP oficiais sincronizados em tempo real.</p>
         </div>
 
-        <div id="grid-sistemas" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            </div>
+        <div id="grid-sistemas" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4"></div>
 
         <div class="mt-20 glass-card p-6 danger-border opacity-60 hover:opacity-100 transition-opacity">
             <h4 class="text-red-500 text-xs font-black uppercase tracking-widest mb-2">Configurações Críticas</h4>
             <p class="text-xs text-slate-500 mb-4">A exclusão da conta removerá permanentemente seu acesso ao Gateway e histórico de mensagens.</p>
-            <button onclick="deletarMinhaConta()" class="text-xs bg-red-600/10 border border-red-600/20 text-red-500 px-4 py-2 rounded hover:bg-red-600 hover:text-white transition-all">
+            <button onclick="abrirConfirmacaoExclusao()" class="text-xs bg-red-600/10 border border-red-600/20 text-red-500 px-4 py-2 rounded hover:bg-red-600 hover:text-white transition-all">
                 SOLICITAR EXCLUSÃO DE DADOS
             </button>
         </div>
@@ -151,6 +148,21 @@
         </div>
     </div>
 
+    <div id="delete-modal" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+        <div class="bg-[#111827] border border-red-900/50 w-full max-w-md rounded-2xl p-8 text-center shadow-2xl">
+            <div class="w-16 h-16 bg-red-600/10 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-600/20">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Confirmar Exclusão?</h2>
+            <p class="text-sm text-slate-400 mb-6">Esta ação é irreversível. Para confirmar, digite seu e-mail abaixo:</p>
+            <input type="email" id="confirm-email-input" class="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-white text-center mb-6 focus:outline-none focus:border-red-600 transition-all" placeholder="seu@email.com">
+            <div class="flex gap-4">
+                <button onclick="fecharConfirmacaoExclusao()" class="flex-1 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-xs hover:bg-slate-700 transition-all">CANCELAR</button>
+                <button onclick="processarExclusaoConta()" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-bold text-xs hover:bg-red-700 transition-all">EXCLUIR TUDO</button>
+            </div>
+        </div>
+    </div>
+
     <div id="chat-widget">
         <div id="chat-icon" onclick="toggleChat()" class="chat-btn">
             <i class="fa-solid fa-comment-dots"></i>
@@ -160,10 +172,7 @@
         <div id="chat-window">
             <div class="chat-header">
                 <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-ping absolute top-0 left-0"></div>
-                    </div>
+                    <div class="relative"><div class="w-2 h-2 bg-green-500 rounded-full"></div><div class="w-2 h-2 bg-green-500 rounded-full animate-ping absolute top-0 left-0"></div></div>
                     <span class="text-[10px] font-black tracking-widest uppercase">Suporte Técnico</span>
                 </div>
                 <button onclick="toggleChat()" class="hover:text-slate-300 transition-colors"><i class="fa-solid fa-xmark"></i></button>
@@ -175,10 +184,8 @@
                         <i class="fa-solid fa-paperclip text-lg"></i>
                         <input type="file" id="chat-file" class="hidden" onchange="enviarArquivo()">
                     </label>
-                    <input type="text" id="chat-input" placeholder="Digite sua mensagem..." class="bg-transparent border-none focus:outline-none text-sm text-white flex-1">
-                    <button onclick="enviarMensagem()" class="text-blue-500 hover:text-blue-400 transform hover:scale-110 transition-all">
-                        <i class="fa-solid fa-paper-plane text-xl"></i>
-                    </button>
+                    <input type="text" id="chat-input" placeholder="Mensagem..." class="bg-transparent border-none focus:outline-none text-sm text-white flex-1">
+                    <button onclick="enviarMensagem()" class="text-blue-500 hover:text-blue-400 transform hover:scale-110 transition-all"><i class="fa-solid fa-paper-plane text-xl"></i></button>
                 </div>
             </div>
         </div>
@@ -196,11 +203,9 @@
         let sistemaAtual = '';
         let arquivosCache = [];
 
-        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             
-            // Renderizar Cards de Sistemas
             const sistemas = [
                 { id: 'SIA', icon: '📊', label: 'SIA', desc: 'Ambulatoriais' },
                 { id: 'BPA', icon: '📦', label: 'BPA', desc: 'Produção' },
@@ -211,8 +216,7 @@
                 { id: 'CIHA', icon: '📁', label: 'CIHA', desc: 'Inst. Hosp.' }
             ];
             
-            const grid = document.getElementById('grid-sistemas');
-            grid.innerHTML = sistemas.map(s => `
+            document.getElementById('grid-sistemas').innerHTML = sistemas.map(s => `
                 <div class="glass-card p-6 text-center cursor-pointer group" onclick="abrirEListar('${s.id}')">
                     <div class="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">${s.icon}</div>
                     <h3 class="text-md font-bold text-white">${s.label}</h3>
@@ -222,44 +226,49 @@
 
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
             
-            document.getElementById('chat-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') enviarMensagem();
-            });
+            document.getElementById('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
         });
 
-        // --- LÓGICA DE CONTA ---
-        async function deletarMinhaConta() {
-            const confirmacao = confirm("AVISO CRÍTICO: Esta ação apagará permanentemente sua conta e histórico. Deseja continuar?");
-            if (confirmacao) {
-                const checkEmail = prompt("Para confirmar, digite seu e-mail cadastrado:");
-                if (checkEmail === emailUsuario) {
-                    try {
-                        const response = await fetch('/api/delete-account', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: emailUsuario })
-                        });
-                        if (response.ok) {
-                            alert("Conta excluída com sucesso.");
-                            logout();
-                        } else {
-                            const err = await response.json();
-                            alert("Erro: " + err.error);
-                        }
-                    } catch (err) {
-                        alert("Erro de conexão com o servidor.");
-                    }
+        // --- EXCLUSÃO DE CONTA (UI MODAL) ---
+        function abrirConfirmacaoExclusao() {
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.getElementById('delete-modal').classList.add('flex');
+        }
+
+        function fecharConfirmacaoExclusao() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.getElementById('confirm-email-input').value = '';
+        }
+
+        async function processarExclusaoConta() {
+            const emailDigitado = document.getElementById('confirm-email-input').value.toLowerCase().trim();
+            if (emailDigitado !== emailUsuario.toLowerCase().trim()) {
+                alert("O e-mail digitado não confere.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/delete-account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: emailUsuario })
+                });
+                if (response.ok) {
+                    alert("Sua conta e dados foram removidos permanentemente.");
+                    logout();
                 } else {
-                    alert("E-mail incorreto.");
+                    const err = await response.json();
+                    alert("Erro: " + err.error);
                 }
+            } catch (err) {
+                alert("Falha ao conectar com o servidor.");
             }
         }
 
-        // --- LÓGICA DE CHAT (SOCKET.IO) ---
+        // --- CHAT LOGIC ---
         socket.on('receber_mensagem', (data) => {
             const souEu = (data.usuario === nomeUsuario || data.nome === nomeUsuario);
             adicionarMensagemNaTela(data.usuario || data.nome, data.texto || data.mensagem, data.arquivo, data.tipo_arquivo || data.tipo, souEu);
-            
             if (!souEu) {
                 somNotificacao.play().catch(() => {});
                 if (!document.getElementById('chat-window').classList.contains('active')) {
@@ -272,7 +281,8 @@
             const box = document.getElementById('chat-messages');
             box.innerHTML = ''; 
             mensagens.forEach(msg => {
-                adicionarMensagemNaTela(msg.usuario, msg.texto, msg.arquivo, msg.tipo, msg.usuario === nomeUsuario);
+                const souEu = (msg.usuario === nomeUsuario || msg.usuario === emailUsuario);
+                adicionarMensagemNaTela(msg.usuario, msg.texto, msg.arquivo, msg.tipo, souEu);
             });
         });
 
@@ -290,12 +300,7 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
-                socket.emit('enviar_mensagem', { 
-                    nome: nomeUsuario, 
-                    arquivo: e.target.result, 
-                    tipo_arquivo: file.type, 
-                    salaId: emailUsuario 
-                });
+                socket.emit('enviar_mensagem', { nome: nomeUsuario, arquivo: e.target.result, tipo_arquivo: file.type, salaId: emailUsuario });
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
@@ -309,91 +314,65 @@
             let corpoHTML = texto ? `<p>${texto}</p>` : '';
             if (arquivo) {
                 if (tipo && tipo.startsWith('image/')) {
-                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded-lg mt-2 border border-white/10 cursor-pointer shadow-lg" onclick="window.open(this.src)">`;
+                    corpoHTML += `<img src="${arquivo}" class="max-w-full rounded-lg mt-2 border border-white/10 cursor-pointer" onclick="window.open(this.src)">`;
                 } else {
-                    corpoHTML += `<a href="${arquivo}" download="anexo" class="block mt-2 text-[11px] bg-white/5 p-2 rounded border border-white/10 underline"><i class="fa-solid fa-file-arrow-down mr-1"></i> Baixar Anexo</a>`;
+                    corpoHTML += `<a href="${arquivo}" download="anexo" class="block mt-2 text-[11px] bg-white/5 p-2 rounded border border-white/10 underline">Baixar Anexo</a>`;
                 }
             }
 
             div.innerHTML = `
                 <span class="text-[9px] mb-1 font-black ${souEu ? 'text-slate-500' : 'text-blue-500'} uppercase tracking-tighter">${autor}</span>
                 <div class="${souEu ? 'msg-user' : 'msg-support'}">${corpoHTML}</div>`;
-            
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- LÓGICA DE FTP ---
+        // --- FTP LOGIC ---
         async function abrirEListar(sistema) {
             sistemaAtual = sistema;
-            const modal = document.getElementById('modal');
-            const fileList = document.getElementById('file-list');
-            modal.style.display = 'flex';
+            document.getElementById('modal').style.display = 'flex';
             document.body.style.overflow = 'hidden'; 
             document.getElementById('modal-title').innerText = `Repositório ${sistema}`;
-            fileList.innerHTML = `<div class="py-20 text-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600"></i><p class="text-xs mt-4 text-slate-500 uppercase font-bold tracking-widest">Sincronizando FTP...</p></div>`;
+            document.getElementById('file-list').innerHTML = `<div class="py-20 text-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600"></i></div>`;
             
             try {
                 const res = await fetch(`/api/list/${sistema}`);
                 arquivosCache = await res.json();
                 renderizarArquivos(arquivosCache);
             } catch (err) {
-                fileList.innerHTML = `<div class="text-center py-20"><i class="fa-solid fa-triangle-exclamation text-3xl text-red-500 mb-4"></i><p class="text-red-500 font-bold">Falha na conexão com o servidor.</p></div>`;
+                document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Erro de conexão.</p>`;
             }
         }
 
         function renderizarArquivos(lista) {
             const fileList = document.getElementById('file-list');
-            fileList.innerHTML = '';
-            if(!lista || lista.length === 0) {
-                fileList.innerHTML = `<p class="text-center py-10 text-slate-500 text-sm">Nenhum arquivo encontrado.</p>`;
-                return;
-            }
+            fileList.innerHTML = lista.length ? '' : `<p class="text-center py-10 text-slate-500">Vazio.</p>`;
             lista.forEach(file => {
                 const item = document.createElement('div');
-                item.className = 'flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5 hover:border-blue-900 transition-colors group';
+                item.className = 'flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5';
                 item.innerHTML = `
                     <div class="flex-1 min-w-0 pr-4">
                         <p class="text-sm font-semibold text-white truncate">${file.name}</p>
-                        <p class="text-[10px] text-slate-600 font-mono">${file.size || 'Tam. desconhecido'}</p>
+                        <p class="text-[10px] text-slate-600 font-mono">${file.size}</p>
                     </div>
-                    <button class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase tracking-widest transition-all" onclick="baixar('${sistemaAtual}', '${file.name}')">Baixar</button>`;
+                    <button class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase transition-all" onclick="baixar('${sistemaAtual}', '${file.name}')">Baixar</button>`;
                 fileList.appendChild(item);
             });
         }
 
         function filtrarArquivosModal() {
             const termo = document.getElementById('modalSearch').value.toLowerCase();
-            const filtrados = arquivosCache.filter(f => f.name.toLowerCase().includes(termo));
-            renderizarArquivos(filtrados);
+            renderizarArquivos(arquivosCache.filter(f => f.name.toLowerCase().includes(termo)));
         }
 
-        function baixar(sistema, arquivo) {
-            window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`;
-        }
-
-        function toggleChat() {
+        function baixar(sistema, arquivo) { window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`; }
+        function fecharModal() { document.getElementById('modal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        function toggleChat() { 
             const win = document.getElementById('chat-window');
             win.classList.toggle('active');
-            if (win.classList.contains('active')) {
-                document.getElementById('chat-badge').classList.add('hidden');
-                setTimeout(() => {
-                    const box = document.getElementById('chat-messages');
-                    box.scrollTop = box.scrollHeight;
-                }, 100);
-            }
+            if (win.classList.contains('active')) document.getElementById('chat-badge').classList.add('hidden');
         }
-
-        function fecharModal() { 
-            document.getElementById('modal').style.display = 'none'; 
-            document.body.style.overflow = 'auto';
-            document.getElementById('modalSearch').value = '';
-        }
-
-        function logout() {
-            localStorage.clear();
-            window.location.href = 'index.html';
-        }
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
     </script>
 </body>
 </html>

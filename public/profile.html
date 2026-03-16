@@ -42,11 +42,16 @@
         }
         .toggle-password:hover { color: #3b82f6; }
 
-        /* Animação suave para a barra de força */
         #barra-forca { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s; }
+
+        /* Estilo específico para a Danger Zone */
+        .danger-zone {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(239, 68, 68, 0.03);
+        }
     </style>
     <script>
-        if (!localStorage.getItem('token')) {
+        if (!localStorage.getItem('usuario')) {
             window.location.href = 'index.html';
         }
     </script>
@@ -71,7 +76,7 @@
                     </div>
                     <div>
                         <h2 class="text-2xl font-black text-white tracking-tight">Configurações de Perfil</h2>
-                        <p class="text-blue-100/70 text-sm font-medium">Atualize suas informações e segurança.</p>
+                        <p class="text-blue-100/70 text-sm font-medium">Gerencie sua identidade e segurança.</p>
                     </div>
                 </div>
             </div>
@@ -142,6 +147,24 @@
                     </button>
                 </div>
             </form>
+
+            <div class="danger-zone p-8">
+                <div class="flex items-center gap-2 text-red-500 mb-4">
+                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em]">Configurações Críticas</h3>
+                </div>
+                
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl border border-red-500/20 bg-red-500/5">
+                    <div class="space-y-1">
+                        <h4 class="text-sm font-bold text-white">Excluir Conta Permanentemente</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed">Isso apagará seu acesso e todo o histórico de mensagens de suporte.</p>
+                    </div>
+                    <button type="button" id="btn-delete-account"
+                        class="px-5 py-2.5 rounded-xl border border-red-500/30 text-red-500 text-xs font-black uppercase tracking-wider hover:bg-red-500 hover:text-white transition-all duration-300 active:scale-95">
+                        Excluir Conta
+                    </button>
+                </div>
+            </div>
         </div>
         
         <p class="text-center text-slate-600 text-[10px] mt-8 font-bold uppercase tracking-[0.2em]">
@@ -150,7 +173,7 @@
     </main>
 
     <script>
-        // Inicialização
+        // Carregar dados iniciais
         window.onload = () => {
             const userNome = localStorage.getItem('usuario');
             const userEmail = localStorage.getItem('email');
@@ -159,7 +182,7 @@
             if (userEmail) document.getElementById('email').value = userEmail;
         };
 
-        // Função para alternar visibilidade da senha
+        // Alternar visibilidade da senha
         function togglePass(id) {
             const input = document.getElementById(id);
             const icon = input.parentElement.querySelector('.toggle-password i');
@@ -168,7 +191,7 @@
             icon.classList.toggle('fa-eye-slash');
         }
 
-        // Sistema de validação de força de senha
+        // Avaliar força da senha
         function avaliarForca() {
             const senha = document.getElementById('senha').value;
             const barra = document.getElementById('barra-forca');
@@ -207,53 +230,69 @@
             }
         }
 
-        // Logica de submissão
+        // Salvar Perfil
         document.getElementById('form-perfil').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const btn = document.getElementById('btn-salvar');
             const nome = document.getElementById('nome').value.trim();
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            // Validações básicas
-            if (senha && senha.length < 6) {
-                return alert("A nova senha deve conter pelo menos 6 caracteres.");
-            }
-            if (senha !== confirma) {
-                return alert("As senhas não coincidem.");
-            }
+            if (senha && senha.length < 6) return alert("A senha deve ter 6+ caracteres.");
+            if (senha !== confirma) return alert("As senhas não coincidem.");
 
-            // Estado de loading
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Atualizando...`;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i>`;
 
             try {
                 const res = await fetch('/api/update-profile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        nome, 
-                        email, 
-                        novaSenha: senha || null 
-                    })
+                    body: JSON.stringify({ nome, email, novaSenha: senha || null })
                 });
 
                 if (res.ok) {
                     localStorage.setItem('usuario', nome);
-                    alert("✅ Alterações salvas com sucesso!");
+                    alert("✅ Perfil atualizado!");
                     window.location.reload();
                 } else {
-                    const data = await res.json();
-                    alert("❌ Erro ao atualizar: " + (data.error || "Tente novamente."));
+                    alert("❌ Erro ao atualizar.");
                 }
             } catch (err) {
-                alert("❌ Erro de conexão com o servidor.");
+                alert("❌ Erro de conexão.");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHTML;
+            }
+        });
+
+        // Lógica de Exclusão de Conta
+        document.getElementById('btn-delete-account').addEventListener('click', async () => {
+            const confirmacao = confirm("PERIGO: Você tem certeza que deseja excluir sua conta permanentemente? Esta ação não pode ser desfeita.");
+            
+            if (confirmacao) {
+                const email = localStorage.getItem('email');
+                
+                try {
+                    const res = await fetch('/api/delete-account', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+
+                    if (res.ok) {
+                        alert("Sua conta foi removida com sucesso.");
+                        localStorage.clear();
+                        window.location.href = 'index.html';
+                    } else {
+                        const data = await res.json();
+                        alert("Erro: " + data.error);
+                    }
+                } catch (err) {
+                    alert("Erro ao conectar com o servidor.");
+                }
             }
         });
     </script>

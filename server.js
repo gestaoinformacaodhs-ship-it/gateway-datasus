@@ -210,16 +210,17 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/update-profile', async (req, res) => {
     const { nome, email, novaSenha } = req.body;
     try {
+        const emailFormatado = email.toLowerCase().trim();
         if (novaSenha && novaSenha.trim() !== "") {
             const hash = await bcrypt.hash(novaSenha, 10);
             await pool.query(
                 "UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3",
-                [nome, hash, email.toLowerCase().trim()]
+                [nome, hash, emailFormatado]
             );
         } else {
             await pool.query(
                 "UPDATE usuarios SET nome = $1 WHERE email = $2",
-                [nome, email.toLowerCase().trim()]
+                [nome, emailFormatado]
             );
         }
         res.json({ message: "Perfil atualizado com sucesso!" });
@@ -228,20 +229,21 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-// --- NOVA ROTA: EXCLUSÃO DE CONTA ---
+// --- ROTA: EXCLUSÃO DE CONTA ---
 app.post('/api/delete-account', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Identificação do usuário ausente." });
 
     const client = await pool.connect();
     try {
-        await client.query('BEGIN'); // Inicia transação
+        await client.query('BEGIN'); 
 
         const emailFormatado = email.toLowerCase().trim();
 
-        // 1. Remove histórico de mensagens de suporte associadas a este e-mail
-        // (Baseado na coluna 'usuario' da sua tabela mensagens_suporte)
-        await client.query("DELETE FROM mensagens_suporte WHERE usuario = $1", [emailFormatado]);
+        // 1. Remove mensagens onde o 'usuario' (remetente) seja o nome ou email
+        // Nota: Idealmente, as mensagens deveriam estar ligadas ao ID do usuário, 
+        // mas aqui limpamos pelo identificador textual fornecido.
+        await client.query("DELETE FROM mensagens_suporte WHERE usuario = $1 OR sala_id = $1", [emailFormatado]);
 
         // 2. Remove o usuário da tabela principal
         const result = await client.query("DELETE FROM usuarios WHERE email = $1", [emailFormatado]);
@@ -252,12 +254,12 @@ app.post('/api/delete-account', async (req, res) => {
         }
 
         await client.query('COMMIT');
-        console.log(`[Segurança] Conta excluída permanentemente: ${emailFormatado}`);
-        res.json({ message: "Sua conta e dados de suporte foram removidos com sucesso." });
+        console.log(`[Segurança] Conta excluída: ${emailFormatado}`);
+        res.json({ message: "Conta e histórico removidos com sucesso." });
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("Erro ao deletar conta:", err.message);
+        console.error("Erro crítico na exclusão:", err.message);
         res.status(500).json({ error: "Erro interno ao processar exclusão." });
     } finally {
         client.release();
@@ -270,7 +272,7 @@ app.post('/api/recuperar-senha', async (req, res) => {
 
     try {
         const token = crypto.randomBytes(20).toString('hex');
-        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        const expiracao = new Date(Date.now() + 3600000); 
         const result = await pool.query(
             "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3 RETURNING nome",
             [token, expiracao, email.toLowerCase().trim()]
@@ -301,7 +303,7 @@ app.post('/api/reset-password', async (req, res) => {
             "UPDATE usuarios SET senha = $1, reset_token = NULL, reset_expiracao = NULL WHERE id = $2", 
             [hash, usuario.id]
         );
-        res.json({ message: "Senha atualizada com sucesso!" });
+        res.json({ message: "Senha atualizada!" });
     } catch (err) { 
         res.status(500).json({ error: "Erro ao salvar nova senha." }); 
     }
@@ -346,6 +348,7 @@ app.get('/api/list/:sistema', async (req, res) => {
         cacheFTP[sistema] = { time: agora, data: data };
         res.json(data);
     } catch (e) { 
+        console.error(`Erro FTP (${sistema}):`, e.message);
         res.status(500).json({ error: "FTP DATASUS instável no momento." }); 
     } finally { 
         client.close(); 
@@ -375,7 +378,7 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         await client.downloadTo(tunnel, nomeArquivo);
     } catch (e) { 
         console.error("Erro no download:", e.message);
-        if (!res.headersSent) res.status(500).send("Erro ao processar download no DATASUS."); 
+        if (!res.headersSent) res.status(500).send("Erro ao processar download."); 
     } finally { 
         client.close(); 
     }
