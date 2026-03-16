@@ -42,7 +42,7 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false },
     max: 15,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 10000 // Aumentado para tolerar latência no Render
 });
 
 pool.on('error', (err) => {
@@ -51,7 +51,8 @@ pool.on('error', (err) => {
 
 async function initDB() {
     try {
-        await pool.query(`
+        const client = await pool.connect(); // Verifica se consegue conectar
+        await client.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
                 nome TEXT,
@@ -62,7 +63,7 @@ async function initDB() {
                 reset_expiracao TIMESTAMP
             );
         `);
-        await pool.query(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
                 id SERIAL PRIMARY KEY,
                 sala_id TEXT, 
@@ -73,9 +74,10 @@ async function initDB() {
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        client.release();
         console.log("✔️ Banco de Dados pronto.");
     } catch (err) {
-        console.error("❌ Erro na criação das tabelas:", err.message);
+        console.error("❌ Erro na criação das tabelas ou conexão:", err.message);
     }
 }
 initDB();
@@ -83,7 +85,6 @@ initDB();
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     
-    // Admin entra em uma sala global para receber notificações de novas mensagens
     socket.on('admin_entrar', () => socket.join('admin_room'));
     
     socket.on('entrar_na_sala', async (salaId) => {
@@ -116,24 +117,17 @@ io.on('connection', (socket) => {
                 hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
             };
 
-            // Envia para todos na sala específica
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            // Se não for o admin enviando, avisa o admin na sala global para atualizar a lista lateral
             if (nome !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
         } catch (err) { console.error("Erro ao enviar mensagem:", err.message); }
     });
 
-    // --- NOVA LÓGICA: ENCERRAR CHAMADO ---
     socket.on('encerrar_chamado', async (salaId) => {
         if (!salaId) return;
         try {
-            // Opcional: Se quiser apagar as mensagens do banco ao encerrar, descomente a linha abaixo:
-            // await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
-
-            // Avisa a todos na sala (Admin e Usuário) que acabou
             io.to(salaId).emit('chamado_encerrado', { salaId });
             console.log(`📢 Chamado ${salaId} encerrado.`);
         } catch (err) {
@@ -244,7 +238,7 @@ app.get('/api/list/:sistema', async (req, res) => {
         return res.json(cacheFTP[sistema].data);
     }
 
-    const client = new ftp.Client(20000); 
+    const client = new ftp.Client(30000); // Aumentado para 30s
     try {
         await client.access({ host: getFtpHost(sistema), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema]);
@@ -264,7 +258,7 @@ app.get('/api/list/:sistema', async (req, res) => {
 
 app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     const { sistema, arquivo } = req.params;
-    const client = new ftp.Client(30000); 
+    const client = new ftp.Client(45000); // Mais tempo para o handshake do download
     try {
         await client.access({ host: getFtpHost(sistema.toUpperCase()), user: "anonymous", password: "guest" });
         await client.cd(pastasFTP[sistema.toUpperCase()]);
