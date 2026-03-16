@@ -67,7 +67,7 @@
                         <span class="text-[10px] text-slate-500 uppercase font-black tracking-widest">Chat Ativo</span>
                         <span id="chat-title" class="text-sm font-bold text-blue-400">Nenhum selecionado</span>
                     </div>
-                    <span id="status-badge" class="hidden text-[10px] bg-slate-500/20 text-slate-400 px-2 py-1 rounded border border-slate-500/30 font-bold uppercase">Aguardando</span>
+                    <span id="status-badge" class="hidden text-[10px] px-2 py-1 rounded border font-bold uppercase">Aguardando</span>
                 </div>
                 
                 <div class="flex items-center gap-4">
@@ -123,8 +123,9 @@
         
         let salaAtiva = ""; 
         let usuariosAtivos = {}; 
+        const mensagensProcessadas = new Set(); // Controle para evitar mensagens duplicadas
 
-        const formatId = (id) => id.replace(/[^a-zA-Z0-9]/g, '_');
+        const formatId = (id) => id ? id.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
 
         socket.on('connect', () => {
             console.log("✔️ Admin online no Socket.");
@@ -132,17 +133,23 @@
         });
 
         socket.on('receber_mensagem', (data) => {
-            const usuarioNome = data.usuario || data.nome || "Usuário";
+            // Unificação de propriedades para evitar 'undefined'
+            const autor = data.nome || data.usuario || "Usuário";
+            const textoMensagem = data.mensagem || data.texto || "";
             const salaId = data.salaId;
-            const isMe = (usuarioNome === nomeAdmin);
+            const isMe = (autor === nomeAdmin);
 
+            // Gerar ID único para a mensagem para evitar duplicatas
+            const msgHash = `${salaId}-${autor}-${textoMensagem}-${data.arquivo ? 'file' : 'text'}`;
+            
             if (!isMe) {
-                const previewText = data.arquivo ? "📎 [Arquivo/Imagem]" : (data.texto || data.mensagem);
+                const previewText = data.arquivo ? "📎 [Arquivo/Imagem]" : textoMensagem;
                 
                 if (!usuariosAtivos[salaId]) {
-                    document.getElementById('no-chats').style.display = 'none';
-                    usuariosAtivos[salaId] = { nome: usuarioNome, ultimaMsg: previewText };
-                    criarCardUsuario(salaId, usuarioNome, previewText);
+                    const noChats = document.getElementById('no-chats');
+                    if (noChats) noChats.style.display = 'none';
+                    usuariosAtivos[salaId] = { nome: autor, ultimaMsg: previewText };
+                    criarCardUsuario(salaId, autor, previewText);
                 } else {
                     atualizarCardUsuario(salaId, previewText);
                 }
@@ -154,6 +161,7 @@
                 }
             }
 
+            // Só renderiza se for a sala aberta e não for duplicada
             if (salaId === salaAtiva) {
                 renderizarMensagem(data);
             }
@@ -162,6 +170,7 @@
         socket.on('historico_mensagens', (mensagens) => {
             const chatBox = document.getElementById('admin-chat-box');
             chatBox.innerHTML = "";
+            mensagensProcessadas.clear(); // Limpa o controle ao trocar de sala
             mensagens.forEach(data => renderizarMensagem(data, false));
             chatBox.scrollTop = chatBox.scrollHeight;
         });
@@ -187,13 +196,17 @@
 
         function selecionarUsuario(salaId, nome) {
             salaAtiva = salaId;
+            mensagensProcessadas.clear(); // Reseta duplicatas para a nova sala
+            
             document.getElementById('chat-title').innerText = nome;
             const badge = document.getElementById('status-badge');
             badge.classList.remove('hidden');
             badge.innerText = "Em atendimento";
             badge.className = "text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 font-bold uppercase";
             
-            document.getElementById('empty-state').style.display = 'none';
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.style.display = 'none';
+            
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
             
             const safeId = formatId(salaId);
@@ -208,7 +221,7 @@
 
         function encerrarAtendimento() {
             if (!salaAtiva) return;
-            if (confirm(`Encerrar o atendimento de ${usuariosAtivos[salaAtiva].nome}?`)) {
+            if (confirm(`Encerrar o atendimento de ${usuariosAtivos[salaAtiva]?.nome || 'este usuário'}?`)) {
                 socket.emit('encerrar_chamado', salaAtiva);
             }
         }
@@ -216,6 +229,10 @@
         function criarCardUsuario(salaId, nome, texto) {
             const safeId = formatId(salaId);
             const userList = document.getElementById('user-list');
+            
+            // Evita criar card duplicado
+            if (document.getElementById(`user-${safeId}`)) return;
+
             const card = document.createElement('div');
             card.id = `user-${safeId}`;
             card.className = "user-item p-4 bg-slate-800/20 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-800/40 transition-all relative mb-2";
@@ -237,9 +254,17 @@
         }
 
         function renderizarMensagem(data, scroll = true) {
+            const autor = data.nome || data.usuario || "Usuário";
+            const texto = data.mensagem || data.texto || "";
+            const arquivo = data.arquivo || data.file;
+            
+            // Chave de ID único para evitar renderizar a mesma msg duas vezes
+            const msgId = data.id || `${autor}-${texto}-${arquivo ? 'file' : 'text'}-${new Date().getTime()}`;
+            if (mensagensProcessadas.has(msgId)) return;
+            mensagensProcessadas.add(msgId);
+
             const chatBox = document.getElementById('admin-chat-box');
             const msgDiv = document.createElement('div');
-            const autor = data.usuario || data.nome || "Usuário";
             const souEu = (autor === nomeAdmin);
 
             msgDiv.className = `message-fade-in flex flex-col mb-2 ${souEu ? 'items-end' : 'items-start'}`;
@@ -248,8 +273,6 @@
                 "bg-blue-600/20 border border-blue-500/30 text-right rounded-2xl rounded-tr-none" : 
                 "bg-slate-800 border border-white/5 text-left rounded-2xl rounded-tl-none";
 
-            const texto = data.texto || data.mensagem;
-            const arquivo = data.arquivo || data.file;
             const tipo = data.tipo || data.tipo_arquivo;
 
             let corpoHTML = texto ? `<p class="text-sm leading-relaxed">${texto}</p>` : '';
@@ -312,7 +335,10 @@
         }
 
         function testarSom() { tocarSom(); }
-        function limparTela() { document.getElementById('admin-chat-box').innerHTML = ""; }
+        function limparTela() { 
+            document.getElementById('admin-chat-box').innerHTML = ""; 
+            mensagensProcessadas.clear();
+        }
 
         document.getElementById('admin-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') enviarResposta();

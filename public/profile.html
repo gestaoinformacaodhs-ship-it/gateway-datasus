@@ -7,12 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-slate-900 text-slate-200 min-h-screen">
+<body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
 
     <nav class="bg-slate-800 border-b border-slate-700 p-4 mb-8">
         <div class="max-w-4xl mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold text-blue-500">GATEWAY <span class="text-white">SUS</span></h1>
-            <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-sm">
+            <a href="dashboard.html" class="text-slate-400 hover:text-white transition-all text-sm flex items-center">
                 <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Dashboard
             </a>
         </div>
@@ -27,37 +27,37 @@
 
             <form id="form-perfil" class="p-8 space-y-6">
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1">Nome Completo</label>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Nome Completo</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-user"></i>
                         </span>
                         <input type="text" id="nome" required
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1">E-mail de Acesso (Login)</label>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">E-mail de Acesso (Não alterável)</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-600">
                             <i class="fa-solid fa-envelope"></i>
                         </span>
                         <input type="email" id="email" required readonly
-                            class="w-full bg-slate-800 text-slate-500 rounded-lg pl-10 pr-4 py-3 focus:outline-none border border-slate-700 cursor-not-allowed">
+                            class="w-full bg-slate-800/50 text-slate-500 rounded-lg pl-10 pr-4 py-3 focus:outline-none border border-slate-700 cursor-not-allowed italic">
                     </div>
                 </div>
 
                 <hr class="border-slate-700 my-4">
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1">Alterar Senha (deixe em branco para manter)</label>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Alterar Senha (deixe em branco para manter)</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-lock"></i>
                         </span>
                         <input type="password" id="senha" placeholder="Nova senha" oninput="avaliarForca()"
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
                     </div>
                     <div class="w-full h-1.5 bg-slate-900 rounded-full mt-3 overflow-hidden">
                         <div id="barra-forca" class="w-0 h-full transition-all duration-300 bg-red-500"></div>
@@ -65,19 +65,19 @@
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-2 text-sm ml-1">Confirmar Nova Senha</label>
+                    <label class="block text-slate-400 mb-2 text-sm ml-1 font-semibold">Confirmar Nova Senha</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                             <i class="fa-solid fa-check-double"></i>
                         </span>
                         <input type="password" id="confirmar_senha" placeholder="Repita a nova senha"
-                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700">
+                            class="w-full bg-slate-900 text-white rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700 transition-all">
                     </div>
                 </div>
 
                 <div class="pt-4">
                     <button type="submit" id="btn-salvar"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-lg shadow-blue-900/30 flex justify-center items-center">
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-lg shadow-blue-900/30 flex justify-center items-center active:scale-95">
                         <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Alterações
                     </button>
                 </div>
@@ -86,20 +86,21 @@
     </div>
 
     <script>
-        // --- 1. CARREGAR DADOS AO ABRIR ---
+        // 1. CARREGAR DADOS AO ABRIR
         window.onload = () => {
             const userNome = localStorage.getItem('usuario');
             const userEmail = localStorage.getItem('email');
 
-            if (!userNome || !userEmail) {
+            if (!userEmail) {
                 window.location.href = 'index.html'; 
                 return;
             }
 
-            document.getElementById('nome').value = userNome;
+            document.getElementById('nome').value = userNome || "";
             document.getElementById('email').value = userEmail;
         };
 
+        // 2. AVALIAR FORÇA DA SENHA
         function avaliarForca() {
             const senha = document.getElementById('senha').value;
             const barra = document.getElementById('barra-forca');
@@ -119,19 +120,21 @@
             else barra.style.backgroundColor = "#10b981";
         }
 
-        // --- 2. SALVAR ALTERAÇÕES ---
+        // 3. SALVAR ALTERAÇÕES
         const form = document.getElementById('form-perfil');
         const btn = document.getElementById('btn-salvar');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const nome = document.getElementById('nome').value;
+            const nome = document.getElementById('nome').value.trim();
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
             const confirma = document.getElementById('confirmar_senha').value;
 
-            // Validação local de Senha
+            // Validações
+            if (!nome) return alert("⚠️ O nome não pode ficar vazio.");
+
             if (senha) {
                 if (senha.length < 6) {
                     return alert("⚠️ A nova senha deve ter pelo menos 6 caracteres.");
@@ -141,9 +144,11 @@
                 }
             }
 
+            // Feedback de Carregamento
             const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Atualizando...`;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Processando...`;
 
             try {
                 const res = await fetch('/api/update-profile', {
@@ -159,16 +164,17 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // Atualiza o nome no localStorage para o Dashboard refletir a mudança
+                    // Atualiza o localStorage
                     localStorage.setItem('usuario', nome);
+                    
                     alert("✅ Perfil atualizado com sucesso!");
                     
-                    // Limpa os campos de senha
+                    // Limpa campos de senha
                     document.getElementById('senha').value = "";
                     document.getElementById('confirmar_senha').value = "";
                     document.getElementById('barra-forca').style.width = "0%";
                     
-                    // Opcional: recarregar para atualizar saudações no header
+                    // Opcional: recarrega para atualizar elementos visuais
                     window.location.reload();
                 } else {
                     alert("❌ Erro ao salvar: " + (data.error || "Tente novamente."));
@@ -178,6 +184,7 @@
                 alert("❌ Erro técnico ao conectar com o servidor.");
             } finally {
                 btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-not-allowed');
                 btn.innerHTML = originalText;
             }
         });

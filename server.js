@@ -94,7 +94,6 @@ io.on('connection', (socket) => {
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         
-        // Remove de salas anteriores para evitar mensagens duplicadas no cliente
         const salasAtuais = Array.from(socket.rooms);
         salasAtuais.forEach(sala => {
             if (sala !== socket.id && sala !== 'admin_room') socket.leave(sala);
@@ -112,7 +111,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('enviar_mensagem', async (data) => {
-        // Correção para evitar 'undefined': garante que o nome seja extraído corretamente
         const nomeUsuario = data.nome || data.usuario || "Usuário";
         const { mensagem, salaId, arquivo, tipo_arquivo } = data; 
         
@@ -130,13 +128,11 @@ io.on('connection', (socket) => {
                 arquivo: arquivo,
                 tipo: tipo_arquivo,
                 salaId: salaId, 
-                hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) 
+                timestamp: new Date()
             };
 
-            // Envia para a sala específica
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            // Se for cliente, avisa o admin_room para atualizar a lista lateral
             if (nomeUsuario !== "Suporte Arpoador") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
             }
@@ -148,7 +144,6 @@ io.on('connection', (socket) => {
         try {
             await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
             io.to(salaId).emit('chamado_encerrado', { salaId });
-            console.log(`🗑️ Chamado ${salaId} encerrado e banco limpo.`);
         } catch (err) {
             console.error("Erro ao encerrar chamado:", err.message);
         }
@@ -169,7 +164,8 @@ async function enviarEmail(emailDestino, assunto, html) {
 }
 
 // --- ROTAS DE AUTENTICAÇÃO ---
-app.post('/api/register', async (req, res) => {
+
+app.post('/api/registrar', async (req, res) => {
     const { nome, email, senha } = req.body;
     try {
         const hash = await bcrypt.hash(senha, 10);
@@ -194,7 +190,29 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro no servidor." }); }
 });
 
-app.post('/api/forgot-password', async (req, res) => {
+// ROTA PARA O PROFILE.HTML
+app.post('/api/update-profile', async (req, res) => {
+    const { nome, email, novaSenha } = req.body;
+    try {
+        if (novaSenha) {
+            const hash = await bcrypt.hash(novaSenha, 10);
+            await pool.query(
+                "UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3",
+                [nome, hash, email.toLowerCase().trim()]
+            );
+        } else {
+            await pool.query(
+                "UPDATE usuarios SET nome = $1 WHERE email = $2",
+                [nome, email.toLowerCase().trim()]
+            );
+        }
+        res.json({ message: "Perfil atualizado com sucesso!" });
+    } catch (err) {
+        res.status(500).json({ error: "Erro ao atualizar perfil." });
+    }
+});
+
+app.post('/api/recuperar-senha', async (req, res) => {
     const { email } = req.body;
     try {
         const token = crypto.randomBytes(20).toString('hex');
@@ -206,7 +224,7 @@ app.post('/api/forgot-password', async (req, res) => {
         
         if (result.rowCount > 0) {
             const link = `https://gateway-datasus.onrender.com/reset-password.html?token=${token}`;
-            const html = `<p>Olá ${result.rows[0].nome}, redefina sua senha aqui: <a href="${link}">${link}</a></p>`;
+            const html = `<p>Olá ${result.rows[0].nome}, redefina sua senha: <a href="${link}">${link}</a></p>`;
             await enviarEmail(email, "Recuperação de Senha - Gateway SUS", html);
         }
         res.json({ message: "Se o e-mail existir, as instruções foram enviadas." });
