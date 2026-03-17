@@ -108,12 +108,12 @@
         <div class="mb-10">
             <h3 class="text-blue-600 uppercase text-[10px] font-black tracking-[0.3em] mb-2">Data Intelligence</h3>
             <h1 class="text-3xl font-bold text-white tracking-tight">Bases de Dados Arpoador</h1>
-            <p class="text-slate-500 mt-2">Repositórios FTP oficiais sincronizados em tempo real.</p>
+            <p class="text-slate-500 mt-2">Repositórios FTP oficiais e Portais de Orçamentos sincronizados.</p>
         </div>
 
-        <div id="grid-sistemas" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4"></div>
+        <div id="grid-sistemas" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4"></div>
         
-        </main>
+    </main>
 
     <div id="modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
         <div class="bg-[#111827] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -179,18 +179,20 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             
+            // Adicionado SIOPS na lista com uma rota interna (siops.html)
             const sistemas = [
-                { id: 'SIA', icon: '📊', label: 'SIA', desc: 'Ambulatoriais' },
-                { id: 'BPA', icon: '📦', label: 'BPA', desc: 'Produção' },
-                { id: 'RAAS', icon: '📋', label: 'RAAS', desc: 'Ações Amb.' },
-                { id: 'FPO', icon: '💰', label: 'FPO', desc: 'Orçamentária' },
-                { id: 'CNES', icon: '🏥', label: 'CNES', desc: 'Cadastro Nac.' },
-                { id: 'SIHD', icon: '🖥️', label: 'SIHD', desc: 'Hospitais' },
-                { id: 'CIHA', icon: '📁', label: 'CIHA', desc: 'Inst. Hosp.' }
+                { id: 'SIA', icon: '📊', label: 'SIA', desc: 'Ambulatoriais', type: 'ftp' },
+                { id: 'BPA', icon: '📦', label: 'BPA', desc: 'Produção', type: 'ftp' },
+                { id: 'RAAS', icon: '📋', label: 'RAAS', desc: 'Ações Amb.', type: 'ftp' },
+                { id: 'FPO', icon: '💰', label: 'FPO', desc: 'Orçamentária', type: 'ftp' },
+                { id: 'CNES', icon: '🏥', label: 'CNES', desc: 'Cadastro Nac.', type: 'ftp' },
+                { id: 'SIHD', icon: '🖥️', label: 'SIHD', desc: 'Hospitais', type: 'ftp' },
+                { id: 'CIHA', icon: '📁', label: 'CIHA', desc: 'Inst. Hosp.', type: 'ftp' },
+                { id: 'SIOPS', icon: '📈', label: 'SIOPS', desc: 'Orçamentos', type: 'link', url: 'siops.html' }
             ];
             
             document.getElementById('grid-sistemas').innerHTML = sistemas.map(s => `
-                <div class="glass-card p-6 text-center cursor-pointer group" onclick="abrirEListar('${s.id}')">
+                <div class="glass-card p-6 text-center cursor-pointer group" onclick="${s.type === 'ftp' ? `abrirEListar('${s.id}')` : `window.location.href='${s.url}'`}">
                     <div class="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">${s.icon}</div>
                     <h3 class="text-md font-bold text-white">${s.label}</h3>
                     <p class="text-[9px] text-slate-500 mt-1 uppercase font-semibold tracking-wider">${s.desc}</p>

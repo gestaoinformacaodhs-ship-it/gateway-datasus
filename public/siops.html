@@ -7,20 +7,20 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-[#0f172a] text-slate-200 h-screen flex flex-col overflow-hidden">
+<body class="bg-[#0b0f1a] text-slate-200 h-screen flex flex-col overflow-hidden">
 
-    <div class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+    <div class="p-4 bg-[#111827] border-b border-slate-800 flex justify-between items-center">
         <div class="flex items-center gap-4">
-            <button onclick="window.history.back()" class="text-slate-400 hover:text-white transition-colors">
-                <i class="fa-solid fa-arrow-left text-xl"></i>
+            <button onclick="window.location.href='/dashboard.html'" class="text-slate-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-house text-xl"></i>
             </button>
             <div>
-                <h1 class="text-white font-bold text-lg">Portal SIOPS</h1>
-                <p class="text-[10px] text-blue-400 uppercase font-black tracking-widest">Sistema de Informações sobre Orçamentos Públicos em Saúde</p>
+                <h1 class="text-white font-bold text-lg leading-none">SIOPS</h1>
+                <p class="text-[10px] text-blue-400 uppercase font-black tracking-widest mt-1">Portal de Orçamentos Públicos</p>
             </div>
         </div>
-        <div class="flex gap-2">
-            <button onclick="location.reload()" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400" title="Recarregar">
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('iframe-siops').src='https://siops.datasus.gov.br/'" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400" title="Recarregar">
                 <i class="fa-solid fa-rotate-right"></i>
             </button>
             <a href="https://siops.datasus.gov.br/" target="_blank" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400" title="Abrir em Nova Aba">
@@ -34,7 +34,8 @@
             src="https://siops.datasus.gov.br/" 
             class="w-full h-full" 
             frameborder="0"
-            id="iframe-siops">
+            id="iframe-siops"
+            loading="lazy">
         </iframe>
     </div>
 

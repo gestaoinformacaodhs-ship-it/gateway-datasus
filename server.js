@@ -229,7 +229,6 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
-// --- NOVA FUNÇÃO: RECUPERAR SENHA MASTER ---
 app.post('/api/recuperar-senha-master', async (req, res) => {
     const { email } = req.body;
     const adminEmail = "gestaoinformacaodhs@gmail.com";
@@ -263,7 +262,6 @@ app.post('/api/recuperar-senha-master', async (req, res) => {
     }
 });
 
-// --- ROTA: EXCLUSÃO DE CONTA ---
 app.post('/api/delete-account', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Identificação do usuário ausente." });
@@ -333,6 +331,11 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (err) { 
         res.status(500).json({ error: "Erro ao salvar nova senha." }); 
     }
+});
+
+// --- ROTA DE NAVEGAÇÃO SIOPS ---
+app.get('/siops', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'siops.html'));
 });
 
 // --- LÓGICA FTP DATASUS ---
