@@ -335,7 +335,6 @@ app.post('/api/reset-password', async (req, res) => {
 
 // --- ROTA DE NAVEGAÇÃO SIOPS ---
 app.get('/siops', (req, res) => {
-    // Definimos explicitamente para evitar conflitos de iframe na navegação interna
     res.sendFile(path.join(__dirname, 'public', 'siops.html'));
 });
 
@@ -407,7 +406,6 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         
-        // Evento de erro para evitar que o servidor crash se a conexão cair
         tunnel.on('error', (err) => {
             console.error("Erro no stream de download:", err.message);
         });
@@ -421,8 +419,8 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     }
 });
 
-// --- INICIALIZAÇÃO ---
-const PORT = process.env.PORT || 3000;
+// --- INICIALIZAÇÃO CORRIGIDA PARA RENDER ---
+const PORT = process.env.PORT || 10000; // Render usa 10000 por padrão
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
 });
