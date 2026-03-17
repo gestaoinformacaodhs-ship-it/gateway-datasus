@@ -229,6 +229,40 @@ app.post('/api/update-profile', async (req, res) => {
     }
 });
 
+// --- NOVA FUNÇÃO: RECUPERAR SENHA MASTER ---
+app.post('/api/recuperar-senha-master', async (req, res) => {
+    const { email } = req.body;
+    const adminEmail = "gestaoinformacaodhs@gmail.com";
+
+    if (email.toLowerCase().trim() !== adminEmail) {
+        return res.status(403).json({ error: "E-mail administrativo não reconhecido." });
+    }
+
+    try {
+        const token = crypto.randomBytes(20).toString('hex');
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        
+        await pool.query(
+            "UPDATE usuarios SET reset_token = $1, reset_expiracao = $2 WHERE email = $3",
+            [token, expiracao, adminEmail]
+        );
+
+        const link = `https://gateway-datasus.onrender.com/reset-password.html?token=${token}`;
+        const html = `
+            <h2>Recuperação de Acesso Master</h2>
+            <p>Você solicitou a recuperação da senha administrativa do Gateway SUS.</p>
+            <p>Clique no link abaixo para definir uma nova senha:</p>
+            <a href="${link}">${link}</a>
+            <p>Este link expira em 1 hora.</p>
+        `;
+
+        await enviarEmail(adminEmail, "Recuperação de Senha Master - Gateway SUS", html);
+        res.json({ message: "Instruções de recuperação enviadas para o e-mail master." });
+    } catch (err) {
+        res.status(500).json({ error: "Erro ao processar recuperação master." });
+    }
+});
+
 // --- ROTA: EXCLUSÃO DE CONTA ---
 app.post('/api/delete-account', async (req, res) => {
     const { email } = req.body;
@@ -239,13 +273,7 @@ app.post('/api/delete-account', async (req, res) => {
         await client.query('BEGIN'); 
 
         const emailFormatado = email.toLowerCase().trim();
-
-        // 1. Remove mensagens onde o 'usuario' (remetente) seja o nome ou email
-        // Nota: Idealmente, as mensagens deveriam estar ligadas ao ID do usuário, 
-        // mas aqui limpamos pelo identificador textual fornecido.
         await client.query("DELETE FROM mensagens_suporte WHERE usuario = $1 OR sala_id = $1", [emailFormatado]);
-
-        // 2. Remove o usuário da tabela principal
         const result = await client.query("DELETE FROM usuarios WHERE email = $1", [emailFormatado]);
 
         if (result.rowCount === 0) {
@@ -254,12 +282,10 @@ app.post('/api/delete-account', async (req, res) => {
         }
 
         await client.query('COMMIT');
-        console.log(`[Segurança] Conta excluída: ${emailFormatado}`);
         res.json({ message: "Conta e histórico removidos com sucesso." });
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("Erro crítico na exclusão:", err.message);
         res.status(500).json({ error: "Erro interno ao processar exclusão." });
     } finally {
         client.release();
@@ -372,6 +398,8 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         await client.cd(pastasFTP[sisUpper]);
         
         res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         
