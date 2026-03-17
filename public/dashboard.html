@@ -179,7 +179,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             
-            // Definição dos Sistemas (SIOPS agora usa a rota interna /siops)
+            // Definição dos Sistemas incluindo o novo botão CARTÃO SUS
             const sistemas = [
                 { id: 'SIA', icon: '📊', label: 'SIA', desc: 'Ambulatoriais', type: 'ftp' },
                 { id: 'BPA', icon: '📦', label: 'BPA', desc: 'Produção', type: 'ftp' },
@@ -188,16 +188,36 @@
                 { id: 'CNES', icon: '🏥', label: 'CNES', desc: 'Cadastro Nac.', type: 'ftp' },
                 { id: 'SIHD', icon: '🖥️', label: 'SIHD', desc: 'Hospitais', type: 'ftp' },
                 { id: 'CIHA', icon: '📁', label: 'CIHA', desc: 'Inst. Hosp.', type: 'ftp' },
-                { id: 'SIOPS', icon: '📈', label: 'SIOPS', desc: 'Orçamentos', type: 'link', url: '/siops' }
+                { id: 'SIOPS', icon: '📈', label: 'SIOPS', desc: 'Orçamentos', type: 'link', url: '/siops' },
+                { 
+                    id: 'CARTAO_SUS', 
+                    icon: '🆔', 
+                    label: 'CARTÃO SUS', 
+                    desc: 'Acesso Oficial', 
+                    type: 'externo', 
+                    url: 'https://cadastro.saude.gov.br/segcartao/?contextType=external&username=string&contextValue=%2Foam&password=sercure_string&challenge_url=https%3A%2F%2Fcadastro.saude.gov.br%2Fsegcartao&request_id=8280444832271667541&authn_try_count=0&locale=pt_BR&resource_url=http%253A%252F%252Fcadastro.saude.gov.br%252Fnovocartao%252Frestrito%252FusuarioConsulta.jsp' 
+                }
             ];
             
-            document.getElementById('grid-sistemas').innerHTML = sistemas.map(s => `
-                <div class="glass-card p-6 text-center cursor-pointer group" onclick="${s.type === 'ftp' ? `abrirEListar('${s.id}')` : `window.location.href='${s.url}'`}">
-                    <div class="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">${s.icon}</div>
-                    <h3 class="text-md font-bold text-white">${s.label}</h3>
-                    <p class="text-[9px] text-slate-500 mt-1 uppercase font-semibold tracking-wider">${s.desc}</p>
-                </div>
-            `).join('');
+            // Renderização do Grid com lógica para links externos
+            document.getElementById('grid-sistemas').innerHTML = sistemas.map(s => {
+                let acao = '';
+                if (s.type === 'ftp') {
+                    acao = `onclick="abrirEListar('${s.id}')"`;
+                } else if (s.type === 'link') {
+                    acao = `onclick="window.location.href='${s.url}'"`;
+                } else {
+                    acao = `onclick="window.open('${s.url}', '_blank')"`;
+                }
+
+                return `
+                    <div class="glass-card p-6 text-center cursor-pointer group" ${acao}>
+                        <div class="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">${s.icon}</div>
+                        <h3 class="text-md font-bold text-white">${s.label}</h3>
+                        <p class="text-[9px] text-slate-500 mt-1 uppercase font-semibold tracking-wider">${s.desc}</p>
+                    </div>
+                `;
+            }).join('');
 
             if (emailUsuario) socket.emit('entrar_na_sala', emailUsuario);
             
