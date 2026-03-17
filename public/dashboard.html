@@ -179,7 +179,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-display').innerText = `Olá, ${nomeUsuario}`;
             
-            // Adicionado SIOPS na lista com uma rota interna (siops.html)
+            // Definição dos Sistemas (SIOPS agora usa a rota interna /siops)
             const sistemas = [
                 { id: 'SIA', icon: '📊', label: 'SIA', desc: 'Ambulatoriais', type: 'ftp' },
                 { id: 'BPA', icon: '📦', label: 'BPA', desc: 'Produção', type: 'ftp' },
@@ -188,7 +188,7 @@
                 { id: 'CNES', icon: '🏥', label: 'CNES', desc: 'Cadastro Nac.', type: 'ftp' },
                 { id: 'SIHD', icon: '🖥️', label: 'SIHD', desc: 'Hospitais', type: 'ftp' },
                 { id: 'CIHA', icon: '📁', label: 'CIHA', desc: 'Inst. Hosp.', type: 'ftp' },
-                { id: 'SIOPS', icon: '📈', label: 'SIOPS', desc: 'Orçamentos', type: 'link', url: 'siops.html' }
+                { id: 'SIOPS', icon: '📈', label: 'SIOPS', desc: 'Orçamentos', type: 'link', url: '/siops' }
             ];
             
             document.getElementById('grid-sistemas').innerHTML = sistemas.map(s => `
@@ -204,7 +204,7 @@
             document.getElementById('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
         });
 
-        // --- CHAT LOGIC ---
+        // --- LÓGICA DO CHAT ---
         socket.on('receber_mensagem', (data) => {
             const souEu = (data.usuario === nomeUsuario || data.nome === nomeUsuario);
             adicionarMensagemNaTela(data.usuario || data.nome, data.texto || data.mensagem, data.arquivo, data.tipo_arquivo || data.tipo, souEu);
@@ -266,7 +266,7 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- FTP LOGIC ---
+        // --- LÓGICA FTP ---
         async function abrirEListar(sistema) {
             sistemaAtual = sistema;
             document.getElementById('modal').style.display = 'flex';
@@ -279,13 +279,13 @@
                 arquivosCache = await res.json();
                 renderizarArquivos(arquivosCache);
             } catch (err) {
-                document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Erro de conexão.</p>`;
+                document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Erro de conexão com o FTP.</p>`;
             }
         }
 
         function renderizarArquivos(lista) {
             const fileList = document.getElementById('file-list');
-            fileList.innerHTML = lista.length ? '' : `<p class="text-center py-10 text-slate-500">Vazio.</p>`;
+            fileList.innerHTML = lista.length ? '' : `<p class="text-center py-10 text-slate-500">Nenhum arquivo encontrado.</p>`;
             lista.forEach(file => {
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5';
@@ -304,14 +304,25 @@
             renderizarArquivos(arquivosCache.filter(f => f.name.toLowerCase().includes(termo)));
         }
 
-        function baixar(sistema, arquivo) { window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`; }
-        function fecharModal() { document.getElementById('modal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        function baixar(sistema, arquivo) { 
+            window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`; 
+        }
+
+        function fecharModal() { 
+            document.getElementById('modal').style.display = 'none'; 
+            document.body.style.overflow = 'auto'; 
+        }
+
         function toggleChat() { 
             const win = document.getElementById('chat-window');
             win.classList.toggle('active');
             if (win.classList.contains('active')) document.getElementById('chat-badge').classList.add('hidden');
         }
-        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+
+        function logout() { 
+            localStorage.clear(); 
+            window.location.href = 'index.html'; 
+        }
     </script>
 </body>
 </html>

@@ -335,6 +335,7 @@ app.post('/api/reset-password', async (req, res) => {
 
 // --- ROTA DE NAVEGAÇÃO SIOPS ---
 app.get('/siops', (req, res) => {
+    // Definimos explicitamente para evitar conflitos de iframe na navegação interna
     res.sendFile(path.join(__dirname, 'public', 'siops.html'));
 });
 
@@ -406,6 +407,11 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
         const tunnel = new PassThrough();
         tunnel.pipe(res);
         
+        // Evento de erro para evitar que o servidor crash se a conexão cair
+        tunnel.on('error', (err) => {
+            console.error("Erro no stream de download:", err.message);
+        });
+
         await client.downloadTo(tunnel, nomeArquivo);
     } catch (e) { 
         console.error("Erro no download:", e.message);
