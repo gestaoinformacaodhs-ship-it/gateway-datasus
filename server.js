@@ -371,15 +371,15 @@ app.get('/api/sia-proxy', (req, res) => {
             modifiedHtml = modifiedHtml.replace(/href=["'](?!javascript|#|mailto)([^"']+)["']/gi, (match, p1) => {
                 const lowerP1 = p1.toLowerCase();
                 if (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls')) {
-                    if (p1.startsWith('http')) return \`href="\${p1}" target="_blank"\`;
-                    return \`href="http://sia.datasus.gov.br/\${p1.replace(/^\\//, '')}" target="_blank"\`;
+                    if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
+                    return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
                 }
                 if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
-                    return \`href="/api/sia-proxy?url=\${encodeURIComponent(p1)}"\`;
+                    return `href="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
                 }
                 if (!p1.startsWith('http')) {
                     let baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-                    return \`href="/api/sia-proxy?url=\${encodeURIComponent(baseUrl + p1)}"\`;
+                    return `href="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
                 }
                 return match; 
             });
@@ -387,8 +387,8 @@ app.get('/api/sia-proxy', (req, res) => {
             res.send(modifiedHtml);
         });
     }).on('error', (e) => {
-        res.status(500).send(\`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
-            <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: \${e.message}</p></div>\`);
+        res.status(500).send(`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
+            <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p></div>`);
     });
 });
 
