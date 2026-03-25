@@ -453,6 +453,10 @@ async function handleSiaProxy(req, res, targetUrl) {
         // Correção massiva também para scripts (src), forms (action) e hrefs!
         modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
             const lowerP1 = p1.toLowerCase();
+            // Links FTP: passar diretamente (browser gerencia download nativo)
+            if (p1.startsWith('ftp://')) {
+                return `href="${p1}" target="_blank"`;
+            }
             if (type === 'href' && (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls'))) {
                 if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
                 return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
