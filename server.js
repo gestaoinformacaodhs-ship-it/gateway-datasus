@@ -338,9 +338,9 @@ app.get('/siops', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'siops.html'));
 });
 
-// --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA ---
-app.all('/api/sia-proxy', async (req, res) => {
-    let targetUrl = req.query.url || 'http://sia.datasus.gov.br/principal/index.php';
+// --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA MESTRE ---
+async function handleSiaProxy(req, res, targetUrl) {
+    if (!targetUrl) return res.status(400).send("No URL provided");
     if (!targetUrl.startsWith('http')) {
         targetUrl = 'http://sia.datasus.gov.br' + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
     }
@@ -359,7 +359,7 @@ app.all('/api/sia-proxy', async (req, res) => {
 
         let myNewSetCookies = [];
         
-        // Criar Sessão Fantasma se o usuário ainda não tiver uma (Bypass SESSÃO INVÁLIDO)
+        // Criar Sessão Fantasma se o usuário ainda não tiver uma
         if (!options.headers['Cookie'].includes('PHPSESSID')) {
             try {
                 const initRes = await fetchMethod('http://sia.datasus.gov.br/principal/index.php', { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] } });
@@ -370,7 +370,7 @@ app.all('/api/sia-proxy', async (req, res) => {
                 let newCookies = options.headers['Cookie'] ? options.headers['Cookie'].split('; ') : [];
                 setCookiesInit.forEach(c => {
                     newCookies.push(c.split(';')[0]); 
-                    myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')); // remove domain original para permitir localhost/render
+                    myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')); 
                 });
                 options.headers['Cookie'] = newCookies.join('; ');
             } catch(e) { console.error("Initial Session Error:", e); }
@@ -390,99 +390,64 @@ app.all('/api/sia-proxy', async (req, res) => {
         const finalUrl = response.url;
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        
+        let contentType = response.headers.get('content-type') || '';
+        
+        // Pass new cookies to the browser
+        let setCookies = [];
+        if (response.headers.getSetCookie) setCookies = response.headers.getSetCookie();
+        else if (response.headers.raw && response.headers.raw()['set-cookie']) setCookies = response.headers.raw()['set-cookie'];
+        setCookies.forEach(c => myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')));
+        if (myNewSetCookies.length > 0) res.setHeader('Set-Cookie', myNewSetCookies);
+
+        // Se NÃO FOR HTML (ex: js, png, chamadas AJAX em JSON/XML), retorna direto sem modificar!
+        if (!contentType.includes('text/html')) {
+            res.set('Content-Type', contentType);
+            return res.send(buffer);
+        }
+
         let html = buffer.toString('latin1');
         
-        // Rewrite links to stay in proxy and inject Dark Mode CSS
+        // TRATAMENTO DE HTML
         let modifiedHtml = html.replace(/<head>/i, `<head><base href="${finalUrl}">
         <style>
-            /* INTEGRAÇÃO DARK MODE NATIVA */
             body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; }
             table, td, th { background-color: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
             a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
             a:hover { color: #60a5fa !important; text-decoration: underline; }
             .conteudo, .tabela1, .tabela2, .box, div, span, p, font { background: transparent !important; border-color: #334155 !important; color: #cbd5e1 !important; }
+            img[src*="topo_sia"], map, area, table[width="766"] > tbody > tr:first-child, table[width="766"] > tbody > tr:nth-child(2), td[background*="menu_fundo"], div[align="center"] > img, img[src*="menu"], #barra_submenu, .item_submenu, .item_submenu2, .ms_caixa_topo_meio, .menu { display: none !important; }
             
-            /* ESCONDER O HEADER VELHO DO SITE ORIGINAL E NAVEGAÇÃO ANTIGA */
-            img[src*="topo_sia"] { display: none !important; }
-            map, area { display: none !important; }
-            table[width="766"] > tbody > tr:first-child { display: none !important; }
-            table[width="766"] > tbody > tr:nth-child(2) { display: none !important; }
-            td[background*="menu_fundo"], div[align="center"] > img { display: none !important; }
-            img[src*="menu"] { display: none !important; }
-            #barra_submenu, .item_submenu, .item_submenu2, .ms_caixa_topo_meio, .menu { display: none !important; }
-            
-            /* MODERNIZAR FORMULÁRIOS SIASUS PARA TAILWIND */
             select, input[type="text"], input[type="submit"], input[type="button"], button {
-                background-color: #1e293b !important;
-                color: #f8fafc !important;
-                border: 1px solid #334155 !important;
-                padding: 8px 16px !important;
-                border-radius: 8px !important;
-                font-family: inherit !important;
-                outline: none !important;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-                margin: 4px;
-                background-image: none !important; /* overrides custom arrow images in selects */
+                background-color: #1e293b !important; color: #f8fafc !important; border: 1px solid #334155 !important; padding: 8px 16px !important; border-radius: 8px !important; font-family: inherit !important; outline: none !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important; margin: 4px; background-image: none !important;
             }
             select option { background-color: #1e293b !important; color: #f8fafc !important; }
-            input[type="submit"], input[type="button"], button, .botao {
-                background-color: #2563eb !important;
-                font-weight: 700 !important;
-                cursor: pointer !important;
-                transition: all 0.2s !important;
-                border: none !important;
-            }
-            input[type="submit"]:hover, input[type="button"]:hover, button:hover {
-                background-color: #3b82f6 !important;
-                transform: translateY(-1px) !important;
-            }
+            input[type="submit"], input[type="button"], button, .botao { background-color: #2563eb !important; font-weight: 700 !important; cursor: pointer !important; transition: all 0.2s !important; border: none !important; }
+            input[type="submit"]:hover, input[type="button"]:hover, button:hover { background-color: #3b82f6 !important; transform: translateY(-1px) !important; }
             .titulo_aj, .box_destaque { color: #60a5fa !important; font-size: 1.1rem !important; margin-bottom: 12px !important; border-bottom: 1px solid #334155 !important; padding-bottom: 8px !important; }
             fieldset { border: 1px solid #334155 !important; border-radius: 8px !important; padding: 16px !important; margin-top: 10px !important; }
             legend { color: #94a3b8 !important; font-weight: bold !important; padding: 0 8px !important; }
-
             .tabela_fundo { background-color: #111827 !important; }
             .titulo_tabela, .titulo { background-color: #2563eb !important; color: #fff !important; padding: 4px; border-radius: 4px; }
             td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }
         </style>`);
 
-        modifiedHtml = modifiedHtml.replace(/href=["'](?!javascript|#|mailto)([^"']+)["']/gi, (match, p1) => {
+        // Correção massiva também para scripts (src), forms (action) e hrefs!
+        modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
             const lowerP1 = p1.toLowerCase();
-            if (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls')) {
+            if (type === 'href' && (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls'))) {
                 if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
                 return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
             }
             if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
-                return `href="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
+                return `${type}="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
             }
             if (!p1.startsWith('http')) {
                 let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
-                return `href="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
+                return `${type}="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
             }
             return match; 
         });
-
-        // REWRITE FORM ACTIONS FOR POSTS/GETS TO STAY INSIDE THE PROXY!
-        modifiedHtml = modifiedHtml.replace(/action=["']([^"']+)["']/gi, (match, p1) => {
-            if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
-                return `action="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
-            }
-            if (!p1.startsWith('http')) {
-                let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
-                return `action="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
-            }
-            return match;
-        });
-
-        // Pass new cookies to the browser
-        let setCookies = [];
-        if (response.headers.getSetCookie) setCookies = response.headers.getSetCookie();
-        else if (response.headers.raw && response.headers.raw()['set-cookie']) setCookies = response.headers.raw()['set-cookie'];
-        
-        setCookies.forEach(c => myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')));
-        
-        if (myNewSetCookies.length > 0) {
-            res.setHeader('Set-Cookie', myNewSetCookies);
-        }
 
         res.send(modifiedHtml);
     } catch (e) {
@@ -490,6 +455,16 @@ app.all('/api/sia-proxy', async (req, res) => {
         res.status(500).send(`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
             <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p></div>`);
     }
+}
+
+app.all('/api/sia-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
+
+// --- INTERCEPTAÇÃO TRANSPARENTE DE AJAX E ASSETS ---
+const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js'];
+DATASUS_FOLDERS.forEach(folder => {
+    app.all(`${folder}/*`, (req, res) => {
+        handleSiaProxy(req, res, 'http://sia.datasus.gov.br' + req.originalUrl);
+    });
 });
 
 // --- LÓGICA FTP DATASUS ---
