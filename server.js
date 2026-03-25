@@ -453,9 +453,9 @@ async function handleSiaProxy(req, res, targetUrl) {
         // Correção massiva também para scripts (src), forms (action) e hrefs!
         modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
             const lowerP1 = p1.toLowerCase();
-            // Links FTP: passar diretamente (browser gerencia download nativo)
+            // Links FTP: redirecionar para rota de download nativa (sem abrir nova aba)
             if (p1.startsWith('ftp://')) {
-                return `href="${p1}" target="_blank"`;
+                return `href="/api/ftp-download?url=${encodeURIComponent(p1)}"`;
             }
             if (type === 'href' && (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls'))) {
                 if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
@@ -487,6 +487,43 @@ DATASUS_FOLDERS.forEach(folder => {
     app.all(`${folder}/*`, (req, res) => {
         handleSiaProxy(req, res, 'http://sia.datasus.gov.br' + req.originalUrl);
     });
+});
+
+// --- DOWNLOAD DIRETO DE ARQUIVOS FTP DATASUS ---
+app.get('/api/ftp-download', async (req, res) => {
+    const ftpUrl = req.query.url;
+    if (!ftpUrl || !ftpUrl.startsWith('ftp://')) {
+        return res.status(400).send('URL FTP inválida.');
+    }
+
+    // Parsear a URL FTP: ftp://host/path/to/file.ext
+    let parsed = ftpUrl.replace('ftp://', '');
+    const slashIdx = parsed.indexOf('/');
+    const host = parsed.substring(0, slashIdx);
+    const remotePath = parsed.substring(slashIdx);
+    const filename = remotePath.split('/').pop() || 'download';
+
+    const client = new ftp.Client();
+    client.ftp.verbose = false;
+
+    try {
+        await client.access({ host, port: 21, user: 'anonymous', password: 'anonymous@' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+
+        const passThrough = new PassThrough();
+        passThrough.pipe(res);
+
+        await client.downloadTo(passThrough, remotePath);
+    } catch (err) {
+        console.error('FTP Download error:', err.message);
+        if (!res.headersSent) {
+            res.status(500).send(`Erro ao baixar arquivo FTP: ${err.message}`);
+        }
+    } finally {
+        client.close();
+    }
 });
 
 // --- LÓGICA FTP DATASUS ---
