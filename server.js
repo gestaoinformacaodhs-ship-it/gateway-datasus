@@ -359,10 +359,17 @@ async function handleSiaProxy(req, res, targetUrl) {
 
         let myNewSetCookies = [];
         
-        // Criar Sessão Fantasma se o usuário ainda não tiver uma
-        if (!options.headers['Cookie'].includes('PHPSESSID')) {
+        // Anti-DDoS e Prevenção de Ghost Session em Arquivos Estáticos!
+        const isAsset = targetUrl.match(/\.(png|gif|jpg|jpeg|css|js|woff|woff2|ico)$/i) || targetUrl.includes('/imagens/') || targetUrl.includes('/css/') || targetUrl.includes('/js/') || targetUrl.includes('/funcoes/');
+        
+        // Criar Sessão Fantasma se o usuário ainda não tiver uma e NÃO for requisição de recurso estático
+        if (!isAsset && !options.headers['Cookie'].includes('PHPSESSID')) {
             try {
-                const initRes = await fetchMethod('http://sia.datasus.gov.br/principal/index.php', { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] } });
+                const ac = new AbortController();
+                const initTimeout = setTimeout(() => ac.abort(), 10000);
+                const initRes = await fetchMethod('http://sia.datasus.gov.br/principal/index.php', { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] }, signal: ac.signal });
+                clearTimeout(initTimeout);
+                
                 let setCookiesInit = [];
                 if (initRes.headers.getSetCookie) setCookiesInit = initRes.headers.getSetCookie();
                 else if (initRes.headers.raw && initRes.headers.raw()['set-cookie']) setCookiesInit = initRes.headers.raw()['set-cookie'];
@@ -373,7 +380,7 @@ async function handleSiaProxy(req, res, targetUrl) {
                     myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')); 
                 });
                 options.headers['Cookie'] = newCookies.join('; ');
-            } catch(e) { console.error("Initial Session Error:", e); }
+            } catch(e) { console.error("Initial Session Error (Ignored):", e.message); }
         }
 
         if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -385,7 +392,18 @@ async function handleSiaProxy(req, res, targetUrl) {
             options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
         }
 
-        const response = await fetchMethod(targetUrl, options);
+        const controller = new AbortController();
+        const mainTimeout = setTimeout(() => controller.abort(), 20000); // 20 sec limit to prevent hangs
+        options.signal = controller.signal;
+
+        let response;
+        try {
+            response = await fetchMethod(targetUrl, options);
+        } catch(fetchError) {
+            clearTimeout(mainTimeout);
+            throw fetchError;
+        }
+        clearTimeout(mainTimeout);
         
         const finalUrl = response.url;
         const arrayBuffer = await response.arrayBuffer();
