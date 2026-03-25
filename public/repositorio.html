@@ -66,18 +66,6 @@
                 <div class="py-20 text-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600"></i></div>
             </div>
         </div>
-
-        <div id="sia-dashboard-container" class="hidden bg-[#111827] w-full rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex-col flex-1" style="height: calc(100vh - 160px);">
-            <div class="p-4 bg-slate-950/60 border-b border-white/5 shrink-0 flex justify-between items-center">
-                <div>
-                    <h3 class="text-xl font-bold text-white leading-tight">Painel Principal SIASUS</h3>
-                    <span class="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1 block">Módulo Nativo Totalmente Funcional</span>
-                </div>
-            </div>
-            <div class="flex-1 bg-[#111827] relative">
-                <iframe src="/api/sia-proxy" class="absolute inset-0 w-full h-full border-0 rounded-b-2xl" style="color-scheme: dark;"></iframe>
-            </div>
-        </div>
     </main>
 
     <script>
@@ -90,13 +78,6 @@
                 document.getElementById('page-title').innerText = 'Sistema não especificado';
                 document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Não foi possível carregar os arquivos.</p>`;
                 return;
-            }
-
-            if (sistema.toUpperCase() === 'SIA') {
-                document.getElementById('main-container').classList.remove('max-w-4xl');
-                document.getElementById('main-container').classList.add('max-w-7xl');
-                document.getElementById('sia-dashboard-container').classList.remove('hidden');
-                document.getElementById('sia-dashboard-container').classList.add('flex');
             }
 
             document.getElementById('page-title').innerText = `Repositório ${sistema.toUpperCase()}`;

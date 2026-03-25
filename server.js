@@ -361,8 +361,15 @@ app.get('/api/sia-proxy', (req, res) => {
                 a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
                 a:hover { color: #60a5fa !important; text-decoration: underline; }
                 .conteudo, .tabela1, .tabela2, .box, div, span, p, font { background: transparent !important; border-color: #334155 !important; color: #cbd5e1 !important; }
-                /* Hide header images if they break the dark mode */
+                
+                /* ESCONDER O HEADER VELHO DO SITE ORIGINAL E NAVEGAÇÃO ANTIGA */
                 img[src*="topo_sia"] { display: none !important; }
+                map, area { display: none !important; }
+                table[width="766"] > tbody > tr:first-child { display: none !important; }
+                table[width="766"] > tbody > tr:nth-child(2) { display: none !important; }
+                td[background*="menu_fundo"], div[align="center"] > img { display: none !important; }
+                img[src*="menu"] { display: none !important; }
+                
                 .tabela_fundo { background-color: #111827 !important; }
                 .titulo_tabela, .titulo { background-color: #2563eb !important; color: #fff !important; padding: 4px; border-radius: 4px; }
                 td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }

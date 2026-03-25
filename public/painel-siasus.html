@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Principal SIASUS | Gateway DATASUS</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            background-color: #0a0f1c; 
+            color: #cbd5e1; 
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .nav-btn {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: rgba(37, 99, 235, 0.2);
+            border-color: rgba(37, 99, 235, 0.5);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="bg-[#0a0f1c]/80 backdrop-blur-md border-b border-white/5 px-6 py-4 shrink-0 z-20">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            <h2 class="text-xl font-black tracking-tighter cursor-pointer text-white" onclick="window.location.href='dashboard.html'">
+                GATEWAY <span class="text-blue-600">SUS</span>
+                <span class="hidden md:inline-block ml-3 pl-3 border-l border-white/10 text-sm font-bold text-slate-400">Painel Principal SIASUS</span>
+            </h2>
+            
+            <button onclick="window.location.href='dashboard.html'" class="bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-6 h-full overflow-hidden">
+        
+        <nav class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 shrink-0">
+            <button onclick="carregarModulo(this, '/principal/index.php')" class="nav-btn active flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-house mb-0.5 text-blue-500"></i> Principal
+            </button>
+            <button onclick="carregarModulo(this, '/consulta/')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consulta
+            </button>
+            <button onclick="carregarModulo(this, '/versoes/index.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-code-branch mb-0.5 text-blue-500"></i> Versões
+            </button>
+            <button onclick="carregarModulo(this, '/documentos/index.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-folder-open mb-0.5 text-blue-500"></i> Documentos
+            </button>
+            <button onclick="carregarModulo(this, 'http://datasus.saude.gov.br/forums/', true)" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-comments mb-0.5 text-blue-500"></i> Fórum
+            </button>
+            <button onclick="carregarModulo(this, '/msbbs/', true)" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-server mb-0.5 text-blue-500"></i> MS-BBS
+            </button>
+        </nav>
+
+        <div class="bg-[#111827] w-full flex-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative mb-4 flex flex-col">
+            
+            <div id="loader" class="absolute inset-0 flex items-center justify-center bg-[#111827] z-10 transition-opacity duration-300">
+                <div class="flex flex-col items-center gap-4">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-600"></i>
+                    <p class="text-sm font-black tracking-widest text-slate-500 uppercase">Acessando Integração Nativa...</p>
+                </div>
+            </div>
+
+            <iframe id="sia-frame" onload="esconderLoader()" src="/api/sia-proxy?url=/principal/index.php" class="flex-1 w-full h-full border-0" style="color-scheme: dark;"></iframe>
+            
+        </div>
+    </main>
+
+    <script>
+        function carregarModulo(btn, path, ext = false) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '1';
+            loader.style.display = 'flex';
+
+            const frame = document.getElementById('sia-frame');
+            if(ext) {
+                frame.src = path;
+            } else {
+                frame.src = `/api/sia-proxy?url=${encodeURIComponent(path)}`;
+            }
+        }
+
+        function esconderLoader() {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 300);
+        }
+    </script>
+</body>
+</html>
