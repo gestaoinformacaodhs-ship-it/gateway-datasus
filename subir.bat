@@ -4,18 +4,21 @@ echo 🚀 Iniciando processo de subida para GitHub...
 :: 1. Adiciona as mudanças
 git add .
 
-:: 2. Pede para você digitar o motivo da alteração
-set /p mensagem="Digite o motivo da alteracao: "
+:: 2. Captura a mensagem de commit (remove aspas se existirem)
+set msg=%*
+if defined msg set msg=%msg:"=%
+if not defined msg set msg=Atualizacao automatica pelo terminal
 
-:: 3. Faz o commit com sua mensagem
-git commit -m "%mensagem%"
+:: 3. Faz o commit
+git commit -m "%msg%"
 
-:: 4. Sobe para o GitHub
+:: 4. Puxa atuacoes remotas para evitar conflitos de versao
+echo 📥 Sincronizando com o GitHub...
+git pull origin main --rebase
+
+:: 5. Sobe para o GitHub
 echo 📤 Enviando para o GitHub...
 git push origin main
 
 echo.
-echo ✅ Sucesso! O GitHub foi atualizado.
-echo 🔄 Agora o Render vai iniciar o deploy automaticamente.
-echo 💡 Lembre-se: Verifique se a BREVO_API_KEY esta configurada no Render!
-pause
+echo ✅ Sucesso! O GitHub foi atualizado.

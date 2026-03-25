@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repositório | Gateway DATASUS</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            background-color: #0a0f1c; 
+            color: #cbd5e1; 
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0f1c; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+    </style>
+
+    <script>
+        if (!localStorage.getItem('email')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-40 bg-[#0a0f1c]/80 backdrop-blur-md border-b border-white/5 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h2 class="text-xl font-black tracking-tighter cursor-pointer text-white" onclick="window.close()">
+                GATEWAY <span class="text-blue-600">SUS</span>
+            </h2>
+            
+            <div class="flex items-center gap-6">
+                <button onclick="window.close()" class="bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-xmark"></i> Fechar Guia
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-8 flex-1 w-full">
+        <div class="bg-[#111827] w-full rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col" style="height: calc(100vh - 160px);">
+            <div class="p-6 bg-slate-950/60 border-b border-white/5 shrink-0">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 id="page-title" class="text-2xl font-bold text-white leading-tight">Carregando Repositório...</h3>
+                        <span class="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1 block">Conexão FTP Estabelecida</span>
+                    </div>
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Filtrar por nome (ex: PAAC...)" class="w-full bg-slate-950/80 border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-blue-600 transition-all" onkeyup="filtrarArquivos()">
+                </div>
+            </div>
+            <div id="file-list" class="overflow-y-auto p-4 flex-1 bg-slate-900/40">
+                <div class="py-20 text-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-600"></i></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const sistema = urlParams.get('sistema');
+        let arquivosCache = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!sistema) {
+                document.getElementById('page-title').innerText = 'Sistema não especificado';
+                document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Não foi possível carregar os arquivos.</p>`;
+                return;
+            }
+
+            document.getElementById('page-title').innerText = `Repositório ${sistema.toUpperCase()}`;
+            document.title = `Repositório ${sistema.toUpperCase()} | Gateway DATASUS`;
+            carregarArquivos();
+        });
+
+        async function carregarArquivos() {
+            try {
+                const res = await fetch(`/api/list/${sistema}`);
+                arquivosCache = await res.json();
+                renderizarArquivos(arquivosCache);
+            } catch (err) {
+                document.getElementById('file-list').innerHTML = `<p class="text-red-500 text-center py-10">Erro de conexão com o FTP.</p>`;
+            }
+        }
+
+        function renderizarArquivos(lista) {
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = lista.length ? '' : `<p class="text-center py-10 text-slate-500">Nenhum arquivo encontrado.</p>`;
+            lista.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center p-4 rounded-xl mb-2 bg-slate-950/40 border border-white/5 hover:border-blue-500/30 transition-colors';
+                item.innerHTML = `
+                    <div class="flex-1 min-w-0 pr-4">
+                        <p class="text-sm font-semibold text-white truncate">${file.name}</p>
+                        <p class="text-[10px] text-slate-600 font-mono">${file.size}</p>
+                    </div>
+                    <button class="bg-blue-700/20 text-blue-400 border border-blue-700/50 hover:bg-blue-600 hover:text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase transition-all" onclick="baixar('${file.name}')">Baixar</button>`;
+                fileList.appendChild(item);
+            });
+        }
+
+        function filtrarArquivos() {
+            const termo = document.getElementById('searchInput').value.toLowerCase();
+            renderizarArquivos(arquivosCache.filter(f => f.name.toLowerCase().includes(termo)));
+        }
+
+        function baixar(arquivo) { 
+            window.location.href = `/api/download/${sistema}/${encodeURIComponent(arquivo)}`; 
+        }
+    </script>
+</body>
+</html>
