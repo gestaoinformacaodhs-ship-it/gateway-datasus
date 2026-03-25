@@ -429,7 +429,10 @@ async function handleSiaProxy(req, res, targetUrl) {
         // TRATAMENTO DE HTML
         let modifiedHtml = html.replace(/<head>/i, `<head><base href="${finalUrl}">
         <style>
-            body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; }
+            body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; overflow: auto; }
+            /* Esconder todas as scrollbars mantendo a rolagem funcional */
+            * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+            *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
             table, td, th { background-color: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
             a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
             a:hover { color: #60a5fa !important; text-decoration: underline; }
