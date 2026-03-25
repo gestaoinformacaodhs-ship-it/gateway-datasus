@@ -61,7 +61,7 @@
             <button onclick="carregarModulo(this, '/versao/versao.php', 'versao')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-code-branch mb-0.5 text-blue-500"></i> Versões
             </button>
-            <button onclick="carregarModulo(this, '/documentos/documentos.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/documentos/documentos.php', 'documentos')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-folder-open mb-0.5 text-blue-500"></i> Documentos
             </button>
             <button onclick="carregarModulo(this, '/principal/forum.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
@@ -152,6 +152,28 @@
             </button>
         </div>
 
+        <!-- SUBMENU NATIVO PARA DOCUMENTOS -->
+        <div id="submenu-documentos" class="hidden flex-wrap gap-2 shrink-0 mb-3 transition-all duration-500 opacity-0 transform -translate-y-2">
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_apac.php', this, 'documentos')" class="sub-btn-documentos bg-blue-900/40 border border-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-file-medical mr-1.5 text-blue-400"></i> APAC
+            </button>
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_bpa.php', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-file-invoice mr-1.5 text-blue-500"></i> BPA
+            </button>
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_raas.php', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-file-waveform mr-1.5 text-blue-500"></i> RAAS
+            </button>
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_sia.php', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-desktop mr-1.5 text-blue-500"></i> SIA
+            </button>
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_cmd.php', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-terminal mr-1.5 text-blue-500"></i> CMD
+            </button>
+            <button onclick="carregarSubModulo('/documentos/listar_ftp_portaria.php', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-scroll mr-1.5 text-blue-500"></i> PORTARIA
+            </button>
+        </div>
+
         <div class="bg-[#111827] w-full flex-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative mb-4 flex flex-col">
             
             <div id="loader" class="absolute inset-0 flex items-center justify-center bg-[#111827] z-10 transition-opacity duration-300">
@@ -168,20 +190,15 @@
 
     <script>
         function resetSubmenus() {
-            const smConsulta = document.getElementById('submenu-consulta');
-            const smVersao = document.getElementById('submenu-versao');
-            
-            smConsulta.classList.remove('opacity-100', 'translate-y-0');
-            smConsulta.classList.add('opacity-0', '-translate-y-2');
-            
-            smVersao.classList.remove('opacity-100', 'translate-y-0');
-            smVersao.classList.add('opacity-0', '-translate-y-2');
-            
+            ['submenu-consulta', 'submenu-versao', 'submenu-documentos'].forEach(id => {
+                const sm = document.getElementById(id);
+                sm.classList.remove('opacity-100', 'translate-y-0');
+                sm.classList.add('opacity-0', '-translate-y-2');
+            });
             setTimeout(() => {
-                smConsulta.classList.add('hidden');
-                smConsulta.classList.remove('grid');
-                smVersao.classList.add('hidden');
-                smVersao.classList.remove('flex');
+                document.getElementById('submenu-consulta').classList.add('hidden'); document.getElementById('submenu-consulta').classList.remove('grid');
+                document.getElementById('submenu-versao').classList.add('hidden'); document.getElementById('submenu-versao').classList.remove('flex');
+                document.getElementById('submenu-documentos').classList.add('hidden'); document.getElementById('submenu-documentos').classList.remove('flex');
             }, 300);
         }
 
@@ -210,12 +227,16 @@
             } else if (tipo === 'versao') {
                 resetSubmenus();
                 setTimeout(() => {
-                    smVersao.classList.remove('hidden');
-                    smVersao.classList.add('flex');
-                    setTimeout(() => {
-                        smVersao.classList.remove('opacity-0', '-translate-y-2');
-                        smVersao.classList.add('opacity-100', 'translate-y-0');
-                    }, 50);
+                    const sm = document.getElementById('submenu-versao');
+                    sm.classList.remove('hidden'); sm.classList.add('flex');
+                    setTimeout(() => { sm.classList.remove('opacity-0', '-translate-y-2'); sm.classList.add('opacity-100', 'translate-y-0'); }, 50);
+                }, 300);
+            } else if (tipo === 'documentos') {
+                resetSubmenus();
+                setTimeout(() => {
+                    const sm = document.getElementById('submenu-documentos');
+                    sm.classList.remove('hidden'); sm.classList.add('flex');
+                    setTimeout(() => { sm.classList.remove('opacity-0', '-translate-y-2'); sm.classList.add('opacity-100', 'translate-y-0'); }, 50);
                 }, 300);
             } else {
                 resetSubmenus();
@@ -231,11 +252,12 @@
 
         function carregarSubModulo(path, btn, submenuClass = 'consulta') {
             // Lógica isolada para limpar apenas os botões daquele grupo ativo
-            let btnClass = submenuClass === 'versao' ? '.sub-btn-versao' : '.sub-btn';
+            let btnClass = submenuClass === 'versao' ? '.sub-btn-versao' : (submenuClass === 'documentos' ? '.sub-btn-documentos' : '.sub-btn');
+            const isStyled = submenuClass === 'versao' || submenuClass === 'documentos';
             
             document.querySelectorAll(btnClass).forEach(b => {
                 b.classList.remove('border-blue-500', 'bg-blue-900/40');
-                if (submenuClass === 'versao') {
+                if (isStyled) {
                     b.classList.remove('text-white');
                     b.classList.add('border-slate-700/60', 'bg-slate-800/60', 'text-slate-300');
                     b.querySelector('i').classList.remove('text-blue-400');
@@ -247,7 +269,7 @@
             
             btn.classList.remove('border-slate-700/60', 'bg-slate-800/60', 'text-slate-300');
             btn.classList.add('border-blue-500', 'bg-blue-900/40');
-            if (submenuClass === 'versao') {
+            if (isStyled) {
                 btn.classList.add('text-white');
                 btn.querySelector('i').classList.remove('text-blue-500');
                 btn.querySelector('i').classList.add('text-blue-400');
