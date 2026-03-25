@@ -350,8 +350,31 @@ app.all('/api/sia-proxy', async (req, res) => {
         let options = {
             method: req.method,
             redirect: 'follow',
-            headers: {}
+            headers: {
+                'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'http://sia.datasus.gov.br/principal/index.php',
+                'Cookie': req.headers.cookie || ''
+            }
         };
+
+        let myNewSetCookies = [];
+        
+        // Criar Sessão Fantasma se o usuário ainda não tiver uma (Bypass SESSÃO INVÁLIDO)
+        if (!options.headers['Cookie'].includes('PHPSESSID')) {
+            try {
+                const initRes = await fetchMethod('http://sia.datasus.gov.br/principal/index.php', { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] } });
+                let setCookiesInit = [];
+                if (initRes.headers.getSetCookie) setCookiesInit = initRes.headers.getSetCookie();
+                else if (initRes.headers.raw && initRes.headers.raw()['set-cookie']) setCookiesInit = initRes.headers.raw()['set-cookie'];
+                
+                let newCookies = options.headers['Cookie'] ? options.headers['Cookie'].split('; ') : [];
+                setCookiesInit.forEach(c => {
+                    newCookies.push(c.split(';')[0]); 
+                    myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')); // remove domain original para permitir localhost/render
+                });
+                options.headers['Cookie'] = newCookies.join('; ');
+            } catch(e) { console.error("Initial Session Error:", e); }
+        }
 
         if (req.method !== 'GET' && req.method !== 'HEAD') {
             const bodyParams = new URLSearchParams();
@@ -449,6 +472,17 @@ app.all('/api/sia-proxy', async (req, res) => {
             }
             return match;
         });
+
+        // Pass new cookies to the browser
+        let setCookies = [];
+        if (response.headers.getSetCookie) setCookies = response.headers.getSetCookie();
+        else if (response.headers.raw && response.headers.raw()['set-cookie']) setCookies = response.headers.raw()['set-cookie'];
+        
+        setCookies.forEach(c => myNewSetCookies.push(c.replace(/domain=[^;]+/gi, '')));
+        
+        if (myNewSetCookies.length > 0) {
+            res.setHeader('Set-Cookie', myNewSetCookies);
+        }
 
         res.send(modifiedHtml);
     } catch (e) {
