@@ -55,7 +55,7 @@
             <button onclick="carregarModulo(this, '/principal/index.php')" class="nav-btn active flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-house mb-0.5 text-blue-500"></i> Principal
             </button>
-            <button onclick="carregarModulo(this, '/remessa/remessa.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '', 'consulta')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consulta
             </button>
             <button onclick="carregarModulo(this, '/versao/versao.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
@@ -72,6 +72,52 @@
             </button>
         </nav>
 
+        <!-- SUBMENU NATIVO PARA CONSULTA -->
+        <div id="submenu-consulta" class="hidden grid-cols-2 lg:grid-cols-3 gap-3 shrink-0 mb-2 transition-all duration-500 opacity-0 transform -translate-y-2">
+            <button onclick="carregarSubModulo('/remessa/ConsultaAcompanhamento.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Acompanhamento</h4>
+                    <i class="fa-solid fa-chart-line text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Acompanhamento de remessa (envio, produção).</p>
+            </button>
+            <button onclick="carregarSubModulo('/remessa/ConsultaEntrega.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Entrega</h4>
+                    <i class="fa-solid fa-truck-fast text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Informações sobre a entrega da produção.</p>
+            </button>
+            <button onclick="carregarSubModulo('/remessa/ConsultaHistorico.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Histórico</h4>
+                    <i class="fa-solid fa-clock-rotate-left text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Histórico de entrega de remessas por município.</p>
+            </button>
+            <button onclick="carregarSubModulo('/remessa/ConsultaCronograma.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Cronograma</h4>
+                    <i class="fa-solid fa-calendar-days text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Datas de vigências do envio das remessas.</p>
+            </button>
+            <button onclick="carregarSubModulo('/remessa/ConsultaApac.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">APAC</h4>
+                    <i class="fa-solid fa-notes-medical text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Consulta de APAC enviadas na base nacional.</p>
+            </button>
+            <button onclick="carregarSubModulo('/remessa/ConsultaVersao.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Versões Mínimas</h4>
+                    <i class="fa-solid fa-layer-group text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Lista de versões mínimas exigidas por competência.</p>
+            </button>
+        </div>
+
         <div class="bg-[#111827] w-full flex-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative mb-4 flex flex-col">
             
             <div id="loader" class="absolute inset-0 flex items-center justify-center bg-[#111827] z-10 transition-opacity duration-300">
@@ -87,9 +133,49 @@
     </main>
 
     <script>
-        function carregarModulo(btn, path) {
+        function carregarModulo(btn, path, tipo = 'padrao') {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+
+            const submenuConsulta = document.getElementById('submenu-consulta');
+
+            if (tipo === 'consulta') {
+                submenuConsulta.classList.remove('hidden');
+                submenuConsulta.classList.add('grid');
+                setTimeout(() => {
+                    submenuConsulta.classList.remove('opacity-0', '-translate-y-2');
+                    submenuConsulta.classList.add('opacity-100', 'translate-y-0');
+                }, 50);
+                
+                // Exibe página neutra ou o primeiro item
+                const frame = document.getElementById('sia-frame');
+                frame.src = 'about:blank';
+                frame.contentDocument.write('<body style="background:#111827;color:#cbd5e1;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h3>Selecione uma opção de Consulta acima</h3><p style="opacity:0.6;font-size:12px;">Módulo Desacoplado Nativamente</p></div></body>');
+                return;
+            } else {
+                submenuConsulta.classList.remove('opacity-100', 'translate-y-0');
+                submenuConsulta.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => {
+                    submenuConsulta.classList.add('hidden');
+                    submenuConsulta.classList.remove('grid');
+                }, 300);
+            }
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '1';
+            loader.style.display = 'flex';
+
+            const frame = document.getElementById('sia-frame');
+            frame.src = `/api/sia-proxy?url=${encodeURIComponent(path)}`;
+        }
+
+        function carregarSubModulo(path, btn) {
+            document.querySelectorAll('.sub-btn').forEach(b => {
+                b.classList.remove('border-blue-500', 'bg-blue-900/40');
+                b.classList.add('border-slate-700/60', 'bg-slate-800/60');
+            });
+            btn.classList.remove('border-slate-700/60', 'bg-slate-800/60');
+            btn.classList.add('border-blue-500', 'bg-blue-900/40');
 
             const loader = document.getElementById('loader');
             loader.style.opacity = '1';
