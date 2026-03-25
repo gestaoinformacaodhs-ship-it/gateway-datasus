@@ -70,15 +70,12 @@
         <div id="sia-dashboard-container" class="hidden bg-[#111827] w-full rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex-col flex-1" style="height: calc(100vh - 160px);">
             <div class="p-4 bg-slate-950/60 border-b border-white/5 shrink-0 flex justify-between items-center">
                 <div>
-                    <h3 class="text-xl font-bold text-white leading-tight">Painel SIASUS</h3>
-                    <span class="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1 block">Avisos Oficiais</span>
+                    <h3 class="text-xl font-bold text-white leading-tight">Painel Principal SIASUS</h3>
+                    <span class="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1 block">Módulo Nativo Totalmente Funcional</span>
                 </div>
-                <a href="http://sia.datasus.gov.br/principal/index.php" target="_blank" class="text-[10px] bg-blue-600/20 text-blue-400 border border-blue-600/50 hover:bg-blue-600 hover:text-white px-3 py-2 rounded-lg font-black transition-all uppercase flex items-center gap-2">
-                    Abrir Site <i class="fa-solid fa-external-link-alt"></i>
-                </a>
             </div>
-            <div class="flex-1 bg-white relative">
-                <iframe src="http://sia.datasus.gov.br/principal/index.php" class="absolute inset-0 w-full h-full border-0"></iframe>
+            <div class="flex-1 bg-[#111827] relative">
+                <iframe src="/api/sia-proxy" class="absolute inset-0 w-full h-full border-0 rounded-b-2xl" style="color-scheme: dark;"></iframe>
             </div>
         </div>
     </main>
