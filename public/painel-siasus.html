@@ -58,16 +58,16 @@
             <button onclick="carregarModulo(this, '/consulta/')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consulta
             </button>
-            <button onclick="carregarModulo(this, '/versoes/index.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/versoes/')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-code-branch mb-0.5 text-blue-500"></i> Versões
             </button>
-            <button onclick="carregarModulo(this, '/documentos/index.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/documentos/')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-folder-open mb-0.5 text-blue-500"></i> Documentos
             </button>
-            <button onclick="carregarModulo(this, 'http://datasus.saude.gov.br/forums/', true)" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, 'http://datasus.saude.gov.br')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-comments mb-0.5 text-blue-500"></i> Fórum
             </button>
-            <button onclick="carregarModulo(this, '/msbbs/', true)" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/msbbs/')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-server mb-0.5 text-blue-500"></i> MS-BBS
             </button>
         </nav>
@@ -87,7 +87,7 @@
     </main>
 
     <script>
-        function carregarModulo(btn, path, ext = false) {
+        function carregarModulo(btn, path) {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
@@ -96,11 +96,7 @@
             loader.style.display = 'flex';
 
             const frame = document.getElementById('sia-frame');
-            if(ext) {
-                frame.src = path;
-            } else {
-                frame.src = `/api/sia-proxy?url=${encodeURIComponent(path)}`;
-            }
+            frame.src = `/api/sia-proxy?url=${encodeURIComponent(path)}`;
         }
 
         function esconderLoader() {

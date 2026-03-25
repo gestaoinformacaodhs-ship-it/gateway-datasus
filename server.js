@@ -339,64 +339,66 @@ app.get('/siops', (req, res) => {
 });
 
 // --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA ---
-app.get('/api/sia-proxy', (req, res) => {
+app.get('/api/sia-proxy', async (req, res) => {
     let targetUrl = req.query.url || 'http://sia.datasus.gov.br/principal/index.php';
     if (!targetUrl.startsWith('http')) {
         targetUrl = 'http://sia.datasus.gov.br' + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
     }
 
-    http.get(targetUrl, (response) => {
-        let chunks = [];
-        response.on('data', chunk => chunks.push(chunk));
-        response.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            let html = buffer.toString('latin1');
+    try {
+        const fetchMethod = global.fetch; // Node 18+ nativo
+        const response = await fetchMethod(targetUrl, { redirect: 'follow' });
+        
+        const finalUrl = response.url;
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        let html = buffer.toString('latin1');
+        
+        // Rewrite links to stay in proxy and inject Dark Mode CSS
+        let modifiedHtml = html.replace(/<head>/i, `<head><base href="${finalUrl}">
+        <style>
+            /* INTEGRAÇÃO DARK MODE NATIVA */
+            body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; }
+            table, td, th { background-color: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
+            a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
+            a:hover { color: #60a5fa !important; text-decoration: underline; }
+            .conteudo, .tabela1, .tabela2, .box, div, span, p, font { background: transparent !important; border-color: #334155 !important; color: #cbd5e1 !important; }
             
-            // Rewrite links to stay in proxy and inject Dark Mode CSS
-            let modifiedHtml = html.replace(/<head>/i, `<head><base href="http://sia.datasus.gov.br/">
-            <style>
-                /* INTEGRAÇÃO DARK MODE NATIVA */
-                body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; }
-                table, td, th { background-color: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
-                a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
-                a:hover { color: #60a5fa !important; text-decoration: underline; }
-                .conteudo, .tabela1, .tabela2, .box, div, span, p, font { background: transparent !important; border-color: #334155 !important; color: #cbd5e1 !important; }
-                
-                /* ESCONDER O HEADER VELHO DO SITE ORIGINAL E NAVEGAÇÃO ANTIGA */
-                img[src*="topo_sia"] { display: none !important; }
-                map, area { display: none !important; }
-                table[width="766"] > tbody > tr:first-child { display: none !important; }
-                table[width="766"] > tbody > tr:nth-child(2) { display: none !important; }
-                td[background*="menu_fundo"], div[align="center"] > img { display: none !important; }
-                img[src*="menu"] { display: none !important; }
-                
-                .tabela_fundo { background-color: #111827 !important; }
-                .titulo_tabela, .titulo { background-color: #2563eb !important; color: #fff !important; padding: 4px; border-radius: 4px; }
-                td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }
-            </style>`);
+            /* ESCONDER O HEADER VELHO DO SITE ORIGINAL E NAVEGAÇÃO ANTIGA */
+            img[src*="topo_sia"] { display: none !important; }
+            map, area { display: none !important; }
+            table[width="766"] > tbody > tr:first-child { display: none !important; }
+            table[width="766"] > tbody > tr:nth-child(2) { display: none !important; }
+            td[background*="menu_fundo"], div[align="center"] > img { display: none !important; }
+            img[src*="menu"] { display: none !important; }
+            
+            .tabela_fundo { background-color: #111827 !important; }
+            .titulo_tabela, .titulo { background-color: #2563eb !important; color: #fff !important; padding: 4px; border-radius: 4px; }
+            td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }
+        </style>`);
 
-            modifiedHtml = modifiedHtml.replace(/href=["'](?!javascript|#|mailto)([^"']+)["']/gi, (match, p1) => {
-                const lowerP1 = p1.toLowerCase();
-                if (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls')) {
-                    if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
-                    return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
-                }
-                if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
-                    return `href="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
-                }
-                if (!p1.startsWith('http')) {
-                    let baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-                    return `href="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
-                }
-                return match; 
-            });
-
-            res.send(modifiedHtml);
+        modifiedHtml = modifiedHtml.replace(/href=["'](?!javascript|#|mailto)([^"']+)["']/gi, (match, p1) => {
+            const lowerP1 = p1.toLowerCase();
+            if (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls')) {
+                if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
+                return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
+            }
+            if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
+                return `href="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
+            }
+            if (!p1.startsWith('http')) {
+                let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
+                return `href="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
+            }
+            return match; 
         });
-    }).on('error', (e) => {
+
+        res.send(modifiedHtml);
+    } catch (e) {
+        console.error("Proxy error: ", e);
         res.status(500).send(`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
             <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p></div>`);
-    });
+    }
 });
 
 // --- LÓGICA FTP DATASUS ---
