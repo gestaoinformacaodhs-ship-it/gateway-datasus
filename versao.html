@@ -1,0 +1,328 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang='pt'>
+    <head>
+        <title>SIA - Sistema de Informa��es Ambulatoriais de Sa�de</title>
+        
+
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15">
+<meta name="author"              content="Fabricio Pires">
+<meta name="keywords"            lang="pt" content="Ambulatorial,sa�de, SIA">
+<meta name="description"         content="Sistema de Informa��es Ambulatoriais de Sa�de.">
+<meta name="robots"              content="all">
+
+
+<link rel="stylesheet"           type="text/css" media="screen" href="../css/letra12.css"  >  <!-- title="normal"> -->
+<link rel="alternate stylesheet" type="text/css" media="screen" href="../css/letra15.css"     title="grande">
+<link rel="stylesheet"           type="text/css" media="screen" href="../css/calendario.css" />
+
+<link rel="stylesheet"           type="text/css" media="screen" href="../css/cores.css"       title="Todos">
+<link rel="alternate stylesheet" type="text/css" media="screen" href="../css/cinza.css"       title="cinza">
+<link rel="alternate stylesheet" type="text/css" media="screen" href="../css/pretobranco.css" title="pretobranco">
+<link rel="stylesheet"           type="text/css" media="print"  href="../css/print.css" >
+
+<script src="../funcoes/funcoes.js" language ="script/text"></script>
+
+
+</head>
+
+<body>
+
+
+
+
+    <div id="master"> <!--JANELA PRINCIPAL-->
+
+        <div id="testeira"><!--TESTEIRA DO GOVERNO-->
+
+            <div id='saudegov' >
+                <span>Minist�rio da Saude</span>
+
+            </div>
+
+            <noscript><a id="destaquesGoverno" href="/" title="P&aacute;gina para sele&ccedil;&atilde;o dos link de Destaques do Governo">Destaques do Governo</a> </noscript>
+            <div id="destaquegov">
+                <fieldset>
+                    <legend>Acesso r�pido a uma funcionalidade do s�tio:</legend>
+                    <select id="opc" class="select2" name="opcoes" onchange="document.location.href = this.value" tabindex="3">
+                        <option value="http://aguia.datasus.gov.br/" selected="selected">Destaques do governo</option>
+                        <option value="http://www.brasil.gov.br">Portal do Governo Federal</option>
+                        <option value="http://www.e.gov.br">Portal de Servi�os do Governo</option>
+                        <option value="http://www.radiobras.gov.br">Portal da Ag�ncia de Not�cias</option>
+                        <option value="http://www.previdenciasocial.gov.br/reforma">Reforma da Previd�ncia</option>
+                        <option value="http://www.fomezero.gov.br">Programa Fome Zero</option>
+                    </select>
+                </fieldset>
+            </div>
+
+        </div><!--fecha TESTEIRA DO GOVERNO-->
+
+
+        <div id="testeira2"> <!-- TESTEIRA DO SISTEMA -->
+
+            <fieldset>
+
+               
+                <div class="nomeportal">
+                    <!--
+                    <span class='labeldestaque'>SIA - Sistema de Informa��es Ambulatoriais de Sa�de.</span>
+                    <br><span class='destaque'>MINIST�RIO DA SA�DE</span>
+                    -->
+                </div>
+           
+               
+
+                <div class="informacao2">
+
+                    <div class="menu">
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="../principal/index.php" class="principal" title="P�gina inicial do portal." tabindex="1">
+                                Principal
+                            </a>
+                        </div>
+
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="../remessa/remessa.php" class="principal" title="Consultas �s remessas de produ��o." tabindex="2">
+                                Consulta
+                            </a>
+                        </div>
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="../versao/versao.php" class="principal_on" title="Downloads do sistema." tabindex="3">
+                                Vers�es <br> Sistema
+                            </a>
+                        </div>
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="../documentos/documentos.php" class="principal" title="Documentos." tabindex="4">
+                                Documentos
+                            </a>
+                        </div>
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="../principal/forum.php" class="principal" title="F�rum de discurs�o." tabindex="5">
+                                F�rum
+                            </a>
+                        </div>                       
+
+
+                        <div class="ms_caixa_topo_meio">
+                            <a href="http://msbbs.datasus.gov.br/public/default.htm" class="principal" title="Downloads/UpLoad MS-BBS" tabindex="7">
+                                MS-BBS
+                            </a>
+                        </div>
+
+
+
+                    </div>
+                </div>
+
+            </fieldset>
+
+        </div>
+
+
+
+<div id='barra_submenu'>
+        
+                <div id='barra_submenu'>
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_apac.php' title="Vers�o do APAC"  tabindex='31'>APAC</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_bpa.php' title="Vers�o do BPA"  tabindex='32'>BPA</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_de-para.php' title="Vers�o do DE-PARA"  tabindex='33'>DE-PARA</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_fpo.php' title="Vers�o do FPO"  tabindex='33'>FPO</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_raas.php' title="Vers�o do RAAS"  tabindex='34'>RAAS</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_sia.php' title="Vers�o do SIA"  tabindex='35'>SIA</a>
+                </div>
+
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_versia.php' title="Vers�o do Versia"  tabindex='36'>VERSIA</a>
+                </div>
+                
+                <div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_equipe-brasil.php' title="Vers�o da Equipes Brasil"  tabindex='36'>EQUIPES BRASIL</a>
+                </div>
+				
+				<div class="item_submenu">
+                    <a class="item_submenu2" href='../versao/listar_ftp_autorizador.php' title="Vers�o do Autorizador"  tabindex='36'>AUTORIZADOR</a>
+                </div>
+
+
+            </div>
+            </div>
+    </div>
+
+
+
+
+        <script type="text/javascript" src="../funcoes/funcoesGerais.js"></script>
+
+
+    <div id='Conteudo_Corpo'>
+        <div class="quadro96c" >
+
+            <div class="informacao" >
+
+                <div class="col60" >
+                    <div class="titulo_aj">
+                        <span>VERS�ES</span>
+                    </div>
+                    <ul>
+                        <li><span class='letracinza lbltitulo negrito'><a href="ftp://arpoador.datasus.gov.br/siasus/download_diversos/Firebird-1.5.5.4926-3-Win32.exe" accesskey="1" title="FireBird" tabindex=24 onclick="log('VERSAO', 'DIVERSOS', 'FIREBIRD.EXE')">FireBird</a></span>
+                            <ul class='ul2'>
+                                <li class='li1'>Aplicativo para Gerenciar banco de dados (SGBD), desenvolvido em mantido por uma comunidade de desenvolvedores e pela Funda��o FireBird, o produto � Freeware, sendo pro�bida sua comercializa��o.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <ul>
+                        <li><span class='letracinza lbltitulo negrito'><a href="ftp://arpoador.datasus.gov.br/siasus/download_diversos/midas.dll" accesskey="1" title="midas.dll" tabindex=24 onclick="log('VERSAO', 'DIVERSOS', 'MIDAS.DLL')">Midas.dll</a></span>
+                            <ul class='ul2'>
+                                Extrair midas.dll. Recomendamos que voc� extraia midas.dll para a instala��o do programa que est� solicitando midas.dll.
+                                <br>Se isso n�o funcionar, voc� ter� que extrair o midas.dll para o diret�rio do sistema. Por padr�o, isto �:
+                                <br>C:\Windows\System (Windows 95/98/Me) ou C:\Windows\System32 (Windows XP, Vista, 7)
+                                <br>Se voc� utilize uma vers�o de 64-bit do Windows, dever� tamb�m salvar o midas.dll em C:\Windows\SysWOW64\
+                                <li class='li1'>Reinicie o computador.</li>
+                                <br>Se o problema persistir, tente o seguinte:
+                                <br>Abra o Windows no menu Iniciar e selecione "Executar ...".
+                                <br>Digite regsvr32 midas.dll e clique em Enter.
+                            </ul>           
+                        </li>
+                    </ul>
+
+                    <ul>
+                        <li><span class='letracinza lbltitulo negrito'><a href="ftp://arpoador.datasus.gov.br/siasus/download_diversos/dllsihd2.dll" accesskey="1" title="dllsihd2.dll" tabindex=24 onclick="log('VERSAO', 'DIVERSOS', 'DLLSIHD2.DLL')">Dllsihd2.dll</a></span>
+                            <ul class='ul2'>
+                                Extrair dllsihd2.dll. Recomendamos que voc� extraia dllsihd2.dll para a instala��o do programa que est� solicitando dllsihd2.dll.
+                                <br>Se isso n�o funcionar, voc� ter� que extrair o dllsihd2.dll para o diret�rio do sistema. Por padr�o, isto �:
+                                <br>C:\Windows\System (Windows 95/98/Me) ou C:\Windows\System32 (Windows XP, Vista, 7)                               
+                                <br>Se voc� utilize uma vers�o de 64-bit do Windows, dever� tamb�m salvar o midas.dll em C:\Windows\SysWOW64\
+                                <li class='li1'>Reinicie o computador.</li>
+                                <br>Se o problema persistir, tente o seguinte:
+                                <br>Abra o Windows no menu Iniciar e selecione "Executar ...".
+                                <br>Digite regsvr32 dllsihd2.dll e clique em Enter.
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <ul>
+                        <li><span class='letracinza lbltitulo negrito'><a href="ftp://arpoador.datasus.gov.br/siasus/download_diversos/qtintf70.dll" accesskey="1" title="qtintf70.dll" tabindex=24 onclick="log('VERSAO', 'DIVERSOS', 'QTINTF70.DLL')">Qtintf70.dll</a></span>
+                            <ul class='ul2'>
+                                Extrair qtintf70.dll. Recomendamos que voc� extraia qtintf70.dll para a instala��o do programa que est� solicitando qtintf70.dll.
+                                <br>Se isso n�o funcionar, voc� ter� que extrair o qtintf70.dll para o diret�rio do sistema. Por padr�o, isto �:
+                                <br>C:\Windows\System (Windows 95/98/Me) ou C:\Windows\System32 (Windows XP, Vista, 7)
+                                <br>Se voc� utilize uma vers�o de 64-bit do Windows, dever� tamb�m salvar o qtintf70.dll em C:\Windows\SysWOW64\
+                                <li class='li1'>Reinicie o computador.</li>
+                                <br>Se o problema persistir, tente o seguinte:
+                                <br>Abra o Windows no menu Iniciar e selecione "Executar ...".
+                                <br>Digite regsvr32 qtintf70.dll e clique em Enter.
+                            </ul>
+                        </li>
+                    </ul>
+
+                </div>
+                <div class="col40"> 
+                    <div class="aviso">   
+
+                        <div class="titulo">            
+                            <span>Pr�ximas vers�es de sistema:</span>
+                        </div>
+
+                        <table border = '0' align = 'center'>                                               
+
+							<tr>
+                                <td bgcolor="#6699CC"><font color="#FFFFFF"><strong>DATA</strong></font></td>
+                                <td bgcolor="#6699CC"><font color="#FFFFFF"><strong>REFER�NCIA</strong></font></td>
+                                <td bgcolor="#6699CC"><font color="#FFFFFF"><strong>SISTEMA</strong></font></td>
+                                <td bgcolor="#6699CC"><font color="#FFFFFF"><strong>VIG�NCIA</strong></font></td>                                
+                            </tr>							
+							<tr>
+							  <td bgcolor= "#BEBEBE">09/04/2018</td>
+							  <td bgcolor= "#BEBEBE">BDSIA201804a</td>
+							  <td bgcolor= "#BEBEBE">SIA</td>
+							  <td bgcolor= "#BEBEBE">04/2018</td>
+							</tr>							
+							<tr>
+							  <td>09/04/2018</td>
+							  <td>BDSIA201803b</td>
+							  <td>SIA</td>
+							  <td>03/2018</td>
+							</tr>
+							
+							<tr>
+							  <td bgcolor= "#BEBEBE">07/03/2018</td>
+							  <td bgcolor= "#BEBEBE">BDSIA201802c</td>
+							  <td bgcolor= "#BEBEBE">SIA</td>
+							  <td bgcolor= "#BEBEBE">02/2018</td>
+							</tr>
+
+							<tr>
+							  <td>15/02/2018</td>
+							  <td>BDSIA201801c</td>
+							  <td>SIA</td>
+							  <td>01/2018</td>
+							</tr>
+								
+							<tr>
+							  <td bgcolor= "#BEBEBE">05/02/2018</td>
+							  <td bgcolor= "#BEBEBE">SIA0407</td>
+							  <td bgcolor= "#BEBEBE">SIA</td>
+							  <td bgcolor= "#BEBEBE">01/2018</td>
+							</tr>
+							
+							<tr>
+							  <td >05/01/2018</td>
+							  <td >BDSIA201712b</td>
+							  <td >SIA</td>
+							  <td >12/2017</td>
+							</tr>
+
+							<tr>
+							  <td bgcolor= "#BEBEBE">11/12/2017</td>
+							  <td bgcolor= "#BEBEBE">BDSIA201711c</td>
+							  <td bgcolor= "#BEBEBE">SIA</td>
+							  <td bgcolor= "#BEBEBE">11/2017</td>
+							</tr>							
+
+                                
+
+                            <tr>
+                                <td bgcolor="#6699CC" colspan="4">&nbsp;</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<div id='rodape'>
+    <div align="center" id='rodape2'>
+        <font color="#003366"><span>Sistemas de Informa��es Ambulatoriais do SUS.<br></span></font>    
+        <font color="#003366"><span>Rua M�xico, 128, Centro, Rio de Janeiro.<br></span></font>    
+        <font color="#003366"><span>Copyright � 2013<br></span></font>
+    </div>
+    <div align="right" id='rodape3'>
+        <font color="#003366"><span>Vers�o 1.9.0<br></span></font>
+    </div>
+</div>
+
+</body>
+</html>
