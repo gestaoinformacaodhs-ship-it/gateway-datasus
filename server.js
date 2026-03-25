@@ -339,7 +339,7 @@ app.get('/siops', (req, res) => {
 });
 
 // --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA ---
-app.get('/api/sia-proxy', async (req, res) => {
+app.all('/api/sia-proxy', async (req, res) => {
     let targetUrl = req.query.url || 'http://sia.datasus.gov.br/principal/index.php';
     if (!targetUrl.startsWith('http')) {
         targetUrl = 'http://sia.datasus.gov.br' + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
@@ -347,7 +347,22 @@ app.get('/api/sia-proxy', async (req, res) => {
 
     try {
         const fetchMethod = global.fetch; // Node 18+ nativo
-        const response = await fetchMethod(targetUrl, { redirect: 'follow' });
+        let options = {
+            method: req.method,
+            redirect: 'follow',
+            headers: {}
+        };
+
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const bodyParams = new URLSearchParams();
+            for (const key in req.body) {
+                bodyParams.append(key, req.body[key]);
+            }
+            options.body = bodyParams.toString();
+            options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        }
+
+        const response = await fetchMethod(targetUrl, options);
         
         const finalUrl = response.url;
         const arrayBuffer = await response.arrayBuffer();
@@ -371,7 +386,37 @@ app.get('/api/sia-proxy', async (req, res) => {
             table[width="766"] > tbody > tr:nth-child(2) { display: none !important; }
             td[background*="menu_fundo"], div[align="center"] > img { display: none !important; }
             img[src*="menu"] { display: none !important; }
+            #barra_submenu, .item_submenu, .item_submenu2, .ms_caixa_topo_meio, .menu { display: none !important; }
             
+            /* MODERNIZAR FORMULÁRIOS SIASUS PARA TAILWIND */
+            select, input[type="text"], input[type="submit"], input[type="button"], button {
+                background-color: #1e293b !important;
+                color: #f8fafc !important;
+                border: 1px solid #334155 !important;
+                padding: 8px 16px !important;
+                border-radius: 8px !important;
+                font-family: inherit !important;
+                outline: none !important;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+                margin: 4px;
+                background-image: none !important; /* overrides custom arrow images in selects */
+            }
+            select option { background-color: #1e293b !important; color: #f8fafc !important; }
+            input[type="submit"], input[type="button"], button, .botao {
+                background-color: #2563eb !important;
+                font-weight: 700 !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                border: none !important;
+            }
+            input[type="submit"]:hover, input[type="button"]:hover, button:hover {
+                background-color: #3b82f6 !important;
+                transform: translateY(-1px) !important;
+            }
+            .titulo_aj, .box_destaque { color: #60a5fa !important; font-size: 1.1rem !important; margin-bottom: 12px !important; border-bottom: 1px solid #334155 !important; padding-bottom: 8px !important; }
+            fieldset { border: 1px solid #334155 !important; border-radius: 8px !important; padding: 16px !important; margin-top: 10px !important; }
+            legend { color: #94a3b8 !important; font-weight: bold !important; padding: 0 8px !important; }
+
             .tabela_fundo { background-color: #111827 !important; }
             .titulo_tabela, .titulo { background-color: #2563eb !important; color: #fff !important; padding: 4px; border-radius: 4px; }
             td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }
@@ -391,6 +436,18 @@ app.get('/api/sia-proxy', async (req, res) => {
                 return `href="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
             }
             return match; 
+        });
+
+        // REWRITE FORM ACTIONS FOR POSTS/GETS TO STAY INSIDE THE PROXY!
+        modifiedHtml = modifiedHtml.replace(/action=["']([^"']+)["']/gi, (match, p1) => {
+            if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
+                return `action="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
+            }
+            if (!p1.startsWith('http')) {
+                let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
+                return `action="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
+            }
+            return match;
         });
 
         res.send(modifiedHtml);
