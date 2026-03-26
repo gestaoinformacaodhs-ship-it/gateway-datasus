@@ -242,7 +242,12 @@
             loader.style.display = 'flex';
 
             const frame = document.getElementById('sia-frame');
-            frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+            if (path.startsWith('http') && !path.includes('.datasus.gov.br')) {
+                window.open(path, '_blank');
+                esconderLoader();
+            } else {
+                frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+            }
         }
 
         function carregarSubModulo(path, btn, submenuClass = 'consulta') {
@@ -275,7 +280,12 @@
             loader.style.display = 'flex';
 
             const frame = document.getElementById('sia-frame');
-            frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+            if (path.startsWith('http') && !path.includes('.datasus.gov.br')) {
+                window.open(path, '_blank');
+                esconderLoader();
+            } else {
+                frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+            }
         }
 
         function esconderLoader() {
