@@ -38,19 +38,25 @@ if (process.env.BREVO_API_KEY) {
 }
 
 // --- CONFIGURAÇÃO BANCO DE DADOS (PostgreSQL) ---
-const pool = new Pool({
+const pool = process.env.DATABASE_URL ? new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 15,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000
-});
+}) : null;
 
-pool.on('error', (err) => {
-    console.error('❌ Erro inesperado no cliente PostgreSQL:', err.message);
-});
+if (pool) {
+    pool.on('error', (err) => {
+        console.error('❌ Erro inesperado no cliente PostgreSQL:', err.message);
+    });
+}
 
 async function initDB() {
+    if (!pool) {
+        console.warn("⚠️ DATABASE_URL não definida. Pulando inicialização do banco.");
+        return;
+    }
     try {
         const client = await pool.connect();
         await client.query(`
@@ -343,6 +349,7 @@ app.get('/siops', (req, res) => {
 
 // --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA MESTRE ---
 async function handleSiaProxy(req, res, targetUrl) {
+    console.log("Proxying request to:", targetUrl);
     if (!targetUrl) return res.status(400).send("No URL provided");
     if (!targetUrl.startsWith('http')) {
         targetUrl = 'http://sia.datasus.gov.br' + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
@@ -352,9 +359,16 @@ async function handleSiaProxy(req, res, targetUrl) {
         const fetchMethod = global.fetch; // Node 18+ nativo
         
         // Verifica primeiro se a rota que chamou é sihd-proxy, caso contrário checa se a URL tem sihd explicitamente
-        const baseDomain = (req.originalUrl.includes('sihd-proxy') || targetUrl.includes('sihd.datasus')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        let baseDomain = 'sia.datasus.gov.br';
+        if (targetUrl.startsWith('http')) {
+            try {
+                const urlObj = new URL(targetUrl);
+                baseDomain = urlObj.hostname;
+            } catch(e) { /* ignore invalid url */ }
+        } else if (req.originalUrl.includes('sihd-proxy') || targetUrl.includes('sihd.datasus')) {
+            baseDomain = 'sihd.datasus.gov.br';
+        }
 
-        // Corrige URL target se ela vier sem o dominio
         if (targetUrl.startsWith('/')) {
             targetUrl = `http://${baseDomain}${targetUrl}`;
         }
@@ -364,8 +378,7 @@ async function handleSiaProxy(req, res, targetUrl) {
             redirect: 'follow',
             headers: {
                 'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Referer': `http://${baseDomain}/principal/index.php`,
-                'Host': baseDomain,
+                'Referer': `http://${baseDomain}/`,
                 'Cookie': req.headers.cookie || ''
             }
         };
@@ -411,6 +424,58 @@ async function handleSiaProxy(req, res, targetUrl) {
 
         let response;
         try {
+            console.log("Processing request for domain:", baseDomain, "URL:", targetUrl);
+            if (baseDomain.includes('msbbs')) {
+                // MS-BBS fallback usando o módulo HTTP nativo com host e path explícitos
+                const http = require('http');
+                const urlObj = new URL(targetUrl);
+                return new Promise((resolve, reject) => {
+                    const reqBbs = http.get({
+                        hostname: urlObj.hostname,
+                        port: 80,
+                        path: urlObj.pathname + urlObj.search,
+                        insecureHTTPParser: true,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Host': urlObj.hostname
+                        }
+                    }, (httpRes) => {
+                        let data = [];
+                        httpRes.on('data', chunk => data.push(chunk));
+                        httpRes.on('end', () => {
+                            const buffer = Buffer.concat(data);
+                            res.set('Content-Type', 'text/html; charset=latin1');
+                            
+                            let html = buffer.toString('latin1');
+                            // Injeção de CSS e correções
+                            let modifiedHtml = html.replace(/<head>/i, `<head>
+                                <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+                                <style>
+                                    body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; }
+                                    img[src*="topo_sia"], #rodape, #testeira, #testeira2 { display: none !important; }
+                                </style>`);
+                            modifiedHtml = modifiedHtml.replace(/<\/body>/i, `<div id="resultteste" style="display:none"></div></body>`);
+                            
+                            // Correção de links para o MS-BBS
+                            modifiedHtml = modifiedHtml.replace(/(href|src)=["']([^"']+)["']/gi, (m, type, p1) => {
+                                if (p1.startsWith('http') || p1.startsWith('/') || p1.startsWith('javascript')) return m;
+                                let baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+                                return `${type}="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
+                            });
+
+                            res.send(modifiedHtml);
+                            resolve();
+                        });
+                    });
+                    
+                    reqBbs.on('error', e => {
+                        console.error("HTTP Fallback Error for MS-BBS:", e);
+                        res.status(500).send("Erro no MS-BBS: " + e.message);
+                        reject(e);
+                    });
+                });
+            }
+            
             response = await fetchMethod(targetUrl, options);
         } catch(fetchError) {
             clearTimeout(mainTimeout);
@@ -442,8 +507,9 @@ async function handleSiaProxy(req, res, targetUrl) {
         // TRATAMENTO DE HTML — sem <base> tag para evitar Mixed Content!
         // A tag <base> causaria o browser a buscar assets diretamente no HTTP do DATASUS, bloqueado por Mixed Content.
         let modifiedHtml = html.replace(/<head>/i, `<head>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
         <style>
-            body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; overflow: auto; }
+            body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; overflow: auto; min-height: 100vh; }
             /* Esconder todas as scrollbars mantendo a rolagem funcional */
             * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
             *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
@@ -467,12 +533,14 @@ async function handleSiaProxy(req, res, targetUrl) {
             td[bgcolor], th[bgcolor] { background-color: #1e293b !important; }
         </style>`);
 
+        // Inject missing elements to avoid legacy JS crashes
+        modifiedHtml = modifiedHtml.replace(/<\/body>/i, `<div id="resultteste" style="display:none"></div></body>`);
+
         // Correção massiva também para scripts (src), forms (action) e hrefs!
         modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
             const lowerP1 = p1.toLowerCase();
             const proxyApiRoute = targetUrl.includes('sihd.datasus') ? '/api/sihd-proxy' : '/api/sia-proxy';
 
-            // Links FTP: redirecionar para rota de download nativa (sem abrir nova aba)
             if (p1.startsWith('ftp://')) {
                 return `href="/api/ftp-download?url=${encodeURIComponent(p1)}"`;
             }
@@ -480,7 +548,13 @@ async function handleSiaProxy(req, res, targetUrl) {
                 if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
                 return `href="http://${baseDomain}/${p1.replace(/^\//, '')}" target="_blank"`;
             }
-            if (p1.startsWith(`http://${baseDomain}`) || p1.startsWith('/')) {
+            if (p1.startsWith('http')) {
+                if (p1.includes('.datasus.gov.br')) {
+                     return `${type}="${proxyApiRoute}?url=${encodeURIComponent(p1)}"`;
+                }
+                return match; 
+            }
+            if (p1.startsWith('/') || p1.startsWith(`http://${baseDomain}`)) {
                 return `${type}="${proxyApiRoute}?url=${encodeURIComponent(p1)}"`;
             }
             if (!p1.startsWith('http')) {
@@ -492,9 +566,11 @@ async function handleSiaProxy(req, res, targetUrl) {
 
         res.send(modifiedHtml);
     } catch (e) {
-        console.error("Proxy error: ", e);
+        console.error("Proxy error for", targetUrl, ":", e);
+        if (e.cause) console.error("Cause:", e.cause);
         res.status(500).send(`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
-            <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p></div>`);
+            <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p>
+            <p style="font-size: 10px; opacity: 0.5;">URL: ${targetUrl}</p></div>`);
     }
 }
 
