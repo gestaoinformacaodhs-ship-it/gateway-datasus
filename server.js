@@ -494,7 +494,7 @@ app.all('/api/sia-proxy', (req, res) => handleSiaProxy(req, res, req.query.url))
 app.all('/api/sihd-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
 
 // --- INTERCEPTAÇÃO TRANSPARENTE DE AJAX E ASSETS ---
-const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js', '/padroes'];
+const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js', '/padroes', '/versao', '/documentos', '/remessa'];
 DATASUS_FOLDERS.forEach(folder => {
     app.all(`${folder}/*`, (req, res) => {
         const referer = req.headers.referer || '';
