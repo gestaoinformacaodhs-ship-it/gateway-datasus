@@ -451,7 +451,7 @@ async function handleSiaProxy(req, res, targetUrl) {
             a { color: #3b82f6 !important; text-decoration: none; font-weight: bold; }
             a:hover { color: #60a5fa !important; text-decoration: underline; }
             .conteudo, .tabela1, .tabela2, .box, div, span, p, font { background: transparent !important; border-color: #334155 !important; color: #cbd5e1 !important; }
-            img[src*="topo_sia"], map, area, table[width="766"] > tbody > tr:first-child, table[width="766"] > tbody > tr:nth-child(2), td[background*="menu_fundo"], div[align="center"] > img, img[src*="menu"], #barra_submenu, .item_submenu, .item_submenu2, .ms_caixa_topo_meio, .menu, #rodape, #rodape2, #rodape3, #destaquegov, #destaquesGoverno { display: none !important; }
+            img[src*="topo_sia"], map, area, table[width="766"] > tbody > tr:first-child, table[width="766"] > tbody > tr:nth-child(2), td[background*="menu_fundo"], div[align="center"] > img, img[src*="menu"], #barra_submenu, .item_submenu, .item_submenu2, .ms_caixa_topo_meio, .menu, #rodape, #rodape2, #rodape3, #destaquegov, #destaquesGoverno, #testeira, #testeira2 { display: none !important; }
             
             select, input[type="text"], input[type="submit"], input[type="button"], button {
                 background-color: #1e293b !important; color: #f8fafc !important; border: 1px solid #334155 !important; padding: 8px 16px !important; border-radius: 8px !important; font-family: inherit !important; outline: none !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important; margin: 4px; background-image: none !important;
