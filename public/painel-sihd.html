@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Principal SIHD | Gateway DATASUS</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            background-color: #0a0f1c; 
+            color: #cbd5e1; 
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        .nav-btn {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: rgba(37, 99, 235, 0.2);
+            border-color: rgba(37, 99, 235, 0.5);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="bg-[#0a0f1c]/80 backdrop-blur-md border-b border-white/5 px-6 py-4 shrink-0 z-20">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            <h2 class="text-xl font-black tracking-tighter cursor-pointer text-white" onclick="window.location.href='dashboard.html'">
+                GATEWAY <span class="text-blue-600">SUS</span>
+                <span class="hidden md:inline-block ml-3 pl-3 border-l border-white/10 text-sm font-bold text-slate-400">Painel Principal SIHD</span>
+            </h2>
+            
+            <button onclick="window.location.href='dashboard.html'" class="bg-slate-800 border border-slate-700 text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 flex flex-col gap-6 h-full overflow-hidden">
+        
+        <nav class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 shrink-0">
+            <button onclick="carregarModulo(this, '/principal/index.php')" class="nav-btn active flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-house mb-0.5 text-blue-500"></i> Principal
+            </button>
+            <button onclick="carregarModulo(this, '/remessa/remessa.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consultas
+            </button>
+            <button onclick="carregarModulo(this, '/versao/versao.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-code-branch mb-0.5 text-blue-500"></i> Versões dos Sistemas
+            </button>
+            <button onclick="carregarModulo(this, '/documentos/documentos.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-folder-open mb-0.5 text-blue-500"></i> Documentos
+            </button>
+            <button onclick="carregarModulo(this, '/principal/sitesRelacionados.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-link mb-0.5 text-blue-500"></i> Sites Relacionados
+            </button>
+            <button onclick="window.open('http://msbbs.datasus.gov.br/public/default.htm', '_blank')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+                <i class="fa-solid fa-server mb-0.5 text-blue-500"></i> MS-BBS
+            </button>
+        </nav>
+
+        <div class="bg-[#111827] w-full flex-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative mb-4 flex flex-col">
+            
+            <div id="loader" class="absolute inset-0 flex items-center justify-center bg-[#111827] z-10 transition-opacity duration-300">
+                <div class="flex flex-col items-center gap-4">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-600"></i>
+                    <p class="text-sm font-black tracking-widest text-slate-500 uppercase">Acessando Integração Nativa...</p>
+                </div>
+            </div>
+
+            <iframe id="sia-frame" onload="esconderLoader()" src="/api/sihd-proxy?url=/principal/index.php" class="flex-1 w-full h-full border-0" style="color-scheme: dark;"></iframe>
+            
+        </div>
+    </main>
+
+    <script>
+        function resetSubmenus() {
+            ['submenu-consulta', 'submenu-versao', 'submenu-documentos'].forEach(id => {
+                const sm = document.getElementById(id);
+                sm.classList.remove('opacity-100', 'translate-y-0');
+                sm.classList.add('opacity-0', '-translate-y-2');
+            });
+            setTimeout(() => {
+                document.getElementById('submenu-consulta').classList.add('hidden'); document.getElementById('submenu-consulta').classList.remove('grid');
+                document.getElementById('submenu-versao').classList.add('hidden'); document.getElementById('submenu-versao').classList.remove('flex');
+                document.getElementById('submenu-documentos').classList.add('hidden'); document.getElementById('submenu-documentos').classList.remove('flex');
+            }, 300);
+        }
+
+        function carregarModulo(btn, path, tipo = 'padrao') {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const smConsulta = document.getElementById('submenu-consulta');
+            const smVersao = document.getElementById('submenu-versao');
+
+            if (tipo === 'consulta') {
+                resetSubmenus();
+                setTimeout(() => {
+                    smConsulta.classList.remove('hidden');
+                    smConsulta.classList.add('grid');
+                    setTimeout(() => {
+                        smConsulta.classList.remove('opacity-0', '-translate-y-2');
+                        smConsulta.classList.add('opacity-100', 'translate-y-0');
+                    }, 50);
+                }, 300);
+                
+                const frame = document.getElementById('sia-frame');
+                frame.src = 'about:blank';
+                frame.contentDocument.write('<body style="background:#111827;color:#cbd5e1;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h3>Selecione uma opção de Consulta acima</h3><p style="opacity:0.6;font-size:12px;">Módulo Desacoplado Nativamente</p></div></body>');
+                return;
+            } else if (tipo === 'versao') {
+                resetSubmenus();
+                setTimeout(() => {
+                    const sm = document.getElementById('submenu-versao');
+                    sm.classList.remove('hidden'); sm.classList.add('flex');
+                    setTimeout(() => { sm.classList.remove('opacity-0', '-translate-y-2'); sm.classList.add('opacity-100', 'translate-y-0'); }, 50);
+                }, 300);
+            } else if (tipo === 'documentos') {
+                resetSubmenus();
+                setTimeout(() => {
+                    const sm = document.getElementById('submenu-documentos');
+                    sm.classList.remove('hidden'); sm.classList.add('flex');
+                    setTimeout(() => { sm.classList.remove('opacity-0', '-translate-y-2'); sm.classList.add('opacity-100', 'translate-y-0'); }, 50);
+                }, 300);
+            } else {
+                resetSubmenus();
+            }
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '1';
+            loader.style.display = 'flex';
+
+            const frame = document.getElementById('sia-frame');
+            frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+        }
+
+        function carregarSubModulo(path, btn, submenuClass = 'consulta') {
+            // Lógica isolada para limpar apenas os botões daquele grupo ativo
+            let btnClass = submenuClass === 'versao' ? '.sub-btn-versao' : (submenuClass === 'documentos' ? '.sub-btn-documentos' : '.sub-btn');
+            const isStyled = submenuClass === 'versao' || submenuClass === 'documentos';
+            
+            document.querySelectorAll(btnClass).forEach(b => {
+                b.classList.remove('border-blue-500', 'bg-blue-900/40');
+                if (isStyled) {
+                    b.classList.remove('text-white');
+                    b.classList.add('border-slate-700/60', 'bg-slate-800/60', 'text-slate-300');
+                    b.querySelector('i').classList.remove('text-blue-400');
+                    b.querySelector('i').classList.add('text-blue-500');
+                } else {
+                    b.classList.add('border-slate-700/60', 'bg-slate-800/60');
+                }
+            });
+            
+            btn.classList.remove('border-slate-700/60', 'bg-slate-800/60', 'text-slate-300');
+            btn.classList.add('border-blue-500', 'bg-blue-900/40');
+            if (isStyled) {
+                btn.classList.add('text-white');
+                btn.querySelector('i').classList.remove('text-blue-500');
+                btn.querySelector('i').classList.add('text-blue-400');
+            }
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '1';
+            loader.style.display = 'flex';
+
+            const frame = document.getElementById('sia-frame');
+            frame.src = `/api/sihd-proxy?url=${encodeURIComponent(path)}`;
+        }
+
+        function esconderLoader() {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 300);
+        }
+    </script>
+</body>
+</html>

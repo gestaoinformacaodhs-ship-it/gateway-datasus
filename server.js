@@ -350,12 +350,15 @@ async function handleSiaProxy(req, res, targetUrl) {
 
     try {
         const fetchMethod = global.fetch; // Node 18+ nativo
+        const baseDomain = targetUrl.includes('sihd.datasus') ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+
         let options = {
             method: req.method,
             redirect: 'follow',
             headers: {
                 'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Referer': 'http://sia.datasus.gov.br/principal/index.php',
+                'Referer': `http://${baseDomain}/principal/index.php`,
+                'Host': baseDomain,
                 'Cookie': req.headers.cookie || ''
             }
         };
@@ -370,7 +373,7 @@ async function handleSiaProxy(req, res, targetUrl) {
             try {
                 const ac = new AbortController();
                 const initTimeout = setTimeout(() => ac.abort(), 10000);
-                const initRes = await fetchMethod('http://sia.datasus.gov.br/principal/index.php', { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] }, signal: ac.signal });
+                const initRes = await fetchMethod(`http://${baseDomain}/principal/index.php`, { method: 'GET', headers: { 'User-Agent': options.headers['User-Agent'] }, signal: ac.signal });
                 clearTimeout(initTimeout);
                 
                 let setCookiesInit = [];
@@ -459,20 +462,22 @@ async function handleSiaProxy(req, res, targetUrl) {
         // Correção massiva também para scripts (src), forms (action) e hrefs!
         modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
             const lowerP1 = p1.toLowerCase();
+            const proxyApiRoute = targetUrl.includes('sihd.datasus') ? '/api/sihd-proxy' : '/api/sia-proxy';
+
             // Links FTP: redirecionar para rota de download nativa (sem abrir nova aba)
             if (p1.startsWith('ftp://')) {
                 return `href="/api/ftp-download?url=${encodeURIComponent(p1)}"`;
             }
             if (type === 'href' && (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls'))) {
                 if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
-                return `href="http://sia.datasus.gov.br/${p1.replace(/^\//, '')}" target="_blank"`;
+                return `href="http://${baseDomain}/${p1.replace(/^\//, '')}" target="_blank"`;
             }
-            if (p1.startsWith('http://sia.datasus.gov.br') || p1.startsWith('/')) {
-                return `${type}="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
+            if (p1.startsWith(`http://${baseDomain}`) || p1.startsWith('/')) {
+                return `${type}="${proxyApiRoute}?url=${encodeURIComponent(p1)}"`;
             }
             if (!p1.startsWith('http')) {
                 let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
-                return `${type}="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
+                return `${type}="${proxyApiRoute}?url=${encodeURIComponent(baseUrl + p1)}"`;
             }
             return match; 
         });
@@ -486,12 +491,15 @@ async function handleSiaProxy(req, res, targetUrl) {
 }
 
 app.all('/api/sia-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
+app.all('/api/sihd-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
 
 // --- INTERCEPTAÇÃO TRANSPARENTE DE AJAX E ASSETS ---
-const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js'];
+const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js', '/padroes'];
 DATASUS_FOLDERS.forEach(folder => {
     app.all(`${folder}/*`, (req, res) => {
-        handleSiaProxy(req, res, 'http://sia.datasus.gov.br' + req.originalUrl);
+        const referer = req.headers.referer || '';
+        const targetDomain = referer.includes('sihd-proxy') ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        handleSiaProxy(req, res, `http://${targetDomain}${req.originalUrl}`);
     });
 });
 
