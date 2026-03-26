@@ -619,13 +619,25 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
 
     // --- KEEP-ALIVE: evita hibernação no Render (free tier dorme após 15min) ---
-    const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-    setInterval(async () => {
+    const PING_URL = `http://localhost:${PORT}/health`;
+    console.log(`💓 Keep-alive ativado → ping a cada 9min em ${PING_URL}`);
+
+    // Primeiro ping imediato para confirmar que está funcionando
+    setTimeout(async () => {
         try {
-            await fetch(`${SELF_URL}/health`);
-            console.log(`💓 Keep-alive ping enviado → ${SELF_URL}/health`);
+            await fetch(PING_URL);
+            console.log(`💓 Keep-alive: primeiro ping OK → ${PING_URL}`);
         } catch (e) {
             console.warn('Keep-alive ping falhou:', e.message);
         }
-    }, 10 * 60 * 1000); // a cada 10 minutos
+    }, 5000); // 5 segundos após iniciar
+
+    setInterval(async () => {
+        try {
+            await fetch(PING_URL);
+            console.log(`💓 Keep-alive ping OK → ${new Date().toISOString()}`);
+        } catch (e) {
+            console.warn('Keep-alive ping falhou:', e.message);
+        }
+    }, 9 * 60 * 1000); // a cada 9 minutos
 });
