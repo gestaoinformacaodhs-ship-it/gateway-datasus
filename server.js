@@ -444,11 +444,13 @@ async function handleSiaProxy(req, res, targetUrl) {
                         httpRes.on('data', chunk => data.push(chunk));
                         httpRes.on('end', () => {
                             const buffer = Buffer.concat(data);
-                            res.set('Content-Type', 'text/html; charset=latin1');
+                            const contentType = httpRes.headers['content-type'] || 'text/html';
                             
-                            let html = buffer.toString('latin1');
-                            // Injeção de CSS e correções
-                            let modifiedHtml = html.replace(/<head>/i, `<head>
+                            if (contentType.includes('text/html')) {
+                                res.set('Content-Type', 'text/html; charset=latin1');
+                                let html = buffer.toString('latin1');
+                                // Injeção de CSS e correções
+                                let modifiedHtml = html.replace(/<head>/i, `<head>
                                 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
                                 <style>
                                     body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; }
