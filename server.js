@@ -350,8 +350,15 @@ async function handleSiaProxy(req, res, targetUrl) {
 
     try {
         const fetchMethod = global.fetch; // Node 18+ nativo
-        const baseDomain = targetUrl.includes('sihd.datasus') ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        
+        // Verifica primeiro se a rota que chamou é sihd-proxy, caso contrário checa se a URL tem sihd explicitamente
+        const baseDomain = (req.originalUrl.includes('sihd-proxy') || targetUrl.includes('sihd.datasus')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
 
+        // Corrige URL target se ela vier sem o dominio
+        if (targetUrl.startsWith('/')) {
+            targetUrl = `http://${baseDomain}${targetUrl}`;
+        }
+        
         let options = {
             method: req.method,
             redirect: 'follow',
