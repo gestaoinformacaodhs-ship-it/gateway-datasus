@@ -439,8 +439,9 @@ async function handleSiaProxy(req, res, targetUrl) {
 
         let html = buffer.toString('latin1');
         
-        // TRATAMENTO DE HTML
-        let modifiedHtml = html.replace(/<head>/i, `<head><base href="${finalUrl}">
+        // TRATAMENTO DE HTML — sem <base> tag para evitar Mixed Content!
+        // A tag <base> causaria o browser a buscar assets diretamente no HTTP do DATASUS, bloqueado por Mixed Content.
+        let modifiedHtml = html.replace(/<head>/i, `<head>
         <style>
             body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; overflow: auto; }
             /* Esconder todas as scrollbars mantendo a rolagem funcional */
@@ -627,8 +628,16 @@ app.all('*', (req, res, next) => {
         return next();
     }
     
-    // Fallback: se nenhuma rota bateu, assumimos que é um asset ou página legada do DATASUS
+    // Fallback: se nenhuma rota bateu E o referer indica que veio de dentro do proxy (sihd ou sia)
+    // Isso evita que paginas normais do gateway (.html) sejam erroneamente encaminhadas ao DATASUS
     const referer = req.headers.referer || '';
+    const fromProxy = referer.includes('sihd-proxy') || referer.includes('sia-proxy') || referer.includes('sihd.datasus') || referer.includes('sia.datasus');
+    
+    if (!fromProxy) {
+        // Não é do proxy — deixa retornar 404 padrão do Express
+        return res.status(404).send('Not Found');
+    }
+    
     const targetDomain = (referer.includes('sihd-proxy') || req.originalUrl.includes('sihd')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
     
     // Envia pro motor de proxy
