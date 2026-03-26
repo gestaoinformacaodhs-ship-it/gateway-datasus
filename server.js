@@ -424,7 +424,6 @@ async function handleSiaProxy(req, res, targetUrl) {
 
         let response;
         try {
-            console.log("Processing request for domain:", baseDomain, "URL:", targetUrl);
             if (baseDomain.includes('msbbs')) {
                 // MS-BBS fallback usando o módulo HTTP nativo com host e path explícitos
                 const http = require('http');
