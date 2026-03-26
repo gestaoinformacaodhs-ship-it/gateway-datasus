@@ -55,13 +55,13 @@
             <button onclick="carregarModulo(this, '/principal/index.php')" class="nav-btn active flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-house mb-0.5 text-blue-500"></i> Principal
             </button>
-            <button onclick="carregarModulo(this, '/remessa/remessa.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '', 'consulta')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consultas
             </button>
-            <button onclick="carregarModulo(this, '/versao/versao.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/versao/versao.php', 'versao')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-code-branch mb-0.5 text-blue-500"></i> Versões dos Sistemas
             </button>
-            <button onclick="carregarModulo(this, '/documentos/documentos.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/documentos/documentos.php', 'documentos')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-folder-open mb-0.5 text-blue-500"></i> Documentos
             </button>
             <button onclick="carregarModulo(this, '/principal/sitesRelacionados.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
@@ -71,6 +71,40 @@
                 <i class="fa-solid fa-server mb-0.5 text-blue-500"></i> MS-BBS
             </button>
         </nav>
+
+        <!-- SUBMENU NATIVO PARA CONSULTA -->
+        <div id="submenu-consulta" class="hidden grid-cols-2 lg:grid-cols-3 gap-3 shrink-0 mb-2 transition-all duration-500 opacity-0 transform -translate-y-2">
+            <button onclick="carregarSubModulo('/remessa/remessa.php', this)" class="sub-btn bg-slate-800/60 hover:bg-blue-600/30 border border-slate-700/60 p-3 rounded-xl text-left transition-all group shadow-sm hover:shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-white group-hover:text-blue-400 text-sm">Consultas às Remessas</h4>
+                    <i class="fa-solid fa-chart-line text-blue-500"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-tight">Acompanhamento e consulta de produção do SIHD.</p>
+            </button>
+        </div>
+
+        <!-- SUBMENU NATIVO PARA VERSÕES DE SISTEMA -->
+        <div id="submenu-versao" class="hidden flex-wrap gap-2 shrink-0 mb-3 transition-all duration-500 opacity-0 transform -translate-y-2">
+            <button onclick="carregarSubModulo('/versao/versao.php', this, 'versao')" class="sub-btn-versao bg-blue-900/40 border border-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-circle-info mr-1.5 text-blue-400"></i> Visão Geral
+            </button>
+            <button onclick="carregarSubModulo('/versao/versao_sihd2.php', this, 'versao')" class="sub-btn-versao bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-hospital mr-1.5 text-blue-500"></i> SIHD2
+            </button>
+            <button onclick="carregarSubModulo('/versao/versao_sihdts.php', this, 'versao')" class="sub-btn-versao bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-clock-rotate-left mr-1.5 text-blue-500"></i> SIHDTS
+            </button>
+        </div>
+
+        <!-- SUBMENU NATIVO PARA DOCUMENTOS -->
+        <div id="submenu-documentos" class="hidden flex-wrap gap-2 shrink-0 mb-3 transition-all duration-500 opacity-0 transform -translate-y-2">
+            <button onclick="carregarSubModulo('/documentos/documentos.php', this, 'documentos')" class="sub-btn-documentos bg-blue-900/40 border border-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-folder-open mr-1.5 text-blue-400"></i> Todos os Documentos
+            </button>
+            <button onclick="carregarSubModulo('https://docs.google.com/document/d/1Kw3XHWGv9B2zNT67814pqnjwHTMgDsGwWeBHYkO-nww/edit', this, 'documentos')" class="sub-btn-documentos bg-slate-800/60 border border-slate-700/60 text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-600/30 transition-all shadow-sm flex items-center whitespace-nowrap">
+                <i class="fa-solid fa-virus-covid mr-1.5 text-blue-500"></i> COVID-19 Orientações
+            </button>
+        </div>
 
         <div class="bg-[#111827] w-full flex-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative mb-4 flex flex-col">
             
