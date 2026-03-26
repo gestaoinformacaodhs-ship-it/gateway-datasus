@@ -172,6 +172,9 @@ async function enviarEmail(emailDestino, assunto, html) {
     }
 }
 
+// --- HEALTH CHECK (usado pelo keep-alive interno) ---
+app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
+
 // --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/registrar', async (req, res) => {
@@ -614,4 +617,15 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
 const PORT = process.env.PORT || 10000; // Render usa 10000 por padrão
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
+
+    // --- KEEP-ALIVE: evita hibernação no Render (free tier dorme após 15min) ---
+    const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    setInterval(async () => {
+        try {
+            await fetch(`${SELF_URL}/health`);
+            console.log(`💓 Keep-alive ping enviado → ${SELF_URL}/health`);
+        } catch (e) {
+            console.warn('Keep-alive ping falhou:', e.message);
+        }
+    }, 10 * 60 * 1000); // a cada 10 minutos
 });
