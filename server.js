@@ -505,7 +505,8 @@ const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Control
 DATASUS_FOLDERS.forEach(folder => {
     app.all(`${folder}/*`, (req, res) => {
         const referer = req.headers.referer || '';
-        const targetDomain = referer.includes('sihd-proxy') ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        // Se o referer tem sihd-proxy ou o proprio req original indicar sihd, mandamos pro SIHD
+        const targetDomain = (referer.includes('sihd-proxy') || req.originalUrl.includes('sihd')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
         handleSiaProxy(req, res, `http://${targetDomain}${req.originalUrl}`);
     });
 });
