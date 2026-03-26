@@ -627,7 +627,8 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Gateway DATASUS rodando na porta ${PORT}`);
 
     // --- KEEP-ALIVE: evita hibernação no Render (free tier dorme após 15min) ---
-    const PING_URL = `http://localhost:${PORT}/health`;
+    // Usamos 127.0.0.1 em vez de localhost para evitar problemas de IPv6 (::1) no Node 18+
+    const PING_URL = `http://127.0.0.1:${PORT}/health`;
     console.log(`💓 Keep-alive ativado → ping a cada 9min em ${PING_URL}`);
 
     // Primeiro ping imediato para confirmar que está funcionando
