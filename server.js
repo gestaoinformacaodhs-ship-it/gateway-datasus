@@ -525,18 +525,20 @@ async function handleSiaProxy(req, res, targetUrl) {
         // Se NÃO FOR HTML (ex: js, png, chamadas AJAX em JSON/XML), retorna direto sem modificar!
         if (!contentType.includes('text/html')) {
             res.set('Content-Type', contentType);
+            // Se for script ou style e o status for erro, retornar vazio para evitar SyntaxError no browser
+            if (!response.ok && (contentType.includes('javascript') || contentType.includes('css'))) {
+                return res.status(response.status).send('');
+            }
             return res.send(buffer);
         }
 
         let html = buffer.toString('latin1');
         
         // TRATAMENTO DE HTML — sem <base> tag para evitar Mixed Content!
-        // A tag <base> causaria o browser a buscar assets diretamente no HTTP do DATASUS, bloqueado por Mixed Content.
         let modifiedHtml = html.replace(/<head>/i, `<head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
         <style>
             body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; margin: 0; padding: 0; overflow: auto; min-height: 100vh; }
-            /* Esconder todas as scrollbars mantendo a rolagem funcional */
             * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
             *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
             table, td, th { background-color: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important; }
@@ -570,30 +572,45 @@ async function handleSiaProxy(req, res, targetUrl) {
             if (p1.startsWith('ftp://')) {
                 return `href="/api/ftp-download?url=${encodeURIComponent(p1)}"`;
             }
+            
+            // Tratamento de arquivos para download direto
             if (type === 'href' && (lowerP1.endsWith('.zip') || lowerP1.endsWith('.exe') || lowerP1.endsWith('.pdf') || lowerP1.endsWith('.doc') || lowerP1.endsWith('.xls'))) {
-                if (p1.startsWith('http')) return `href="${p1}" target="_blank"`;
-                return `href="http://${baseDomain}/${p1.replace(/^\//, '')}" target="_blank"`;
+                try {
+                    const absUrl = new URL(p1, finalUrl).href;
+                    return `href="${absUrl}" target="_blank"`;
+                } catch(e) { return match; }
             }
+
+            // Não proxia links externos (Google, etc.)
             if (p1.startsWith('http')) {
                 if (p1.includes('.datasus.gov.br')) {
                      return `${type}="${proxyApiRoute}?url=${encodeURIComponent(p1)}"`;
                 }
                 return match; 
             }
-            if (p1.startsWith('/') || p1.startsWith(`http://${baseDomain}`)) {
-                return `${type}="${proxyApiRoute}?url=${encodeURIComponent(p1)}"`;
+
+            // Links relativos ou absolutos da raiz do DATASUS
+            try {
+                const absUrl = new URL(p1, finalUrl).href;
+                if (absUrl.includes('.datasus.gov.br')) {
+                    return `${type}="${proxyApiRoute}?url=${encodeURIComponent(absUrl)}"`;
+                }
+                return `${type}="${absUrl}"`;
+            } catch(e) {
+                return match;
             }
-            if (!p1.startsWith('http')) {
-                let baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
-                return `${type}="${proxyApiRoute}?url=${encodeURIComponent(baseUrl + p1)}"`;
-            }
-            return match; 
         });
 
         res.send(modifiedHtml);
     } catch (e) {
         console.error("Proxy error for", targetUrl, ":", e);
-        if (e.cause) console.error("Cause:", e.cause);
+        
+        // Se NÃO FOR HTML, não retorna erro em HTML
+        const isHtml = targetUrl.toLowerCase().includes('.html') || targetUrl.toLowerCase().includes('.php') || !targetUrl.includes('.');
+        if (!isHtml) {
+            return res.status(500).send('');
+        }
+
         res.status(500).send(`<div style="color:white; font-family:sans-serif; text-align:center; padding: 20px;">
             <h2>Erro de Integração</h2><p>Falha ao conectar no DATASUS: ${e.message}</p>
             <p style="font-size: 10px; opacity: 0.5;">URL: ${targetUrl}</p></div>`);
