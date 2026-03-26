@@ -453,12 +453,31 @@ async function handleSiaProxy(req, res, targetUrl) {
                                 <style>
                                     body, html { background-color: #111827 !important; color: #cbd5e1 !important; font-family: 'Inter', sans-serif !important; }
                                     img[src*="topo_sia"], #rodape, #testeira, #testeira2 { display: none !important; }
-                                </style>`);
+                                </style>
+                                <script>
+                                    document.addEventListener('click', function(e) {
+                                        let t = e.target.closest('a');
+                                        if (t && t.href && !t.href.includes('javascript') && !t.href.startsWith('#')) {
+                                            if (t.target === '_blank') t.target = '_self';
+                                        }
+                                    });
+                                </script>`);
                             modifiedHtml = modifiedHtml.replace(/<\/body>/i, `<div id="resultteste" style="display:none"></div></body>`);
                             
-                            // Correção de links para o MS-BBS
-                            modifiedHtml = modifiedHtml.replace(/(href|src)=["']([^"']+)["']/gi, (m, type, p1) => {
-                                if (p1.startsWith('http') || p1.startsWith('/') || p1.startsWith('javascript')) return m;
+                            // Remover target="_blank"
+                            modifiedHtml = modifiedHtml.replace(/target=["']_blank["']/gi, 'target="_self"');
+
+                            // Correção massiva de links para o MS-BBS
+                            modifiedHtml = modifiedHtml.replace(/(href|src|action)=["'](?!javascript|#|mailto|data:)(([^"']+))["']/gi, (match, type, p1) => {
+                                if (p1.startsWith('http')) {
+                                    if (p1.includes('.datasus.gov.br')) {
+                                         return `${type}="/api/sia-proxy?url=${encodeURIComponent(p1)}"`;
+                                    }
+                                    return match; 
+                                }
+                                if (p1.startsWith('/')) {
+                                    return `${type}="/api/sia-proxy?url=${encodeURIComponent('http://' + urlObj.hostname + p1)}"`;
+                                }
                                 let baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
                                 return `${type}="/api/sia-proxy?url=${encodeURIComponent(baseUrl + p1)}"`;
                             });
