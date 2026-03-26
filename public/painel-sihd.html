@@ -23,14 +23,58 @@
             background: rgba(30, 41, 59, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.05);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent,
+                rgba(37, 99, 235, 0.1),
+                transparent
+            );
+            transition: all 0.6s;
+        }
+
+        .nav-btn:hover::before {
+            left: 100%;
         }
 
         .nav-btn:hover, .nav-btn.active {
-            background: rgba(37, 99, 235, 0.2);
-            border-color: rgba(37, 99, 235, 0.5);
+            background: rgba(37, 99, 235, 0.15);
+            border-color: rgba(37, 99, 235, 0.4);
             color: white;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            box-shadow: 
+                0 4px 20px rgba(0, 0, 0, 0.3),
+                0 0 15px rgba(37, 99, 235, 0.1);
+        }
+
+        .nav-btn.active {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 
+                0 4px 25px rgba(0, 0, 0, 0.4),
+                0 0 20px rgba(37, 99, 235, 0.2);
+        }
+
+        .sub-btn, .sub-btn-versao, .sub-btn-documentos {
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .sub-btn:hover, .sub-btn-versao:hover, .sub-btn-documentos:hover {
+            border-color: rgba(37, 99, 235, 0.4);
+            background: rgba(37, 99, 235, 0.1) !important;
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -67,7 +111,7 @@
             <button onclick="carregarModulo(this, '/principal/sitesRelacionados.php')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-link mb-0.5 text-blue-500"></i> Sites Relacionados
             </button>
-            <button onclick="window.open('http://msbbs.datasus.gov.br/public/default.htm', '_blank')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, 'http://msbbs.datasus.gov.br/public/default.htm')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-server mb-0.5 text-blue-500"></i> MS-BBS
             </button>
         </nav>
