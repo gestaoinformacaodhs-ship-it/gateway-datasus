@@ -25,6 +25,7 @@
             letter-spacing: -1px;
             background: linear-gradient(135deg, #ffffff 0%, #3b82f6 100%);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
             animation: logo-glow 3s infinite ease-in-out;
@@ -72,89 +73,116 @@
         }
     </script>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 text-slate-200">
+<body class="min-h-screen flex text-slate-200 bg-[#0f172a]">
 
-    <div id="login-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl fade-in">
-        <div class="text-center mb-8">
-            <h1 class="logo-text">GATEWAY <span>SUS</span></h1>
-            <p class="text-[10px] text-slate-400 tracking-[4px] uppercase font-extrabold mt-1">Gestão de Informação DHS</p>
-        </div>
-        
-        <div class="space-y-5">
-            <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail de Acesso</label>
-                <input type="email" id="l-email" autocomplete="email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="usuario@dhs.gov.br">
-            </div>
-            
-            <div class="relative">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Sua Senha</label>
-                <input type="password" id="l-pass" autocomplete="current-password" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all placeholder:text-slate-700" placeholder="••••••••">
-                <span class="absolute right-4 top-[38px] cursor-pointer text-slate-600 hover:text-blue-400 transition-colors" onclick="toggleView('l-pass', this)">
-                    <i class="fa-solid fa-eye"></i>
-                </span>
-            </div>
-            
-            <button onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 mt-2">
-                Entrar no Sistema
-            </button>
-        </div>
-        
-        <div class="mt-8 flex justify-between items-center text-[11px] font-bold uppercase tracking-wider">
-            <a href="javascript:void(0)" onclick="trocar('forgot')" class="text-slate-500 hover:text-blue-400 transition-colors">Esqueci a senha</a>
-            <a href="javascript:void(0)" onclick="trocar('signup')" class="text-blue-500 hover:text-blue-400 transition-colors underline underline-offset-4">Criar Conta</a>
+    <!-- Left Branding Area (Hidden on Mobile) -->
+    <div class="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 bg-[url('assets/background-dhs.jpg')] bg-cover bg-center opacity-30 transform hover:scale-105 transition-transform duration-[10s]"></div>
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-[#0f172a]/90 to-slate-900/90 mix-blend-multiply"></div>
+        <div class="relative z-10 p-12 text-center fade-in">
+            <h1 class="text-6xl font-black text-white mb-4 tracking-tighter leading-tight drop-shadow-2xl">GATEWAY<br><span class="text-blue-500">DATASUS</span></h1>
+            <div class="h-1 w-20 bg-blue-500 mx-auto rounded-full mb-6"></div>
+            <p class="text-lg text-blue-200 font-light max-w-md mx-auto drop-shadow-lg leading-relaxed">Plataforma unificada para gestão, download e análise de produção hospitalar e ambulatorial do SUS.</p>
         </div>
     </div>
 
-    <div id="signup-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl hidden fade-in">
-        <div class="text-center mb-6">
-            <h3 class="text-xl font-bold text-white">Nova Conta</h3>
-            <p class="text-slate-400 text-sm">Solicite seu acesso ao Gateway.</p>
+    <!-- Right Form Area -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 relative">
+    
+        <div id="login-container" class="glass-card w-full max-w-[420px] p-10 rounded-3xl fade-in relative z-10">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-black text-white mb-2 tracking-tight">Bem-vindo</h2>
+                <p class="text-sm text-slate-400 font-medium">Faça login para acessar o sistema.</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Institucional</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-4 top-4 text-slate-500"></i>
+                        <input type="email" id="l-email" autocomplete="email" class="w-full bg-slate-900/50 border border-white/10 pl-11 py-3.5 rounded-xl text-white transition-all placeholder:text-slate-600 focus:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="usuario@dhs.gov.br">
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Senha de Acesso</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-4 text-slate-500"></i>
+                        <input type="password" id="l-pass" autocomplete="current-password" class="w-full bg-slate-900/50 border border-white/10 pl-11 pr-11 py-3.5 rounded-xl text-white transition-all placeholder:text-slate-600 focus:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="••••••••">
+                        <span class="absolute right-4 top-4 cursor-pointer text-slate-500 hover:text-blue-400 transition-colors" onclick="toggleView('l-pass', this)">
+                            <i class="fa-solid fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                
+                <button onclick="entrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-600/30 mt-4 flex items-center justify-center gap-2 group">
+                    <span>Entrar no Sistema</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket group-hover:translate-x-1 transition-transform"></i>
+                </button>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-white/5 flex flex-col gap-4 text-center">
+                <a href="javascript:void(0)" onclick="trocar('forgot')" class="text-[12px] font-semibold text-slate-400 hover:text-blue-400 transition-colors">Esqueci minha senha</a>
+                <p class="text-[12px] font-medium text-slate-500">Não possui acesso? <a href="javascript:void(0)" onclick="trocar('signup')" class="text-blue-500 hover:text-blue-400 transition-colors font-bold underline-offset-4 hover:underline">Solicite uma conta</a></p>
+            </div>
         </div>
 
-        <div class="space-y-4">
-            <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome Completo</label>
-                <input type="text" id="r-nome" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
+        <div id="signup-container" class="glass-card w-full max-w-[420px] p-10 rounded-3xl hidden fade-in relative z-10">
+            <div class="text-center mb-8">
+                <div class="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/30 text-blue-500 text-xl"><i class="fa-solid fa-user-plus"></i></div>
+                <h3 class="text-2xl font-black text-white">Nova Conta</h3>
+                <p class="text-slate-400 text-sm mt-1">Prencha seus dados para solicitar acesso.</p>
             </div>
-            <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Institucional</label>
-                <input type="email" id="r-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
-            </div>
-            <div class="relative">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Defina uma Senha</label>
-                <input type="password" id="r-pass" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all">
-                <span class="absolute right-4 top-[38px] cursor-pointer text-slate-600 hover:text-blue-400" onclick="toggleView('r-pass', this)">
-                    <i class="fa-solid fa-eye"></i>
-                </span>
-            </div>
-            <button onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-4 shadow-lg shadow-blue-600/30">
-                Finalizar Cadastro
-            </button>
-            <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
-                <i class="fa-solid fa-chevron-left mr-1"></i> Voltar ao Login
-            </button>
-        </div>
-    </div>
 
-    <div id="forgot-container" class="glass-card w-full max-w-[400px] p-8 rounded-3xl hidden fade-in text-center">
-        <div class="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
-            <i class="fa-solid fa-shield-halved text-blue-500 text-2xl"></i>
-        </div>
-        <h3 class="text-xl font-bold text-white mb-2">Recuperar Senha</h3>
-        <p class="text-slate-400 text-sm mb-6 leading-relaxed">Insira seu e-mail para receber as instruções de redefinição.</p>
-
-        <div class="space-y-4">
-            <div class="text-left">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Cadastrado</label>
-                <input type="email" id="f-email" class="w-full bg-slate-900/60 border border-white/5 p-3.5 rounded-xl text-white transition-all" placeholder="exemplo@dhs.gov.br">
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Nome Completo</label>
+                    <input type="text" id="r-nome" class="w-full bg-slate-900/50 border border-white/10 p-3.5 rounded-xl text-white transition-all focus:border-blue-500 focus:bg-slate-800" placeholder="Marcos Souza">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">E-mail Institucional</label>
+                    <input type="email" id="r-email" class="w-full bg-slate-900/50 border border-white/10 p-3.5 rounded-xl text-white transition-all focus:border-blue-500 focus:bg-slate-800" placeholder="usuario@dhs.gov.br">
+                </div>
+                <div class="relative">
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Defina uma Senha</label>
+                    <div class="relative">
+                        <input type="password" id="r-pass" class="w-full bg-slate-900/50 border border-white/10 p-3.5 pr-11 rounded-xl text-white transition-all focus:border-blue-500 focus:bg-slate-800" placeholder="••••••••">
+                        <span class="absolute right-4 top-4 cursor-pointer text-slate-500 hover:text-blue-400 transition-colors" onclick="toggleView('r-pass', this)"><i class="fa-solid fa-eye"></i></span>
+                    </div>
+                </div>
+                
+                <button onclick="registrar()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] mt-6 shadow-lg shadow-blue-600/30">
+                    Finalizar Cadastro
+                </button>
+                <button onclick="trocar('login')" class="w-full text-slate-400 text-sm font-semibold py-3 hover:text-white transition-colors mt-2">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Voltar ao Login
+                </button>
             </div>
-            <button onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30">
-                Enviar Link de Recuperação
-            </button>
-            <button onclick="trocar('login')" class="w-full text-slate-500 text-[10px] font-black uppercase py-2 hover:text-white transition-colors tracking-widest">
-                <i class="fa-solid fa-chevron-left mr-1"></i> Voltar ao Login
-            </button>
         </div>
+
+        <div id="forgot-container" class="glass-card w-full max-w-[420px] p-10 rounded-3xl hidden fade-in text-center relative z-10">
+            <div class="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/30">
+                <i class="fa-solid fa-envelope-open-text text-blue-500 text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-black text-white mb-2">Recuperar Senha</h3>
+            <p class="text-slate-400 text-sm mb-8 leading-relaxed">Insira seu e-mail cadastrado para receber um link seguro de redefinição.</p>
+
+            <div class="space-y-6">
+                <div class="text-left">
+                    <label class="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Endereço de E-mail</label>
+                    <input type="email" id="f-email" class="w-full bg-slate-900/50 border border-white/10 p-3.5 rounded-xl text-white transition-all focus:border-blue-500 focus:bg-slate-800" placeholder="exemplo@dhs.gov.br">
+                </div>
+                
+                <button onclick="solicitarRecuperacao()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/30">
+                    Enviar Link de Recuperação
+                </button>
+                
+                <button onclick="trocar('login')" class="w-full text-slate-400 text-sm font-semibold py-3 hover:text-white transition-colors mt-4">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Cancelar e Voltar
+                </button>
+            </div>
+        </div>
+        
     </div>
 
     <div id="chat-container" class="fixed bottom-6 right-6 z-50">

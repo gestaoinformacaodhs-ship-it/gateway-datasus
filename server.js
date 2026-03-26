@@ -500,16 +500,7 @@ async function handleSiaProxy(req, res, targetUrl) {
 app.all('/api/sia-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
 app.all('/api/sihd-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
 
-// --- INTERCEPTAÇÃO TRANSPARENTE DE AJAX E ASSETS ---
-const DATASUS_FOLDERS = ['/funcoes', '/imagens', '/Controler', '/remessa/Controler', '/css', '/js', '/padroes', '/versao', '/documentos', '/remessa'];
-DATASUS_FOLDERS.forEach(folder => {
-    app.all(`${folder}/*`, (req, res) => {
-        const referer = req.headers.referer || '';
-        // Se o referer tem sihd-proxy ou o proprio req original indicar sihd, mandamos pro SIHD
-        const targetDomain = (referer.includes('sihd-proxy') || req.originalUrl.includes('sihd')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
-        handleSiaProxy(req, res, `http://${targetDomain}${req.originalUrl}`);
-    });
-});
+// --- FIM DA INTERCEPTAÇÃO ESTATICA, O WILDCARD FARÁ O TRABALHO ---
 
 // --- DOWNLOAD DIRETO DE ARQUIVOS FTP DATASUS ---
 app.get('/api/ftp-download', async (req, res) => {
@@ -627,6 +618,21 @@ app.get('/api/download/:sistema/:arquivo', async (req, res) => {
     } finally { 
         client.close(); 
     }
+});
+
+// --- WILDCARD PROXY FALLBACK (Resolve URLs perdidas) ---
+app.all('*', (req, res, next) => {
+    // Ignorar requisições que pertencem definitivamente à nossa API ou WebSockets
+    if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/socket.io/')) {
+        return next();
+    }
+    
+    // Fallback: se nenhuma rota bateu, assumimos que é um asset ou página legada do DATASUS
+    const referer = req.headers.referer || '';
+    const targetDomain = (referer.includes('sihd-proxy') || req.originalUrl.includes('sihd')) ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+    
+    // Envia pro motor de proxy
+    handleSiaProxy(req, res, `http://${targetDomain}${req.originalUrl}`);
 });
 
 // --- INICIALIZAÇÃO CORRIGIDA PARA RENDER ---
