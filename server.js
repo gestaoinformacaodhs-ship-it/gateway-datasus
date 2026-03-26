@@ -485,7 +485,13 @@ async function handleSiaProxy(req, res, targetUrl) {
                             });
 
                             res.send(modifiedHtml);
-                            resolve();
+                        } else {
+                            // Conteúdo binário (imagens, etc)
+                            res.set('Content-Type', contentType);
+                            res.set('Cache-Control', 'public, max-age=3600');
+                            res.send(buffer);
+                        }
+                        resolve();
                         });
                     });
                     
