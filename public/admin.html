@@ -451,8 +451,9 @@
         }
 
         function logoutAdmin() {
+            const role = sessionStorage.getItem('admin_role');
             sessionStorage.clear();
-            window.location.href = 'admin-login.html';
+            window.location.href = (role === 'support') ? 'login-suporte.html' : 'admin-login.html';
         }
 
         document.getElementById('admin-input').addEventListener('keypress', (e) => {
