@@ -18,7 +18,7 @@ const server = http.createServer(app);
 
 // --- CONFIGURAÇÃO IA (GEMINI) ---
 const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
-const aiModel = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+const aiModel = genAI ? genAI.getGenerativeModel({ model: "gemini-2.5-flash" }) : null;
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
