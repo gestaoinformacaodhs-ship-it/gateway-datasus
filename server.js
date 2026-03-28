@@ -294,38 +294,50 @@ app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
 app.post('/api/registrar', async (req, res) => {
     const { nome, email, senha, role } = req.body;
-    if (!nome || !email || !senha) return res.status(400).json({ error: "Campos obrigatórios ausentes." });
+    console.log(`📝 [DEBUG] Iniciando registro para: ${email} (Role: ${role})`);
+    
+    if (!nome || !email || !senha) {
+        console.warn("⚠️ [DEBUG] Campos obrigatórios ausentes");
+        return res.status(400).json({ error: "Campos obrigatórios ausentes." });
+    }
 
     const emailFormatado = email.toLowerCase().trim();
 
     try {
+        console.log("🔐 [DEBUG] Gerando hash da senha...");
         const hash = await bcrypt.hash(senha, 10);
         
-        // Verifica se o usuário já existe
+        console.log(`🔍 [DEBUG] Verificando existência de: ${emailFormatado}`);
+        if (!pool) throw new Error("Banco de dados não configurado (Pool nulo)");
+        
         const check = await pool.query("SELECT id, role FROM usuarios WHERE email = $1", [emailFormatado]);
+        console.log(`📊 [DEBUG] Resultado verificação: ${check.rows.length} usuários encontrados`);
         
         if (check.rows.length > 0) {
-            // Se já existe e estamos tentando adicionar como suporte, apenas atualizamos o role
             if (role === 'support') {
+                console.log(`⬆️ [DEBUG] Promovendo usuário para suporte: ${emailFormatado}`);
                 await pool.query(
                     "UPDATE usuarios SET role = 'support', nome = $1, senha = $2 WHERE email = $3",
                     [nome, hash, emailFormatado]
                 );
+                console.log("✅ [DEBUG] Usuário promovido com sucesso");
                 return res.json({ message: "Usuário existente promovido a Atendente com sucesso!" });
             } else {
+                console.warn(`🛑 [DEBUG] E-mail já cadastrado: ${emailFormatado}`);
                 return res.status(400).json({ error: "E-mail já cadastrado." });
             }
         }
 
-        // Se não existe, cria novo
+        console.log(`🆕 [DEBUG] Criando novo usuário: ${emailFormatado}`);
         await pool.query(
             "INSERT INTO usuarios (nome, email, senha, ativo, role) VALUES ($1, $2, $3, 1, $4)",
             [nome, emailFormatado, hash, role || 'user']
         );
+        console.log("✅ [DEBUG] Novo usuário criado com sucesso");
         res.json({ message: "Conta criada com sucesso!" });
     } catch (err) {
-        console.error("Erro no registro:", err.message);
-        res.status(500).json({ error: "Erro interno ao processar cadastro." });
+        console.error("❌ [DEBUG] Erro crítico no registro:", err.message);
+        res.status(500).json({ error: "Erro interno no servidor: " + err.message });
     }
 });
 

@@ -159,23 +159,44 @@
             const senha = document.getElementById('sup-senha').value;
             const btn = document.getElementById('btn-criar-sup');
             if (!nome || !email || !senha) return alert("Preencha todos os campos");
-            btn.disabled = true; btn.innerText = "Processando...";
+            
+            btn.disabled = true; 
+            btn.innerText = "Processando...";
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
+
             try {
                 const res = await fetch('/api/registrar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, email, senha, role: 'support' })
+                    body: JSON.stringify({ nome, email, senha, role: 'support' }),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
                 const data = await res.json();
+                
                 if (res.ok) {
-                    alert("Atendente cadastrado com sucesso!");
+                    alert(data.message || "Atendente cadastrado com sucesso!");
                     fecharModalSuporte();
                     document.getElementById('sup-nome').value = '';
                     document.getElementById('sup-email').value = '';
                     document.getElementById('sup-senha').value = '';
-                } else { alert(data.error); }
-            } catch (err) { alert("Erro ao conectar com servidor"); }
-            finally { btn.disabled = false; btn.innerText = "Confirmar Cadastro"; }
+                } else { 
+                    alert(data.error || "Erro ao cadastrar atendente."); 
+                }
+            } catch (err) { 
+                if (err.name === 'AbortError') {
+                    alert("O servidor está demorando muito para responder. Tente novamente em instantes.");
+                } else {
+                    alert("Erro ao conectar com servidor: " + err.message); 
+                }
+            } finally { 
+                clearTimeout(timeoutId);
+                btn.disabled = false; 
+                btn.innerText = "Confirmar Cadastro"; 
+            }
         }
 
         const socket = io();
