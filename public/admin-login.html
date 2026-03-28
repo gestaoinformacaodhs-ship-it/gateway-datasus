@@ -87,6 +87,8 @@
             // Sugestão: No futuro, valide isso via API para não deixar a senha no front-end
             if (senha === "2024") { 
                 sessionStorage.setItem('admin_autenticado', 'true');
+                sessionStorage.setItem('admin_role', 'master');
+                sessionStorage.setItem('admin_nome', 'Administrador Master');
                 window.location.href = 'admin.html';
             } else {
                 alert("⚠️ Acesso Negado: Senha administrativa inválida.");
