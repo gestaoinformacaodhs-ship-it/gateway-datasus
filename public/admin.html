@@ -200,7 +200,7 @@
         }
 
         const socket = io();
-        const nomeAdmin = "Suporte Arpoador"; 
+        const nomeAdmin = sessionStorage.getItem('admin_nome') || "Suporte Arpoador"; 
         let salaAtual = null;
         let usuariosConhecidos = new Set();
 
