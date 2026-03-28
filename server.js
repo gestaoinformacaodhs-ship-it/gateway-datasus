@@ -296,15 +296,36 @@ app.post('/api/registrar', async (req, res) => {
     const { nome, email, senha, role } = req.body;
     if (!nome || !email || !senha) return res.status(400).json({ error: "Campos obrigatórios ausentes." });
 
+    const emailFormatado = email.toLowerCase().trim();
+
     try {
         const hash = await bcrypt.hash(senha, 10);
+        
+        // Verifica se o usuário já existe
+        const check = await pool.query("SELECT id, role FROM usuarios WHERE email = $1", [emailFormatado]);
+        
+        if (check.rows.length > 0) {
+            // Se já existe e estamos tentando adicionar como suporte, apenas atualizamos o role
+            if (role === 'support') {
+                await pool.query(
+                    "UPDATE usuarios SET role = 'support', nome = $1, senha = $2 WHERE email = $3",
+                    [nome, hash, emailFormatado]
+                );
+                return res.json({ message: "Usuário existente promovido a Atendente com sucesso!" });
+            } else {
+                return res.status(400).json({ error: "E-mail já cadastrado." });
+            }
+        }
+
+        // Se não existe, cria novo
         await pool.query(
             "INSERT INTO usuarios (nome, email, senha, ativo, role) VALUES ($1, $2, $3, 1, $4)",
-            [nome, email.toLowerCase().trim(), hash, role || 'user']
+            [nome, emailFormatado, hash, role || 'user']
         );
         res.json({ message: "Conta criada com sucesso!" });
     } catch (err) {
-        res.status(400).json({ error: "E-mail já cadastrado ou erro nos dados." });
+        console.error("Erro no registro:", err.message);
+        res.status(500).json({ error: "Erro interno ao processar cadastro." });
     }
 });
 
