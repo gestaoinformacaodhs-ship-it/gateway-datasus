@@ -9,9 +9,14 @@ const Brevo = require('@getbrevo/brevo');
 const compression = require('compression');
 const http = require('http');
 const { Server } = require('socket.io');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 const server = http.createServer(app); 
+
+// --- CONFIGURAÇÃO IA (GEMINI) ---
+const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
+const aiModel = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
@@ -66,9 +71,19 @@ async function initDB() {
                 email TEXT UNIQUE NOT NULL,
                 senha TEXT NOT NULL,
                 ativo INTEGER DEFAULT 1, 
+                role TEXT DEFAULT 'user',
                 reset_token TEXT,
                 reset_expiracao TIMESTAMP
             );
+        `);
+        // Migração simples para adicionar a coluna 'role' caso não exista
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='usuarios' AND column_name='role') THEN
+                    ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'user';
+                END IF;
+            END $$;
         `);
         await client.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
@@ -89,6 +104,45 @@ async function initDB() {
 }
 initDB();
 
+// --- CONTROLE DE SESSÕES ATIVAS ---
+const activeSessions = {}; // salaId -> socketId do suporte atendente
+
+// --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
+async function processarIA(salaId, mensagemUsuario) {
+    if (!aiModel || activeSessions[salaId]) return;
+
+    try {
+        const prompt = `
+            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
+            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
+            Mantenha suas respostas curtas, profissionais e úteis. 
+            Se não souber a resposta, peça para o usuário aguardar um suporte humano.
+            O usuário perguntou: "${mensagemUsuario}"
+        `;
+
+        const result = await aiModel.generateContent(prompt);
+        const resposta = result.response.text();
+
+        const msgAI = {
+            usuario: "IA Inteligente",
+            texto: resposta,
+            salaId: salaId,
+            timestamp: new Date(),
+            isAI: true
+        };
+
+        // Salva no banco
+        await pool.query(
+            "INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)",
+            [salaId, "IA Inteligente", resposta]
+        );
+
+        io.to(salaId).emit('receber_mensagem', msgAI);
+    } catch (err) {
+        console.error("Erro IA Gemini:", err.message);
+    }
+}
+
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     
@@ -100,9 +154,25 @@ io.on('connection', (socket) => {
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         
+        // Se for um suporte tentando entrar numa sala já ocupada
+        if (socket.rooms.has('admin_room') && activeSessions[salaId] && activeSessions[salaId] !== socket.id) {
+            socket.emit('erro_chat', { mensagem: "Este usuário já está sendo atendido por outro suporte." });
+            return;
+        }
+
+        // Se for suporte, marca como atendendo
+        if (socket.rooms.has('admin_room')) {
+            activeSessions[salaId] = socket.id;
+            io.to('admin_room').emit('usuario_ocupado', { salaId, atendente: socket.id });
+        }
+
         const salasAtuais = Array.from(socket.rooms);
         salasAtuais.forEach(sala => {
-            if (sala !== socket.id && sala !== 'admin_room') socket.leave(sala);
+            if (sala !== socket.id && sala !== 'admin_room') {
+                socket.leave(sala);
+                // Se sair de uma sala, remove do activeSessions se for o atendente
+                if (activeSessions[sala] === socket.id) delete activeSessions[sala];
+            }
         });
 
         socket.join(salaId);
@@ -141,11 +211,25 @@ io.on('connection', (socket) => {
 
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            if (nomeUsuario !== "Suporte Arpoador") {
+            if (nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente") {
                 io.to('admin_room').emit('receber_mensagem', msgData);
+                
+                // Gatilho para IA se não houver suporte humano atendendo
+                if (!activeSessions[salaId] && mensagem) {
+                    setTimeout(() => processarIA(salaId, mensagem), 1500);
+                }
             }
         } catch (err) { 
             console.error("Erro ao enviar mensagem:", err.message); 
+        }
+    });
+
+    socket.on('disconnecting', () => {
+        for (const salaId of socket.rooms) {
+            if (activeSessions[salaId] === socket.id) {
+                delete activeSessions[salaId];
+                io.to('admin_room').emit('usuario_livre', { salaId });
+            }
         }
     });
 
@@ -153,7 +237,9 @@ io.on('connection', (socket) => {
         if (!salaId) return;
         try {
             await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
+            delete activeSessions[salaId];
             io.to(salaId).emit('chamado_encerrado', { salaId });
+            io.to('admin_room').emit('usuario_livre', { salaId });
         } catch (err) {
             console.error("Erro ao encerrar chamado:", err.message);
         }
@@ -184,14 +270,14 @@ app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 // --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/registrar', async (req, res) => {
-    const { nome, email, senha } = req.body;
+    const { nome, email, senha, role } = req.body;
     if (!nome || !email || !senha) return res.status(400).json({ error: "Campos obrigatórios ausentes." });
 
     try {
         const hash = await bcrypt.hash(senha, 10);
         await pool.query(
-            "INSERT INTO usuarios (nome, email, senha, ativo) VALUES ($1, $2, $3, 1)",
-            [nome, email.toLowerCase().trim(), hash]
+            "INSERT INTO usuarios (nome, email, senha, ativo, role) VALUES ($1, $2, $3, 1, $4)",
+            [nome, email.toLowerCase().trim(), hash, role || 'user']
         );
         res.json({ message: "Conta criada com sucesso!" });
     } catch (err) {
@@ -204,13 +290,13 @@ app.post('/api/login', async (req, res) => {
     if (!email || !senha) return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
 
     try {
-        const result = await pool.query(`SELECT nome, email, senha, ativo FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
+        const result = await pool.query(`SELECT nome, email, senha, ativo, role FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(senha, user.senha))) {
             return res.status(401).json({ error: "Credenciais inválidas." });
         }
         
-        res.json({ user: user.nome, email: user.email });
+        res.json({ user: user.nome, email: user.email, role: user.role });
     } catch (err) { 
         res.status(500).json({ error: "Erro no servidor." }); 
     }
@@ -618,7 +704,17 @@ async function handleSiaProxy(req, res, targetUrl) {
 }
 
 app.all('/api/sia-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
-app.all('/api/sihd-proxy', (req, res) => handleSiaProxy(req, res, req.query.url));
+
+app.all('/api/sihd-proxy', (req, res) => {
+    let targetUrl = req.query.url;
+    if (!targetUrl) return res.status(400).send('URL is required');
+    
+    if (!targetUrl.startsWith('http')) {
+        targetUrl = `http://sihd.datasus.gov.br${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+    }
+    
+    handleSiaProxy(req, res, targetUrl);
+});
 
 // --- FIM DA INTERCEPTAÇÃO ESTATICA, O WILDCARD FARÁ O TRABALHO ---
 

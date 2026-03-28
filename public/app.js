@@ -148,6 +148,7 @@ async function entrar() {
         if (res.ok) {
             localStorage.setItem('usuario', data.user);
             localStorage.setItem('email', data.email); 
+            localStorage.setItem('role', data.role);
             window.location.href = 'dashboard.html';
         } else {
             alert(data.error || "Credenciais inválidas.");

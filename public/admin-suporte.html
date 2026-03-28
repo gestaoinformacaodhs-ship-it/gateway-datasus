@@ -55,7 +55,12 @@
                 <h2 class="font-bold text-lg text-white flex items-center gap-2">
                     <i class="fa-solid fa-headset text-blue-500"></i> Atendimentos
                 </h2>
-                <button onclick="sessionStorage.clear(); window.location.reload();" class="text-slate-500 hover:text-white text-xs uppercase font-bold transition-colors">Sair</button>
+                <div class="flex gap-2">
+                    <button onclick="abrirModalSuporte()" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-all" title="Adicionar Suporte">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                    <button onclick="sessionStorage.clear(); window.location.reload();" class="text-slate-500 hover:text-white text-xs uppercase font-bold transition-colors">Sair</button>
+                </div>
             </div>
             
             <div id="user-list" class="space-y-2 overflow-y-auto flex-1 pr-2">
@@ -118,6 +123,35 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modal Adicionar Suporte -->
+    <div id="modal-suporte" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div class="bg-[#0f172a] border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield text-blue-500"></i> Novo Suporte
+                </h3>
+                <button onclick="fecharModalSuporte()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Nome Completo</label>
+                    <input type="text" id="sup-nome" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">E-mail de Acesso</label>
+                    <input type="email" id="sup-email" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Senha Temporária</label>
+                    <input type="password" id="sup-senha" class="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white outline-none focus:border-blue-500">
+                </div>
+                <button onclick="criarContaSuporte()" id="btn-criar-sup" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all mt-4">
+                    Cadastrar Atendente
+                </button>
+            </div>
+        </div>
+    </div>
 
     <audio id="notificacao-som" preload="auto">
         <source src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" type="audio/mpeg">
@@ -136,6 +170,38 @@
 
         socket.on('connect', () => {
             socket.emit('admin_entrar'); 
+        });
+
+        socket.on('erro_chat', (data) => {
+            alert(data.mensagem);
+            if (salaAtiva) {
+                const safeId = formatId(salaAtiva);
+                document.getElementById(`user-${safeId}`)?.classList.remove('active');
+                salaAtiva = "";
+                document.getElementById('chat-title').innerText = "Selecione um usuário";
+                document.getElementById('status-badge').classList.add('hidden');
+                document.getElementById('empty-state').style.display = 'flex';
+            }
+        });
+
+        socket.on('usuario_ocupado', (data) => {
+            const safeId = formatId(data.salaId);
+            const card = document.getElementById(`user-${safeId}`);
+            if (card && data.atendente !== socket.id) {
+                card.style.opacity = "0.5";
+                const preview = document.getElementById(`preview-${safeId}`);
+                if (preview) preview.innerText = "🔒 Sendo atendido por outro...";
+            }
+        });
+
+        socket.on('usuario_livre', (data) => {
+            const safeId = formatId(data.salaId);
+            const card = document.getElementById(`user-${safeId}`);
+            if (card) {
+                card.style.opacity = "1";
+                const preview = document.getElementById(`preview-${safeId}`);
+                if (preview) preview.innerText = "Disponível";
+            }
         });
 
         socket.on('receber_mensagem', (data) => {
@@ -335,6 +401,44 @@
         function limparTela() { 
             document.getElementById('admin-chat-box').innerHTML = ""; 
             mensagensProcessadas.clear();
+        }
+
+        function abrirModalSuporte() { document.getElementById('modal-suporte').classList.remove('hidden'); }
+        function fecharModalSuporte() { document.getElementById('modal-suporte').classList.add('hidden'); }
+
+        async function criarContaSuporte() {
+            const nome = document.getElementById('sup-nome').value;
+            const email = document.getElementById('sup-email').value;
+            const senha = document.getElementById('sup-senha').value;
+            const btn = document.getElementById('btn-criar-sup');
+
+            if (!nome || !email || !senha) return alert("Preencha todos os campos");
+
+            btn.disabled = true;
+            btn.innerText = "Criando...";
+
+            try {
+                const res = await fetch('/api/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email, senha, role: 'support' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Suporte cadastrado com sucesso!");
+                    fecharModalSuporte();
+                    document.getElementById('sup-nome').value = '';
+                    document.getElementById('sup-email').value = '';
+                    document.getElementById('sup-senha').value = '';
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert("Erro ao conectar com servidor");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Cadastrar Atendente";
+            }
         }
 
         document.getElementById('admin-input').addEventListener('keypress', (e) => {
