@@ -25,6 +25,10 @@
         }
         .message-in { animation: slideUp 0.2s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Estilos do Modal de Suporte */
+        #modal-suporte input { background: #1e293b; border: 1px solid rgba(255,255,255,0.05); color: white; padding: 12px; border-radius: 12px; width: 100%; outline: none; transition: border 0.3s; }
+        #modal-suporte input:focus { border-color: #3b82f6; }
     </style>
     <script>
         if (sessionStorage.getItem('admin_autenticado') !== 'true') {
@@ -44,6 +48,10 @@
             </div>
             
             <div class="flex items-center gap-6">
+                <button onclick="abrirModalSuporte()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-[10px] font-black transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20">
+                    <i class="fa-solid fa-user-plus text-xs"></i> ADICIONAR ATENDENTE
+                </button>
+                <div class="h-6 w-[1px] bg-white/10 mx-1"></div>
                 <div class="text-right">
                     <span id="status-conexao" class="text-[10px] text-red-500 font-bold uppercase block tracking-widest">● Desconectado</span>
                     <span class="text-[9px] text-slate-500 uppercase font-mono">Build 2.0.4 - 2026</span>
@@ -110,7 +118,66 @@
         </main>
     </div>
 
+    <!-- Modal para Adicionar Suporte -->
+    <div id="modal-suporte" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-[#0f172a] border border-white/10 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div class="p-6 border-b border-white/5 bg-blue-600/5 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-black text-white italic tracking-tighter uppercase">Adicionar <span class="text-blue-500">Novo Atendente</span></h3>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Configuração de acesso ao suporte</p>
+                </div>
+                <button onclick="fecharModalSuporte()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase ml-1">Nome do Atendente</label>
+                    <input type="text" id="sup-nome" placeholder="Ex: João Silva">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase ml-1">Email de Acesso</label>
+                    <input type="email" id="sup-email" placeholder="email@arpoador.com">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase ml-1">Senha Temporária</label>
+                    <input type="password" id="sup-senha" placeholder="••••••••">
+                </div>
+                
+                <button id="btn-criar-sup" onclick="criarContaSuporte()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-blue-600/20 active:scale-[0.98] mt-4 uppercase text-xs tracking-widest">
+                    Confirmar Cadastro
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Funções para Gestão de Suporte
+        function abrirModalSuporte() { document.getElementById('modal-suporte').classList.remove('hidden'); }
+        function fecharModalSuporte() { document.getElementById('modal-suporte').classList.add('hidden'); }
+        async function criarContaSuporte() {
+            const nome = document.getElementById('sup-nome').value;
+            const email = document.getElementById('sup-email').value;
+            const senha = document.getElementById('sup-senha').value;
+            const btn = document.getElementById('btn-criar-sup');
+            if (!nome || !email || !senha) return alert("Preencha todos os campos");
+            btn.disabled = true; btn.innerText = "Processando...";
+            try {
+                const res = await fetch('/api/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, email, senha, role: 'support' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Atendente cadastrado com sucesso!");
+                    fecharModalSuporte();
+                    document.getElementById('sup-nome').value = '';
+                    document.getElementById('sup-email').value = '';
+                    document.getElementById('sup-senha').value = '';
+                } else { alert(data.error); }
+            } catch (err) { alert("Erro ao conectar com servidor"); }
+            finally { btn.disabled = false; btn.innerText = "Confirmar Cadastro"; }
+        }
+
         const socket = io();
         const nomeAdmin = "Suporte Arpoador"; 
         let salaAtual = null;
