@@ -224,8 +224,18 @@ io.on('connection', (socket) => {
 
             io.to(salaId).emit('receber_mensagem', msgData);
             
+            // Lógica de notificação seletiva para Admin
+            const msgMinuscula = (mensagem || "").toLowerCase();
+            const pediuHumano = msgMinuscula.includes("humano") || 
+                               msgMinuscula.includes("atendente") || 
+                               msgMinuscula.includes("ajuda") || 
+                               msgMinuscula.includes("suporte");
+
             if (nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente") {
-                io.to('admin_room').emit('receber_mensagem', msgData);
+                // Notifica admin SÓ SE houver suporte atendendo OU se o usuário pediu ajuda humana
+                if (activeSessions[salaId] || pediuHumano || tipo_arquivo) {
+                    io.to('admin_room').emit('receber_mensagem', msgData);
+                }
                 
                 // Gatilho para IA se não houver suporte humano atendendo
                 if (!activeSessions[salaId] && mensagem) {

@@ -208,6 +208,12 @@
         });
 
         // --- LÓGICA DO CHAT ---
+        socket.on('chamado_encerrado', (data) => {
+            document.getElementById('chat-messages').innerHTML = '';
+            adicionarMensagemNaTela("Sistema", "Seu atendimento foi finalizado. Como podemos ajudar novamente?", null, null, false);
+            adicionarBotaoAtendente();
+        });
+
         socket.on('receber_mensagem', (data) => {
             const souEu = (data.usuario === nomeUsuario || data.nome === nomeUsuario);
             adicionarMensagemNaTela(data.usuario || data.nome, data.texto || data.mensagem, data.arquivo, data.tipo_arquivo || data.tipo, souEu, data.isAI);
@@ -248,6 +254,27 @@
             fileInput.value = "";
         }
 
+        function pedirAjudaHumana() {
+            const msg = "Gostaria de falar com um atendente humano, por favor.";
+            socket.emit('enviar_mensagem', { mensagem: msg, salaId: emailUsuario, nome: nomeUsuario });
+            const btn = document.getElementById('btn-ajuda-humana');
+            if (btn) btn.remove();
+        }
+
+        function adicionarBotaoAtendente() {
+            if (document.getElementById('btn-ajuda-humana')) return;
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = "flex justify-center my-4";
+            div.innerHTML = `
+                <button id="btn-ajuda-humana" onclick="pedirAjudaHumana()" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-[10px] font-black uppercase px-4 py-2 rounded-full border border-blue-500/30 transition-all">
+                    <i class="fa-solid fa-headset mr-1"></i> Falar com Atendente
+                </button>
+            `;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
         function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu, isAI = false) {
             const box = document.getElementById('chat-messages');
             const div = document.createElement('div');
@@ -277,6 +304,15 @@
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
+
+        // Mensagem de Boas-vindas ao abrir
+        document.getElementById('chat-btn').addEventListener('click', () => {
+            const chatBox = document.getElementById('chat-messages');
+            if (chatBox.children.length === 0) {
+                adicionarMensagemNaTela("Suporte Arpoador", "Olá! Como podemos ajudar você hoje?", null, null, false);
+                adicionarBotaoAtendente();
+            }
+        });
 
 
 
