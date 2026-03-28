@@ -17,8 +17,17 @@ const app = express();
 const server = http.createServer(app); 
 
 // --- CONFIGURAÇÃO IA (GEMINI) ---
-const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
-const aiModel = genAI ? genAI.getGenerativeModel({ model: "gemini-2.5-flash" }) : null;
+let aiModel = null;
+function getAIModel() {
+    if (aiModel) return aiModel;
+    if (!process.env.GOOGLE_API_KEY) {
+        console.warn("⚠️ GOOGLE_API_KEY não encontrada no process.env");
+        return null;
+    }
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+    aiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    return aiModel;
+}
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
@@ -111,7 +120,8 @@ const activeSessions = {}; // salaId -> socketId do suporte atendente
 
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
 async function processarIA(salaId, mensagemUsuario) {
-    if (!aiModel || activeSessions[salaId]) return;
+    const model = getAIModel();
+    if (!model || activeSessions[salaId]) return;
 
     try {
         const prompt = `
@@ -122,7 +132,7 @@ async function processarIA(salaId, mensagemUsuario) {
             O usuário perguntou: "${mensagemUsuario}"
         `;
 
-        const result = await aiModel.generateContent(prompt);
+        const result = await model.generateContent(prompt);
         const resposta = result.response.text();
 
         const msgAI = {
@@ -140,8 +150,9 @@ async function processarIA(salaId, mensagemUsuario) {
         );
 
         io.to(salaId).emit('receber_mensagem', msgAI);
+
     } catch (err) {
-        console.error("Erro IA Gemini:", err.message);
+        console.error("❌ Erro IA Gemini:", err.message);
     }
 }
 
