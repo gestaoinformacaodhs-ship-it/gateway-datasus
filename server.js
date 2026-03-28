@@ -441,6 +441,16 @@ app.post('/api/delete-account', async (req, res) => {
     }
 });
 
+app.get('/api/admin/atendentes', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT nome, email FROM usuarios WHERE role = 'support' ORDER BY nome ASC");
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Erro ao listar atendentes:", err.message);
+        res.status(500).json({ error: "Erro ao carregar lista de atendentes." });
+    }
+});
+
 app.post('/api/recuperar-senha', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
