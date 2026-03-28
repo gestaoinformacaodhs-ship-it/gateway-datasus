@@ -160,17 +160,18 @@
 
     <script>
         const socket = io();
-        const nomeAdmin = "Suporte Arpoador"; 
+        const nomeAdmin = sessionStorage.getItem('admin_nome') || "Suporte"; 
         const somNotificacao = document.getElementById('notificacao-som');
         
         let salaAtiva = ""; 
         let usuariosAtivos = {}; 
+        let atendentesOcupados = {}; // salaId -> nomeAtendente
         const mensagensProcessadas = new Set();
 
         const formatId = (id) => id ? id.toString().replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
 
         socket.on('connect', () => {
-            socket.emit('admin_entrar'); 
+            socket.emit('admin_entrar', { nome: nomeAdmin }); 
         });
 
         socket.on('erro_chat', (data) => {
@@ -178,28 +179,71 @@
             if (salaAtiva) {
                 const safeId = formatId(salaAtiva);
                 document.getElementById(`user-${safeId}`)?.classList.remove('active');
-                salaAtiva = "";
-                document.getElementById('chat-title').innerText = "Selecione um usuário";
+                
+                // Limpa o chat view para evitar que vejam histórico se não tiverem acesso
+                document.getElementById('admin-chat-box').innerHTML = "";
+                document.getElementById('chat-title').innerText = "Acesso Negado";
                 document.getElementById('status-badge').classList.add('hidden');
                 document.getElementById('empty-state').style.display = 'flex';
+                
+                // Desabilita input
+                document.getElementById('admin-input').disabled = true;
+                document.getElementById('btnEnviar').disabled = true;
+                
+                salaAtiva = "";
             }
+        });
+
+        socket.on('lista_usuarios_ocupados', (data) => {
+            atendentesOcupados = data;
+            Object.keys(atendentesOcupados).forEach(salaId => {
+                const safeId = formatId(salaId);
+                const card = document.getElementById(`user-${safeId}`);
+                if (card) {
+                    const nome = atendentesOcupados[salaId];
+                    if (nome !== nomeAdmin) {
+                        card.style.opacity = "0.5";
+                        card.style.pointerEvents = "none";
+                        const preview = document.getElementById(`preview-${safeId}`);
+                        if (preview) preview.innerHTML = `<i class="fa-solid fa-lock text-slate-500 mr-1"></i> Atendido por ${nome}`;
+                    }
+                }
+            });
         });
 
         socket.on('usuario_ocupado', (data) => {
             const safeId = formatId(data.salaId);
             const card = document.getElementById(`user-${safeId}`);
-            if (card && data.atendente !== socket.id) {
-                card.style.opacity = "0.5";
-                const preview = document.getElementById(`preview-${safeId}`);
-                if (preview) preview.innerText = "🔒 Sendo atendido por outro...";
+            if (data.atendente !== socket.id) {
+                atendentesOcupados[data.salaId] = data.nomeAtendente;
+                if (card) {
+                    card.style.opacity = "0.5";
+                    card.style.pointerEvents = "none";
+                    const preview = document.getElementById(`preview-${safeId}`);
+                    if (preview) preview.innerHTML = `<i class="fa-solid fa-lock text-slate-500 mr-1"></i> Atendido por ${data.nomeAtendente}`;
+                }
+                
+                // Se eu estava tentando falar com esse cara e outro pegou primeiro
+                if (salaAtiva === data.salaId) {
+                    alert(`O chamado de ${usuariosAtivos[data.salaId]?.nome || 'usuário'} foi assumido por ${data.nomeAtendente}.`);
+                    document.getElementById(`user-${safeId}`)?.classList.remove('active');
+                    salaAtiva = "";
+                    document.getElementById('admin-chat-box').innerHTML = "";
+                    document.getElementById('chat-title').innerText = "Selecione um usuário";
+                    document.getElementById('status-badge').classList.add('hidden');
+                    document.getElementById('empty-state').style.display = 'flex';
+                    document.getElementById('admin-input').disabled = true;
+                }
             }
         });
 
         socket.on('usuario_livre', (data) => {
+            delete atendentesOcupados[data.salaId];
             const safeId = formatId(data.salaId);
             const card = document.getElementById(`user-${safeId}`);
             if (card) {
                 card.style.opacity = "1";
+                card.style.pointerEvents = "auto";
                 const preview = document.getElementById(`preview-${safeId}`);
                 if (preview) preview.innerText = "Disponível";
             }
@@ -264,8 +308,16 @@
         });
 
         function selecionarUsuario(salaId, nome) {
+            if (atendentesOcupados[salaId] && atendentesOcupados[salaId] !== nomeAdmin) {
+                return alert(`Este usuário está sendo atendido por ${atendentesOcupados[salaId]}`);
+            }
             salaAtiva = salaId;
             mensagensProcessadas.clear();
+            
+            // Habilita input
+            document.getElementById('admin-input').disabled = false;
+            document.getElementById('btnEnviar').disabled = false;
+            document.getElementById('admin-input').focus();
             
             document.getElementById('chat-title').innerText = nome;
             const badge = document.getElementById('status-badge');
@@ -305,13 +357,20 @@
             card.className = "user-item p-4 bg-slate-800/10 rounded-xl border-l-4 border-transparent cursor-pointer hover:bg-slate-800/30 transition-all relative mb-2";
             card.onclick = () => selecionarUsuario(salaId, nome);
             
+            const ocupadoPor = atendentesOcupados[salaId];
+            const isOcupadoOutro = ocupadoPor && ocupadoPor !== nomeAdmin;
+
             card.innerHTML = `
                 <div id="unread-${safeId}" class="absolute top-4 right-4 unread-dot"></div>
                 <div class="flex flex-col">
                     <span class="font-bold text-sm text-white">${nome}</span>
-                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic">${texto}</span>
+                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic">${isOcupadoOutro ? '<i class="fa-solid fa-lock text-slate-500 mr-1"></i> Atendido por ' + ocupadoPor : texto}</span>
                 </div>
             `;
+            if (isOcupadoOutro) {
+                card.style.opacity = "0.5";
+                card.style.pointerEvents = "none";
+            }
             userList.prepend(card);
         }
 
@@ -365,6 +424,12 @@
             const input = document.getElementById('admin-input');
             const mensagem = input.value.trim();
             if (!mensagem || !salaAtiva) return;
+            
+            // Verificação extra antes de emitir
+            if (atendentesOcupados[salaAtiva] && atendentesOcupados[salaAtiva] !== nomeAdmin) {
+                alert("Você não possui mais permissão para este atendimento.");
+                return;
+            }
 
             socket.emit('enviar_mensagem', {
                 nome: nomeAdmin,
@@ -380,6 +445,12 @@
             const fileInput = document.getElementById('admin-file');
             const file = fileInput.files[0];
             if (!file || !salaAtiva) return;
+
+            // Verificação extra antes de emitir
+            if (atendentesOcupados[salaAtiva] && atendentesOcupados[salaAtiva] !== nomeAdmin) {
+                alert("Você não possui mais permissão para este atendimento.");
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = (e) => {

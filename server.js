@@ -116,7 +116,7 @@ async function initDB() {
 initDB();
 
 // --- CONTROLE DE SESSÕES ATIVAS ---
-const activeSessions = {}; // salaId -> socketId do suporte atendente
+const activeSessions = {}; // salaId -> { socketId, nomeAtendente }
 
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
 async function processarIA(salaId, mensagemUsuario) {
@@ -159,24 +159,33 @@ async function processarIA(salaId, mensagemUsuario) {
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     
-    socket.on('admin_entrar', () => {
+    socket.on('admin_entrar', (data) => {
         socket.join('admin_room');
-        console.log("🛠️ Admin entrou no monitoramento.");
+        socket.nomeAtendente = data ? data.nome : "Suporte";
+        console.log(`🛠️ Admin ${socket.nomeAtendente} entrou no monitoramento.`);
+        
+        // Envia lista de sessões ocupadas para o novo admin
+        const ocupados = {};
+        for (const [salaId, session] of Object.entries(activeSessions)) {
+            ocupados[salaId] = session.nomeAtendente;
+        }
+        socket.emit('lista_usuarios_ocupados', ocupados);
     });
     
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         
         // Se for um suporte tentando entrar numa sala já ocupada
-        if (socket.rooms.has('admin_room') && activeSessions[salaId] && activeSessions[salaId] !== socket.id) {
-            socket.emit('erro_chat', { mensagem: "Este usuário já está sendo atendido por outro suporte." });
+        if (socket.rooms.has('admin_room') && activeSessions[salaId] && activeSessions[salaId].socketId !== socket.id) {
+            socket.emit('erro_chat', { mensagem: `Este usuário já está sendo atendido por ${activeSessions[salaId].nomeAtendente}.` });
             return;
         }
 
         // Se for suporte, marca como atendendo
         if (socket.rooms.has('admin_room')) {
-            activeSessions[salaId] = socket.id;
-            io.to('admin_room').emit('usuario_ocupado', { salaId, atendente: socket.id });
+            const nomeAtendente = socket.nomeAtendente || "Suporte";
+            activeSessions[salaId] = { socketId: socket.id, nomeAtendente: nomeAtendente };
+            io.to('admin_room').emit('usuario_ocupado', { salaId, atendente: socket.id, nomeAtendente: nomeAtendente });
         }
 
         const salasAtuais = Array.from(socket.rooms);
@@ -184,7 +193,7 @@ io.on('connection', (socket) => {
             if (sala !== socket.id && sala !== 'admin_room') {
                 socket.leave(sala);
                 // Se sair de uma sala, remove do activeSessions se for o atendente
-                if (activeSessions[sala] === socket.id) delete activeSessions[sala];
+                if (activeSessions[sala] && activeSessions[sala].socketId === socket.id) delete activeSessions[sala];
             }
         });
 
@@ -206,6 +215,15 @@ io.on('connection', (socket) => {
         const nomeUsuario = data.nome || data.usuario || "Usuário";
         
         if (!salaId || (!mensagem && !arquivo)) return;
+
+        // VALIDAÇÃO DE TRAVA: Se for admin, só pode enviar se for o dono da sessão ativa
+        if (socket.rooms.has('admin_room')) {
+            const sessao = activeSessions[salaId];
+            if (!sessao || sessao.socketId !== socket.id) {
+                socket.emit('erro_chat', { mensagem: "Você não pode enviar mensagens. Este usuário já está sendo atendido por " + (sessao ? sessao.nomeAtendente : "outro suporte") + "." });
+                return;
+            }
+        }
 
         try {
             await pool.query(
@@ -249,7 +267,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnecting', () => {
         for (const salaId of socket.rooms) {
-            if (activeSessions[salaId] === socket.id) {
+            if (activeSessions[salaId] && activeSessions[salaId].socketId === socket.id) {
                 delete activeSessions[salaId];
                 io.to('admin_room').emit('usuario_livre', { salaId });
             }
