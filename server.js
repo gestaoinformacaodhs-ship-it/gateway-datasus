@@ -1,4 +1,6 @@
+require('dotenv').config();
 const express = require('express');
+
 const ftp = require("basic-ftp");
 const path = require('path');
 const { Pool } = require('pg'); 
