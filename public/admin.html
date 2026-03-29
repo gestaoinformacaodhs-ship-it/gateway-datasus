@@ -283,7 +283,30 @@
         socket.on('connect', () => {
             document.getElementById('status-conexao').innerText = "● Painel Online";
             document.getElementById('status-conexao').className = "text-[10px] text-green-500 font-bold uppercase block tracking-widest";
-            socket.emit('admin_entrar');
+            socket.emit('admin_entrar', { nome: nomeAdmin });
+        });
+        
+        let ticketsOcupados = {};
+
+        socket.on('lista_usuarios_ocupados', (data) => {
+            ticketsOcupados = data;
+            Object.keys(data).forEach(salaId => {
+                atualizarVisualOcupado(salaId, data[salaId]);
+            });
+        });
+
+        socket.on('usuario_ocupado', (data) => {
+            ticketsOcupados[data.salaId] = data.nomeAtendente;
+            atualizarVisualOcupado(data.salaId, data.nomeAtendente);
+        });
+
+        socket.on('usuario_livre', (data) => {
+            delete ticketsOcupados[data.salaId];
+            atualizarVisualOcupado(data.salaId, null);
+        });
+
+        socket.on('erro_chat', (data) => {
+            alert(data.mensagem);
         });
 
         socket.on('disconnect', () => {
@@ -323,6 +346,12 @@
         function selecionarUsuario(nome, salaId) {
             if (salaAtual === salaId) return;
             
+            // Verificação de Trava
+            if (ticketsOcupados[salaId]) {
+                alert(`⚠️ Atenção: ${nome} já está sendo atendido por ${ticketsOcupados[salaId]}.`);
+                return;
+            }
+
             salaAtual = salaId;
             const container = document.getElementById('admin-chat');
             container.innerHTML = '<div class="m-auto flex items-center gap-2 text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando dados...</div>';
@@ -364,11 +393,44 @@
             div.innerHTML = `
                 <div class="flex flex-col overflow-hidden">
                     <span class="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">${nome}</span>
-                    <span class="text-[9px] text-slate-500 font-mono truncate uppercase">${salaId.substring(0, 15)}...</span>
+                    <span id="status-${idClean}" class="text-[9px] text-slate-500 font-mono truncate uppercase">${salaId.substring(0, 15)}...</span>
                 </div>
-                <span id="badge-${idClean}" class="hidden w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
+                <div class="flex items-center gap-2">
+                    <span id="badge-ocupado-${idClean}" class="hidden text-[8px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded font-black tracking-tighter">OCUPADO</span>
+                    <span id="badge-${idClean}" class="hidden w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></span>
+                </div>
             `;
             lista.prepend(div);
+
+            // Se já estiver ocupado ao adicionar (ex: reconexão)
+            if (ticketsOcupados[salaId]) {
+                atualizarVisualOcupado(salaId, ticketsOcupados[salaId]);
+            }
+        }
+
+        function atualizarVisualOcupado(salaId, nomeAtendente) {
+            const idClean = formatarId(salaId);
+            const card = document.getElementById(`user-${idClean}`);
+            const statusText = document.getElementById(`status-${idClean}`);
+            const badgeOcupado = document.getElementById(`badge-ocupado-${idClean}`);
+
+            if (!card) return;
+
+            if (nomeAtendente) {
+                card.classList.add('opacity-50');
+                if (statusText) {
+                    statusText.innerText = `EM ATENDIMENTO: ${nomeAtendente.toUpperCase()}`;
+                    statusText.classList.replace('text-slate-500', 'text-red-400');
+                }
+                if (badgeOcupado) badgeOcupado.classList.remove('hidden');
+            } else {
+                card.classList.remove('opacity-50');
+                if (statusText) {
+                    statusText.innerText = salaId.substring(0, 15) + "...";
+                    statusText.classList.replace('text-red-400', 'text-slate-500');
+                }
+                if (badgeOcupado) badgeOcupado.classList.add('hidden');
+            }
         }
 
         function adicionarNaTela(autor, texto, arquivo, tipo) {
