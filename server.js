@@ -24,9 +24,10 @@ function getAIModel() {
         console.warn("⚠️ GOOGLE_API_KEY não encontrada no process.env");
         return null;
     }
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    console.log(`🔑 [IA] Iniciando com modelo gemini-1.0-pro (compatibilidade total).`);
-    aiModel = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+    const cleanKey = process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '');
+    const genAI = new GoogleGenerativeAI(cleanKey);
+    console.log(`🔑 [IA] Iniciando com modelo gemini-1.5-flash (Chave: ${cleanKey.substring(0, 5)}...).`);
+    aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     return aiModel;
 }
 
