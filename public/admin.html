@@ -191,6 +191,47 @@
             carregarAtendentes();
         }
         function fecharModalSuporte() { document.getElementById('modal-suporte').classList.add('hidden'); }
+        
+        function verificarListaVazia() {
+            const lista = document.getElementById('lista-usuarios');
+            const cards = Array.from(lista.children).filter(el => el.id !== 'empty-list');
+            const visiveis = cards.filter(el => !el.classList.contains('hidden'));
+            
+            if (visiveis.length === 0) {
+                if (!document.getElementById('empty-list')) {
+                    const div = document.createElement('div');
+                    div.id = 'empty-list';
+                    div.className = "p-10 text-center text-xs text-slate-600 italic";
+                    div.innerHTML = `
+                        <i class="fa-solid fa-headset mb-3 text-2xl opacity-10 block"></i>
+                        Aguardando solicitações...
+                    `;
+                    lista.appendChild(div);
+                }
+            } else {
+                const empty = document.getElementById('empty-list');
+                if (empty) empty.remove();
+            }
+        }
+
+        function limparChatCentral() {
+            salaAtual = null;
+            document.getElementById('admin-chat').innerHTML = `
+                <div class="m-auto text-center text-slate-800">
+                    <i class="fa-solid fa-terminal text-6xl mb-4 opacity-5 block"></i>
+                    <p class="text-xs font-bold uppercase tracking-widest opacity-20">Selecione uma sessão lateral</p>
+                </div>
+            `;
+            document.getElementById('nome-atendimento').innerText = "Nenhum atendimento selecionado";
+            document.getElementById('nome-atendimento').classList.replace('text-white', 'text-slate-400');
+            document.getElementById('btn-encerrar').classList.add('hidden');
+            document.getElementById('badge-online').classList.add('hidden');
+            document.getElementById('admin-input').value = "";
+            document.getElementById('admin-input').disabled = true;
+            document.getElementById('btn-enviar').disabled = true;
+            document.getElementById('btn-file').disabled = true;
+        }
+
         async function criarContaSuporte() {
             const nome = document.getElementById('sup-nome').value;
             const email = document.getElementById('sup-email').value;
@@ -340,10 +381,12 @@
             const idClean = formatarId(data.salaId);
             const el = document.getElementById(`user-${idClean}`);
             if (el) el.remove();
-            // Se o atendente estava com esse ticket selecionado, limpa a sessão
+            
+            // Se o atendente estava com esse ticket selecionado, limpa visualmente sem dar F5
             if (salaAtual === data.salaId) {
-                location.reload(); 
+                limparChatCentral();
             }
+            verificarListaVazia();
         });
 
         socket.on('erro_chat', (data) => {
@@ -407,7 +450,7 @@
             if (salaAtual === salaId) return;
             
             // Verificação de Trava
-            if (ticketsOcupados[salaId]) {
+            if (ticketsOcupados[salaId] && ticketsOcupados[salaId].toUpperCase() !== nomeAdmin.toUpperCase()) {
                 alert(`⚠️ Atenção: ${nome} já está sendo atendido por ${ticketsOcupados[salaId]}.`);
                 return;
             }
@@ -461,6 +504,7 @@
                 </div>
             `;
             lista.prepend(div);
+            verificarListaVazia();
 
             // Se já estiver ocupado ao adicionar (ex: reconexão)
             if (ticketsOcupados[salaId]) {
@@ -499,6 +543,7 @@
                 }
                 if (badgeOcupado) badgeOcupado.classList.add('hidden');
             }
+            verificarListaVazia();
         }
 
         function adicionarNaTela(autor, texto, arquivo, tipo) {
@@ -569,8 +614,9 @@
 
         function encerrarAtendimento() {
             if (confirm("Confirmar encerramento? O histórico será removido.")) {
-                socket.emit('encerrar_chamado', salaAtual);
-                location.reload(); // Recarrega para limpar todos os estados
+                const salaParaEncerrar = salaAtual;
+                limparChatCentral();
+                socket.emit('encerrar_chamado', salaParaEncerrar);
             }
         }
 
