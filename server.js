@@ -25,7 +25,7 @@ function getAIModel() {
         return null;
     }
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    aiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     return aiModel;
 }
 
@@ -120,20 +120,31 @@ const activeSessions = {}; // salaId -> { socketId, nomeAtendente }
 
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
 async function processarIA(salaId, mensagemUsuario) {
+    console.log(`🤖 [IA] Verificando processamento para: ${salaId}`);
     const model = getAIModel();
-    if (!model || activeSessions[salaId]) return;
+    if (!model) {
+        console.warn("⚠️ [IA] Modelo não configurado. Verifique GOOGLE_API_KEY.");
+        return;
+    }
+    
+    if (activeSessions[salaId]) {
+        console.log(`⚠️ [IA] Atendente "${activeSessions[salaId].nomeAtendente}" está na sala. IA pausada.`);
+        return;
+    }
 
     try {
+        console.log(`🧠 [IA] Gerando resposta para: "${mensagemUsuario}"...`);
         const prompt = `
             Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
             Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
-            Mantenha suas respostas curtas, profissionais e úteis. 
+            Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis. 
             Se não souber a resposta, peça para o usuário aguardar um suporte humano.
             O usuário perguntou: "${mensagemUsuario}"
         `;
 
         const result = await model.generateContent(prompt);
         const resposta = result.response.text();
+        console.log(`✔️ [IA] Resposta gerada com sucesso.`);
 
         const msgAI = {
             usuario: "IA Inteligente",
@@ -152,7 +163,7 @@ async function processarIA(salaId, mensagemUsuario) {
         io.to(salaId).emit('receber_mensagem', msgAI);
 
     } catch (err) {
-        console.error("❌ Erro IA Gemini:", err.message);
+        console.error("❌ [IA] Erro na API Gemini:", err.message);
     }
 }
 
