@@ -6,6 +6,7 @@
     <title>Console Suporte | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="data:,">
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { background: #0f172a; color: #e2e8f0; height: 100vh; overflow: hidden; }
@@ -381,6 +382,9 @@
             const idClean = formatarId(data.salaId);
             const el = document.getElementById(`user-${idClean}`);
             if (el) el.remove();
+            
+            // --- CORREÇÃO: Limpa do registro para permitir reentrada se o usuário pedir ajuda novamente ---
+            usuariosConhecidos.delete(data.salaId);
             
             // Se o atendente estava com esse ticket selecionado, limpa visualmente sem dar F5
             if (salaAtual === data.salaId) {
