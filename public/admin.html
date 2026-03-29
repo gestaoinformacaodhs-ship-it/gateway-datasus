@@ -317,6 +317,15 @@
             });
         });
 
+        socket.on('fila_ativa', (data) => {
+            if (data && data.length > 0) {
+                // Reconstrói a lista ignorando duplicatas já inseridas
+                data.forEach(user => {
+                    adicionarUsuarioLista(user.nome, user.salaId);
+                });
+            }
+        });
+
         socket.on('usuario_ocupado', (data) => {
             ticketsOcupados[data.salaId] = data.nomeAtendente;
             atualizarVisualOcupado(data.salaId, data.nomeAtendente);

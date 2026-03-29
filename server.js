@@ -159,7 +159,7 @@ async function processarIA(salaId, mensagemUsuario) {
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
     
-    socket.on('admin_entrar', (data) => {
+    socket.on('admin_entrar', async (data) => {
         socket.join('admin_room');
         socket.nomeAtendente = data ? data.nome : "Suporte";
         console.log(`🛠️ Admin ${socket.nomeAtendente} entrou no monitoramento.`);
@@ -170,6 +170,14 @@ io.on('connection', (socket) => {
             ocupados[salaId] = session.nomeAtendente;
         }
         socket.emit('lista_usuarios_ocupados', ocupados);
+
+        // --- RECUPERAÇÃO DE FILA: Carrega chamados pendentes do Banco ---
+        try {
+            const fila = await pool.query(
+                "SELECT DISTINCT ON (sala_id) sala_id, usuario FROM mensagens_suporte WHERE usuario != 'IA Inteligente' AND usuario NOT LIKE 'Suporte%' ORDER BY sala_id, timestamp DESC LIMIT 50"
+            );
+            socket.emit('fila_ativa', fila.rows.map(r => ({ nome: r.usuario, salaId: r.sala_id })));
+        } catch (err) { console.error("Erro ao carregar fila ativa:", err.message); }
     });
     
     socket.on('entrar_na_sala', async (salaId) => {
