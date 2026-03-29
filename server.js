@@ -164,6 +164,10 @@ async function processarIA(salaId, mensagemUsuario) {
 
     } catch (err) {
         console.error("❌ [IA] Erro na API Gemini:", err.message);
+        io.to(salaId).emit('receber_mensagem', { 
+            usuario: "Sistema", 
+            texto: `⚠️ Falha técnica na IA: ${err.message}. Verifique a GOOGLE_API_KEY no Render.` 
+        });
     }
 }
 
@@ -270,6 +274,7 @@ io.on('connection', (socket) => {
 
             // Só envia para a sala geral (admin_room) se o remetente NÃO for admin E não houver suporte ativo
             const isUsuarioComum = nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente" && !socket.rooms.has('admin_room');
+            console.log(`📩 [MSG] Remetente: ${nomeUsuario} | Usuário Comum: ${isUsuarioComum} | Mensagem: "${mensagem || (arquivo ? '[Arquivo]' : '')}"`);
 
             if (isUsuarioComum) {
                 // Notifica painel geral SÓ SE o chamado estiver sem atendente (unassigned)
@@ -278,9 +283,9 @@ io.on('connection', (socket) => {
                     io.to('admin_room').emit('receber_mensagem', msgData);
                 }
                 
-                // Gatilho para IA se não houver suporte humano atendendo
+                // Gatilho para IA se não houver suporte humano atendendo (TEstando sem Delay)
                 if (!activeSessions[salaId] && mensagem) {
-                    setTimeout(() => processarIA(salaId, mensagem), 1500);
+                    processarIA(salaId, mensagem);
                 }
             }
         } catch (err) { 
