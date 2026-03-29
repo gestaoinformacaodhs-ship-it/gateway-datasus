@@ -294,6 +294,8 @@ io.on('connection', (socket) => {
             io.to(salaId).emit('chamado_encerrado', { salaId });
             // Remove da lista de todos os admins permanentemente
             io.to('admin_room').emit('remover_usuario_lista', { salaId });
+            // Força a saída do socket da sala individual (Sincronização Master/Lucas)
+            socket.leave(salaId);
         } catch (err) {
             console.error("Erro ao encerrar chamado:", err.message);
         }
