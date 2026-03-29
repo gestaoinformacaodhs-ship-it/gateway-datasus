@@ -25,7 +25,8 @@ function getAIModel() {
         return null;
     }
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    aiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log(`🔑 [IA] Chave iniciada: ${process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.substring(0, 5) + '...' : 'NÃO DEFINIDA'}`);
+    aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     return aiModel;
 }
 
