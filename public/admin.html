@@ -305,6 +305,16 @@
             atualizarVisualOcupado(data.salaId, null);
         });
 
+        socket.on('remover_usuario_lista', (data) => {
+            const idClean = formatarId(data.salaId);
+            const el = document.getElementById(`user-${idClean}`);
+            if (el) el.remove();
+            // Se o atendente estava com esse ticket selecionado, limpa a sessão
+            if (salaAtual === data.salaId) {
+                location.reload(); 
+            }
+        });
+
         socket.on('erro_chat', (data) => {
             alert(data.mensagem);
         });
@@ -417,13 +427,21 @@
             if (!card) return;
 
             if (nomeAtendente) {
-                card.classList.add('opacity-50');
+                // Se o atendente for OUTRO administrador, esconde o card para evitar confusão
+                if (nomeAtendente.toUpperCase() !== nomeAdmin.toUpperCase()) {
+                    card.classList.add('hidden');
+                } else {
+                    card.classList.remove('hidden');
+                    card.classList.add('opacity-50');
+                }
+                
                 if (statusText) {
                     statusText.innerText = `EM ATENDIMENTO: ${nomeAtendente.toUpperCase()}`;
                     statusText.classList.replace('text-slate-500', 'text-red-400');
                 }
                 if (badgeOcupado) badgeOcupado.classList.remove('hidden');
             } else {
+                card.classList.remove('hidden');
                 card.classList.remove('opacity-50');
                 if (statusText) {
                     statusText.innerText = salaId.substring(0, 15) + "...";

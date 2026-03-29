@@ -284,7 +284,8 @@ io.on('connection', (socket) => {
             await pool.query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
             delete activeSessions[salaId];
             io.to(salaId).emit('chamado_encerrado', { salaId });
-            io.to('admin_room').emit('usuario_livre', { salaId });
+            // Remove da lista de todos os admins permanentemente
+            io.to('admin_room').emit('remover_usuario_lista', { salaId });
         } catch (err) {
             console.error("Erro ao encerrar chamado:", err.message);
         }
