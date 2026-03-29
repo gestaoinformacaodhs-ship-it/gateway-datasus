@@ -107,20 +107,29 @@
                 </div>
             </div>
 
-            <div class="p-4 bg-[#0f172a] border-t border-slate-800 flex gap-4 shadow-2xl items-center">
-                <button type="button" onclick="document.getElementById('admin-file').click()" class="text-slate-500 hover:text-blue-500 transition-colors p-2">
-                    <i class="fa-solid fa-paperclip text-xl"></i>
-                </button>
-                <input type="file" id="admin-file" class="hidden" onchange="adminEnviarArquivo()">
+            <div id="admin-input-container" class="p-4 bg-[#0f172a] border-t border-slate-800 flex gap-4 shadow-2xl items-center relative">
+                <div id="lock-overlay" class="hidden absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-4">
+                    <div class="flex items-center gap-3 text-red-400 font-bold text-xs uppercase tracking-widest bg-[#1a1f2e] px-6 py-3 rounded-full border border-red-500/20 shadow-xl">
+                        <i class="fa-solid fa-lock animate-pulse"></i>
+                        <span id="lock-message">Chat sob atendimento de outro suporte</span>
+                    </div>
+                </div>
 
-                <input type="text" id="admin-input" 
-                    class="flex-1 bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 text-sm" 
-                    placeholder="Escreva sua mensagem aqui...">
-                
-                <button id="btnEnviar" onclick="enviarResposta()" 
-                    class="bg-blue-600 hover:bg-blue-500 px-6 py-3.5 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
+                <div class="flex-1 flex gap-4 items-center">
+                    <button type="button" onclick="document.getElementById('admin-file').click()" class="text-slate-500 hover:text-blue-500 transition-colors p-2">
+                        <i class="fa-solid fa-paperclip text-xl"></i>
+                    </button>
+                    <input type="file" id="admin-file" class="hidden" onchange="adminEnviarArquivo()">
+
+                    <input type="text" id="admin-input" 
+                        class="flex-1 bg-slate-900 border border-slate-800 p-3.5 rounded-xl text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 text-sm" 
+                        placeholder="Escreva sua mensagem aqui...">
+                    
+                    <button id="btnEnviar" onclick="enviarResposta()" 
+                        class="bg-blue-600 hover:bg-blue-500 px-6 py-3.5 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -180,17 +189,12 @@
                 const safeId = formatId(salaAtiva);
                 document.getElementById(`user-${safeId}`)?.classList.remove('active');
                 
-                // Limpa o chat view para evitar que vejam histórico se não tiverem acesso
-                document.getElementById('admin-chat-box').innerHTML = "";
-                document.getElementById('chat-title').innerText = "Acesso Negado";
-                document.getElementById('status-badge').classList.add('hidden');
-                document.getElementById('empty-state').style.display = 'flex';
+                // Exibe bloqueio visual
+                document.getElementById('lock-overlay').classList.remove('hidden');
+                document.getElementById('lock-message').innerText = `Acesso Negado: Atendido por ${atendentesOcupados[salaAtiva] || 'outro suporte'}`;
                 
-                // Desabilita input
                 document.getElementById('admin-input').disabled = true;
                 document.getElementById('btnEnviar').disabled = true;
-                
-                salaAtiva = "";
             }
         });
 
@@ -219,19 +223,17 @@
                 if (card) {
                     card.style.opacity = "0.5";
                     card.style.pointerEvents = "none";
+                    const nomeSpan = document.getElementById(`name-${safeId}`);
+                    if (nomeSpan) nomeSpan.innerHTML = `<i class="fa-solid fa-lock text-slate-500 mr-2"></i>${usuariosAtivos[data.salaId]?.nome || 'Usuário'}`;
                     const preview = document.getElementById(`preview-${safeId}`);
-                    if (preview) preview.innerHTML = `<i class="fa-solid fa-lock text-slate-500 mr-1"></i> Atendido por ${data.nomeAtendente}`;
+                    if (preview) preview.innerHTML = `<span class="text-red-500/60 flex items-center gap-1"><i class="fa-solid fa-user-shield text-[9px]"></i> Atendido por ${data.nomeAtendente}</span>`;
                 }
                 
-                // Se eu estava tentando falar com esse cara e outro pegou primeiro
+                // Se eu estou olhando esse chat agora, bloqueia
                 if (salaAtiva === data.salaId) {
-                    alert(`O chamado de ${usuariosAtivos[data.salaId]?.nome || 'usuário'} foi assumido por ${data.nomeAtendente}.`);
-                    document.getElementById(`user-${safeId}`)?.classList.remove('active');
-                    salaAtiva = "";
-                    document.getElementById('admin-chat-box').innerHTML = "";
-                    document.getElementById('chat-title').innerText = "Selecione um usuário";
-                    document.getElementById('status-badge').classList.add('hidden');
-                    document.getElementById('empty-state').style.display = 'flex';
+                    document.getElementById('lock-overlay').classList.remove('hidden');
+                    document.getElementById('lock-message').innerText = `O atendimento foi assumido por ${data.nomeAtendente}`;
+                    document.getElementById('chat-title').innerHTML = `${usuariosAtivos[data.salaId]?.nome || 'Usuário'} <span class="text-[10px] text-red-500 ml-2">[🔒 Atendido por ${data.nomeAtendente}]</span>`;
                     document.getElementById('admin-input').disabled = true;
                 }
             }
@@ -244,8 +246,16 @@
             if (card) {
                 card.style.opacity = "1";
                 card.style.pointerEvents = "auto";
+                const nomeSpan = document.getElementById(`name-${safeId}`);
+                if (nomeSpan) nomeSpan.innerHTML = usuariosAtivos[data.salaId]?.nome || 'Usuário';
                 const preview = document.getElementById(`preview-${safeId}`);
                 if (preview) preview.innerText = "Disponível";
+            }
+            if (salaAtiva === data.salaId) {
+                document.getElementById('lock-overlay').classList.add('hidden');
+                document.getElementById('admin-input').disabled = false;
+                document.getElementById('btnEnviar').disabled = false;
+                document.getElementById('chat-title').innerText = usuariosAtivos[data.salaId]?.nome || 'Usuário';
             }
         });
 
@@ -308,18 +318,26 @@
         });
 
         function selecionarUsuario(salaId, nome) {
-            if (atendentesOcupados[salaId] && atendentesOcupados[salaId] !== nomeAdmin) {
-                return alert(`Este usuário está sendo atendido por ${atendentesOcupados[salaId]}`);
-            }
+            const ocupadoPor = atendentesOcupados[salaId];
+            const isOcupadoOutro = ocupadoPor && ocupadoPor !== nomeAdmin;
+
             salaAtiva = salaId;
             mensagensProcessadas.clear();
             
-            // Habilita input
-            document.getElementById('admin-input').disabled = false;
-            document.getElementById('btnEnviar').disabled = false;
-            document.getElementById('admin-input').focus();
-            
-            document.getElementById('chat-title').innerText = nome;
+            if (isOcupadoOutro) {
+                document.getElementById('lock-overlay').classList.remove('hidden');
+                document.getElementById('lock-message').innerText = `Chat sob atendimento de ${ocupadoPor}`;
+                document.getElementById('chat-title').innerHTML = `${nome} <span class="text-[10px] text-red-500 ml-2">[🔒 Atendido por ${ocupadoPor}]</span>`;
+                document.getElementById('admin-input').disabled = true;
+                document.getElementById('btnEnviar').disabled = true;
+            } else {
+                document.getElementById('lock-overlay').classList.add('hidden');
+                document.getElementById('chat-title').innerText = nome;
+                document.getElementById('admin-input').disabled = false;
+                document.getElementById('btnEnviar').disabled = false;
+                socket.emit('entrar_na_sala', salaId);
+                document.getElementById('admin-input').focus();
+            }
             const badge = document.getElementById('status-badge');
             badge.classList.remove('hidden');
             badge.innerText = "Em Atendimento";
@@ -361,10 +379,14 @@
             const isOcupadoOutro = ocupadoPor && ocupadoPor !== nomeAdmin;
 
             card.innerHTML = `
-                <div id="unread-${safeId}" class="absolute top-4 right-4 unread-dot"></div>
+                <div id="unread-${safeId}" class="absolute top-4 right-4 unread-dot ${isOcupadoOutro ? 'hidden' : ''}"></div>
                 <div class="flex flex-col">
-                    <span class="font-bold text-sm text-white">${nome}</span>
-                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic">${isOcupadoOutro ? '<i class="fa-solid fa-lock text-slate-500 mr-1"></i> Atendido por ' + ocupadoPor : texto}</span>
+                    <span id="name-${safeId}" class="font-bold text-sm text-white flex items-center">
+                        ${isOcupadoOutro ? '<i class="fa-solid fa-lock text-slate-500 mr-2"></i>' : ''}${nome}
+                    </span>
+                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic">
+                        ${isOcupadoOutro ? '<span class="text-red-500/60 flex items-center gap-1"><i class="fa-solid fa-user-shield text-[9px]"></i> Atendido por ' + ocupadoPor + '</span>' : texto}
+                    </span>
                 </div>
             `;
             if (isOcupadoOutro) {
