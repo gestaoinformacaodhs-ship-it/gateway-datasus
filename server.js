@@ -250,8 +250,9 @@ io.on('connection', (socket) => {
                                msgMinuscula.includes("suporte");
 
             if (nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente") {
-                // Notifica admin SÓ SE houver suporte atendendo OU se o usuário pediu ajuda humana
-                if (activeSessions[salaId] || pediuHumano || tipo_arquivo) {
+                // Notifica admin SÓ SE o chamado estiver sem atendente (unassigned)
+                // Se já houver atendente, a mensagem já chegará para ele via salaId
+                if (!activeSessions[salaId] || pediuHumano || tipo_arquivo) {
                     io.to('admin_room').emit('receber_mensagem', msgData);
                 }
                 

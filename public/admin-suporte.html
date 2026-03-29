@@ -45,6 +45,13 @@
             border-radius: 50%;
             box-shadow: 0 0 10px #3b82f6;
         }
+        
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .animate-lock-pulse { animation: pulse-red 2s infinite; }
     </style>
 </head>
 <body class="bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
@@ -108,10 +115,13 @@
             </div>
 
             <div id="admin-input-container" class="p-4 bg-[#0f172a] border-t border-slate-800 flex gap-4 shadow-2xl items-center relative">
-                <div id="lock-overlay" class="hidden absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-4">
-                    <div class="flex items-center gap-3 text-red-400 font-bold text-xs uppercase tracking-widest bg-[#1a1f2e] px-6 py-3 rounded-full border border-red-500/20 shadow-xl">
-                        <i class="fa-solid fa-lock animate-pulse"></i>
-                        <span id="lock-message">Chat sob atendimento de outro suporte</span>
+                <div id="lock-overlay" class="hidden absolute inset-0 bg-[#0f172a]/40 backdrop-blur-[4px] z-10 flex items-center justify-center p-4">
+                    <div class="flex items-center gap-3 text-red-400 font-bold text-[10px] uppercase tracking-[0.2em] bg-slate-900/90 px-8 py-4 rounded-2xl border border-red-500/30 shadow-2xl animate-lock-pulse">
+                        <i class="fa-solid fa-user-lock text-lg"></i>
+                        <div class="flex flex-col">
+                            <span id="lock-message">Atendimento em curso</span>
+                            <span class="text-[8px] text-slate-500 font-medium normal-case tracking-normal">Somente visualização permitida</span>
+                        </div>
                     </div>
                 </div>
 
@@ -232,8 +242,15 @@
                 // Se eu estou olhando esse chat agora, bloqueia
                 if (salaAtiva === data.salaId) {
                     document.getElementById('lock-overlay').classList.remove('hidden');
-                    document.getElementById('lock-message').innerText = `O atendimento foi assumido por ${data.nomeAtendente}`;
-                    document.getElementById('chat-title').innerHTML = `${usuariosAtivos[data.salaId]?.nome || 'Usuário'} <span class="text-[10px] text-red-500 ml-2">[🔒 Atendido por ${data.nomeAtendente}]</span>`;
+                    document.getElementById('lock-message').innerText = `Atendimento por ${data.nomeAtendente}`;
+                    document.getElementById('chat-title').innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span>${usuariosAtivos[data.salaId]?.nome || 'Usuário'}</span>
+                            <span class="text-[9px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase flex items-center gap-1">
+                                <i class="fa-solid fa-lock text-[8px]"></i> Ativado por ${data.nomeAtendente}
+                            </span>
+                        </div>
+                    `;
                     document.getElementById('admin-input').disabled = true;
                 }
             }
@@ -326,8 +343,15 @@
             
             if (isOcupadoOutro) {
                 document.getElementById('lock-overlay').classList.remove('hidden');
-                document.getElementById('lock-message').innerText = `Chat sob atendimento de ${ocupadoPor}`;
-                document.getElementById('chat-title').innerHTML = `${nome} <span class="text-[10px] text-red-500 ml-2">[🔒 Atendido por ${ocupadoPor}]</span>`;
+                document.getElementById('lock-message').innerText = `Atendimento por ${ocupadoPor}`;
+                document.getElementById('chat-title').innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span>${nome}</span>
+                        <span class="text-[9px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase flex items-center gap-1">
+                            <i class="fa-solid fa-lock text-[8px]"></i> Ativado por ${ocupadoPor}
+                        </span>
+                    </div>
+                `;
                 document.getElementById('admin-input').disabled = true;
                 document.getElementById('btnEnviar').disabled = true;
             } else {
@@ -384,8 +408,13 @@
                     <span id="name-${safeId}" class="font-bold text-sm text-white flex items-center">
                         ${isOcupadoOutro ? '<i class="fa-solid fa-lock text-slate-500 mr-2"></i>' : ''}${nome}
                     </span>
-                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic">
-                        ${isOcupadoOutro ? '<span class="text-red-500/60 flex items-center gap-1"><i class="fa-solid fa-user-shield text-[9px]"></i> Atendido por ' + ocupadoPor + '</span>' : texto}
+                    <span id="preview-${safeId}" class="text-[11px] text-slate-500 truncate mt-1 italic flex justify-between items-center">
+                        ${isOcupadoOutro ? `
+                            <span class="text-red-500/60 flex items-center gap-1">
+                                <i class="fa-solid fa-user-shield text-[9px]"></i> ${ocupadoPor}
+                            </span>
+                            <span class="text-[7px] bg-red-500/20 text-red-500 px-1 rounded font-bold uppercase tracking-tighter">Ocupado</span>
+                        ` : texto}
                     </span>
                 </div>
             `;
