@@ -242,17 +242,20 @@ io.on('connection', (socket) => {
 
             io.to(salaId).emit('receber_mensagem', msgData);
             
-            // Lógica de notificação seletiva para Admin
+            // Lógica de notificação seletiva para Admin (Deduplicação de Broadcast)
             const msgMinuscula = (mensagem || "").toLowerCase();
             const pediuHumano = msgMinuscula.includes("humano") || 
                                msgMinuscula.includes("atendente") || 
                                msgMinuscula.includes("ajuda") || 
                                msgMinuscula.includes("suporte");
 
-            if (nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente") {
-                // Notifica admin SÓ SE o chamado estiver sem atendente (unassigned)
-                // Se já houver atendente, a mensagem já chegará para ele via salaId
-                if (!activeSessions[salaId] || pediuHumano || tipo_arquivo) {
+            // Só envia para a sala geral (admin_room) se o remetente NÃO for admin E não houver suporte ativo
+            const isUsuarioComum = nomeUsuario !== "Suporte Arpoador" && nomeUsuario !== "IA Inteligente" && !socket.rooms.has('admin_room');
+
+            if (isUsuarioComum) {
+                // Notifica painel geral SÓ SE o chamado estiver sem atendente (unassigned)
+                // Se já houver atendente, a mensagem já chegará para ele via salaId (evitando duplicata)
+                if (!activeSessions[salaId] || pediuHumano) {
                     io.to('admin_room').emit('receber_mensagem', msgData);
                 }
                 
