@@ -163,6 +163,28 @@
     </div>
 
     <script>
+        // Função para Gerar Som Sintético (Evita Erros 404 e Dependências Externas)
+        function tocarAlerta() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota La (A5)
+                
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            } catch (e) { console.warn("Erro ao gerar som:", e); }
+        }
+
         // Funções para Gestão de Suporte
         function abrirModalSuporte() { 
             document.getElementById('modal-suporte').classList.remove('hidden'); 
@@ -348,7 +370,7 @@
                 // --- ALERTA SONORO: Campainha para Pendentes ---
                 // Só apita se não for o atendimento atual e se estiver livre (sem suporte)
                 if (!ticketsOcupados[salaId] && salaId !== salaAtual) {
-                    new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play().catch(()=>{});
+                    tocarAlerta();
                 }
             }
 
