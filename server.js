@@ -17,14 +17,7 @@ const app = express();
 const server = http.createServer(app); 
 
 // --- CONFIGURAÇÃO IA (GEMINI) ---
-function obterInstanciaIA() {
-    const key = process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '') : null;
-    if (!key) {
-        console.warn("⚠️ [IA] GOOGLE_API_KEY não encontrada ou inválida.");
-        return null;
-    }
-    return new GoogleGenerativeAI(key);
-}
+// Removida biblioteca oficial em favor de REST puro para máxima estabilidade v1
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
@@ -116,44 +109,46 @@ initDB();
 const activeSessions = {}; // salaId -> { socketId, nomeAtendente }
 
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
+// --- FUNÇÃO IA INTELIGENTE (GEMINI REST v1) ---
 async function processarIA(salaId, mensagemUsuario) {
-    console.log(`🤖 [IA] Verificando processamento para: ${salaId}`);
+    console.log(`🤖 [IA] Verificando processamento direto (v1) para: ${salaId}`);
     
-    const genAI = obterInstanciaIA();
-    if (!genAI) return;
-
-    if (activeSessions[salaId]) {
-        console.log(`⚠️ [IA] Atendente "${activeSessions[salaId].nomeAtendente}" está na sala. IA pausada.`);
-        return;
-    }
+    const key = process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '') : null;
+    if (!key || activeSessions[salaId]) return;
 
     try {
-        console.log(`🧠 [IA] Diagnosticando modelos disponíveis para a chave...`);
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
         
-        // --- DIAGNÓSTICO: Listar modelos disponíveis e enviar para o chat ---
-        try {
-            const listResponse = await genAI.listModels();
-            const modelosEncontrados = listResponse.models.map(m => m.name.replace('models/', '')).join(', ');
-            io.to(salaId).emit('receber_mensagem', { 
-                usuario: "Sistema", 
-                texto: `🔍 Sua chave suporta estes modelos: ${modelosEncontrados}. Por favor, me avise quais apareceram!` 
-            });
-        } catch (listErr) {
-            console.error("Erro ao listar modelos:", listErr.message);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: `
+                            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
+                            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
+                            Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis. 
+                            Se não souber a resposta, peça para o usuário aguardar um suporte humano.
+                            O usuário perguntou: "${mensagemUsuario}"
+                        `
+                    }]
+                }]
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(`${data.error.message} (${data.error.status})`);
         }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const prompt = `
-            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
-            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
-            Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis. 
-            Se não souber a resposta, peça para o usuário aguardar um suporte humano.
-            O usuário perguntou: "${mensagemUsuario}"
-        `;
+        if (!data.candidates || !data.candidates[0].content) {
+             throw new Error("Resposta sem conteúdo válido.");
+        }
 
-        const result = await model.generateContent(prompt);
-        const resposta = result.response.text();
-        console.log(`✔️ [IA] Resposta gerada com sucesso.`);
+        const resposta = data.candidates[0].content.parts[0].text;
+        console.log(`✔️ [IA] Resposta v1 gerada com sucesso.`);
 
         const msgAI = {
             usuario: "IA Inteligente",
@@ -172,13 +167,14 @@ async function processarIA(salaId, mensagemUsuario) {
         io.to(salaId).emit('receber_mensagem', msgAI);
 
     } catch (err) {
-        console.error("❌ [IA] Erro na API Gemini:", err.message);
+        console.error("❌ [IA] Erro na Resposta REST:", err.message);
         io.to(salaId).emit('receber_mensagem', { 
             usuario: "Sistema", 
-            texto: `⚠️ Falha técnica na IA: ${err.message}. Verifique a GOOGLE_API_KEY no Render.` 
+            texto: `⚠️ Falha técnica na IA (v1/REST): ${err.message}.` 
         });
     }
 }
+
 
 // --- LÓGICA DO CHAT (SOCKET.IO) ---
 io.on('connection', (socket) => {
