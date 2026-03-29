@@ -17,18 +17,13 @@ const app = express();
 const server = http.createServer(app); 
 
 // --- CONFIGURAÇÃO IA (GEMINI) ---
-let aiModel = null;
-function getAIModel() {
-    if (aiModel) return aiModel;
-    if (!process.env.GOOGLE_API_KEY) {
-        console.warn("⚠️ GOOGLE_API_KEY não encontrada no process.env");
+function obterInstanciaIA() {
+    const key = process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '') : null;
+    if (!key) {
+        console.warn("⚠️ [IA] GOOGLE_API_KEY não encontrada ou inválida.");
         return null;
     }
-    const cleanKey = process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '');
-    const genAI = new GoogleGenerativeAI(cleanKey);
-    console.log(`🔑 [IA] Iniciando com modelo gemini-1.5-flash (Chave: ${cleanKey.substring(0, 5)}...).`);
-    aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    return aiModel;
+    return new GoogleGenerativeAI(key);
 }
 
 // --- COMPRESSÃO E PARSER ---
@@ -123,19 +118,17 @@ const activeSessions = {}; // salaId -> { socketId, nomeAtendente }
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
 async function processarIA(salaId, mensagemUsuario) {
     console.log(`🤖 [IA] Verificando processamento para: ${salaId}`);
-    const model = getAIModel();
-    if (!model) {
-        console.warn("⚠️ [IA] Modelo não configurado. Verifique GOOGLE_API_KEY.");
-        return;
-    }
     
+    const genAI = obterInstanciaIA();
+    if (!genAI) return;
+
     if (activeSessions[salaId]) {
         console.log(`⚠️ [IA] Atendente "${activeSessions[salaId].nomeAtendente}" está na sala. IA pausada.`);
         return;
     }
 
     try {
-        console.log(`🧠 [IA] Consultando modelos disponíveis para a chave...`);
+        console.log(`🧠 [IA] Diagnosticando modelos disponíveis para a chave...`);
         
         // --- DIAGNÓSTICO: Listar modelos disponíveis e enviar para o chat ---
         try {
@@ -149,6 +142,7 @@ async function processarIA(salaId, mensagemUsuario) {
             console.error("Erro ao listar modelos:", listErr.message);
         }
 
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const prompt = `
             Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
             Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
