@@ -328,15 +328,34 @@
             const salaId = data.salaId;
             const nomeUsuario = data.nome || data.usuario;
 
-            if (nomeUsuario !== nomeAdmin) {
+            if (nomeUsuario !== "IA Inteligente" && nomeUsuario !== nomeAdmin) {
                 adicionarUsuarioLista(nomeUsuario, salaId);
+                
+                // --- SINCRONIZAÇÃO AUTOMÁTICA: Mover para o Topo ---
+                const idClean = formatarId(salaId);
+                const el = document.getElementById(`user-${idClean}`);
+                if (el) {
+                    const lista = document.getElementById('lista-usuarios');
+                    lista.prepend(el); // Move para o topo da lista física
+                    
+                    // Se o ticket estiver livre (ninguém atendendo), garante que reapareça
+                    if (!ticketsOcupados[salaId]) {
+                        el.classList.remove('hidden');
+                        el.classList.remove('opacity-50');
+                    }
+                }
+                
+                // --- ALERTA SONORO: Campainha para Pendentes ---
+                // Só apita se não for o atendimento atual e se estiver livre (sem suporte)
+                if (!ticketsOcupados[salaId] && salaId !== salaAtual) {
+                    new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play().catch(()=>{});
+                }
             }
 
             if (salaId === salaAtual) {
                 adicionarNaTela(nomeUsuario, data.mensagem || data.texto, data.arquivo, data.tipo_arquivo || data.tipo);
-            } else {
+            } else if (nomeUsuario !== nomeAdmin) {
                 marcarComoNaoLida(salaId);
-                new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3').play().catch(()=>{});
             }
         });
 
