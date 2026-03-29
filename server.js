@@ -135,7 +135,20 @@ async function processarIA(salaId, mensagemUsuario) {
     }
 
     try {
-        console.log(`🧠 [IA] Gerando resposta para: "${mensagemUsuario}"...`);
+        console.log(`🧠 [IA] Consultando modelos disponíveis para a chave...`);
+        
+        // --- DIAGNÓSTICO: Listar modelos disponíveis e enviar para o chat ---
+        try {
+            const listResponse = await genAI.listModels();
+            const modelosEncontrados = listResponse.models.map(m => m.name.replace('models/', '')).join(', ');
+            io.to(salaId).emit('receber_mensagem', { 
+                usuario: "Sistema", 
+                texto: `🔍 Sua chave suporta estes modelos: ${modelosEncontrados}. Por favor, me avise quais apareceram!` 
+            });
+        } catch (listErr) {
+            console.error("Erro ao listar modelos:", listErr.message);
+        }
+
         const prompt = `
             Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
             Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
