@@ -340,6 +340,8 @@
                     localStorage.setItem('usuario', data.user);
                     localStorage.setItem('email', data.email);
                     localStorage.setItem('token', 'sessao_ativa');
+                    localStorage.setItem('token_jwt', data.token);
+                    localStorage.setItem('csrf_token', data.csrfToken);
                     window.location.href = 'dashboard.html';
                 } else { alert(data.error); }
             } catch (err) { alert("Servidor offline."); }

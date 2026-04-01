@@ -7,6 +7,7 @@ const { Pool } = require('pg');
 const { PassThrough } = require('stream');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const Brevo = require('@getbrevo/brevo');
 const compression = require('compression');
 const http = require('http');
@@ -126,6 +127,17 @@ async function initDB() {
                 END IF;
             END $$;
         `);
+
+        // Migração simples para adicionar a coluna 'balance' caso não exista
+        await client.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='usuarios' AND column_name='balance') THEN
+                    ALTER TABLE usuarios ADD COLUMN balance NUMERIC(12,2) DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
         await client.query(`
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
                 id SERIAL PRIMARY KEY,
@@ -137,6 +149,20 @@ async function initDB() {
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS transacoes (
+                id SERIAL PRIMARY KEY,
+                usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+                tipo TEXT NOT NULL,
+                valor NUMERIC(12,2) NOT NULL,
+                status TEXT NOT NULL DEFAULT 'completed',
+                descricao TEXT,
+                referencia TEXT,
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
         client.release();
         console.log("✔️ Banco de Dados pronto.");
     } catch (err) {
@@ -486,22 +512,55 @@ app.post('/api/login', authLimiter, async (req, res) => {
     if (!email || !senha) return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
 
     try {
-        const result = await pool.query(`SELECT nome, email, senha, ativo, role FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
+        const result = await pool.query(`SELECT id, nome, email, senha, ativo, role FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
         const user = result.rows[0];
         if (!user || !(await bcrypt.compare(senha, user.senha))) {
             return res.status(401).json({ error: "Credenciais inválidas." });
         }
-        
-        res.json({ user: user.nome, email: user.email, role: user.role });
+
+        const jwtSecret = process.env.JWT_SECRET || 'mu42x9!k_magadon';
+        const csrfToken = crypto.randomBytes(16).toString('hex');
+        const token = jwt.sign({ id: user.id, email: user.email, role: user.role, csrfToken }, jwtSecret, { expiresIn: '12h' });
+
+        res.json({
+            user: user.nome,
+            email: user.email,
+            role: user.role,
+            token,
+            csrfToken,
+            expiresIn: 43200
+        });
     } catch (err) { 
         res.status(500).json({ error: "Erro no servidor." }); 
     }
 });
 
-app.post('/api/update-profile', async (req, res) => {
-    const { nome, email, novaSenha } = req.body;
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+    const csrfHeader = req.headers['x-csrf-token'];
+
+    if (!token) return res.status(401).json({ error: 'Token JWT ausente.' });
+
     try {
-        const emailFormatado = email.toLowerCase().trim();
+        const jwtSecret = process.env.JWT_SECRET || 'mu42x9!k_magadon';
+        const payload = jwt.verify(token, jwtSecret);
+
+        if (req.method !== 'GET' && req.method !== 'HEAD' && payload.csrfToken !== csrfHeader) {
+            return res.status(403).json({ error: 'Token CSRF inválido.' });
+        }
+
+        req.user = payload;
+        next();
+    } catch (e) {
+        return res.status(401).json({ error: 'Token inválido ou expirado.' });
+    }
+};
+
+app.post('/api/update-profile', verifyToken, async (req, res) => {
+    const { nome, novaSenha } = req.body;
+    const emailFormatado = req.user.email.toLowerCase().trim();
+    try {
         if (novaSenha && novaSenha.trim() !== "") {
             const hash = await bcrypt.hash(novaSenha, 10);
             await pool.query(
@@ -517,6 +576,114 @@ app.post('/api/update-profile', async (req, res) => {
         res.json({ message: "Perfil atualizado com sucesso!" });
     } catch (err) {
         res.status(500).json({ error: "Erro ao atualizar perfil." });
+    }
+});
+
+app.get('/api/balance', verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT balance FROM usuarios WHERE id = $1', [req.user.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
+        res.json({ balance: Number(result.rows[0].balance || 0).toFixed(2) });
+    } catch (err) {
+        console.error('Erro /api/balance:', err.message);
+        res.status(500).json({ error: 'Erro ao consultar saldo.' });
+    }
+});
+
+app.post('/api/deposit', verifyToken, async (req, res) => {
+    const { amount } = req.body;
+    const valor = parseFloat(amount);
+    if (Number.isNaN(valor) || valor <= 0) return res.status(400).json({ error: 'Valor de depósito inválido.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const user = await client.query('SELECT balance FROM usuarios WHERE id = $1 FOR UPDATE', [req.user.id]);
+        if (user.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const novoSaldo = parseFloat(user.rows[0].balance || 0) + valor;
+        await client.query('UPDATE usuarios SET balance = $1 WHERE id = $2', [novoSaldo, req.user.id]);
+
+        await client.query(
+            'INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6)',
+            [req.user.id, 'deposit', valor, 'completed', 'Depósito via sistema', `deposit-${Date.now()}`]
+        );
+
+        await client.query('COMMIT');
+        res.json({ message: 'Depósito realizado com sucesso.', balance: novoSaldo.toFixed(2) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Erro /api/deposit:', err.message);
+        res.status(500).json({ error: 'Erro ao processar depósito.' });
+    } finally {
+        client.release();
+    }
+});
+
+app.get('/api/transactions', verifyToken, async (req, res) => {
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
+    try {
+        const result = await pool.query(
+            'SELECT id, tipo, valor, status, descricao, referencia, criado_em FROM transacoes WHERE usuario_id = $1 ORDER BY criado_em DESC LIMIT $2 OFFSET $3',
+            [req.user.id, limit, offset]
+        );
+        res.json({ transactions: result.rows });
+    } catch (err) {
+        console.error('Erro /api/transactions:', err.message);
+        res.status(500).json({ error: 'Erro ao buscar extrato.' });
+    }
+});
+
+app.post('/api/refund', verifyToken, async (req, res) => {
+    const { transactionId } = req.body;
+    if (!transactionId) return res.status(400).json({ error: 'ID da transação obrigatório.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const trans = await client.query('SELECT * FROM transacoes WHERE id = $1 AND usuario_id = $2 FOR UPDATE', [transactionId, req.user.id]);
+        if (trans.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Transação não encontrada.' });
+        }
+        const tx = trans.rows[0];
+
+        if (tx.tipo !== 'deposit' || tx.status !== 'completed') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Somente depósitos concluídos podem ser estornados.' });
+        }
+
+        const user = await client.query('SELECT balance FROM usuarios WHERE id = $1 FOR UPDATE', [req.user.id]);
+        const saldoAtual = parseFloat(user.rows[0].balance || 0);
+
+        if (saldoAtual < parseFloat(tx.valor)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Saldo insuficiente para estorno.' });
+        }
+
+        const novoSaldo = saldoAtual - parseFloat(tx.valor);
+        await client.query('UPDATE usuarios SET balance = $1 WHERE id = $2', [novoSaldo, req.user.id]);
+
+        await client.query('UPDATE transacoes SET status = $1 WHERE id = $2', ['refunded', tx.id]);
+
+        await client.query('INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6)',
+            [req.user.id, 'refund', -Math.abs(tx.valor), 'completed', `Estorno da transação ${tx.id}`, `refund-${tx.id}-${Date.now()}`]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Estorno realizado com sucesso.', balance: novoSaldo.toFixed(2) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Erro /api/refund:', err.message);
+        res.status(500).json({ error: 'Erro ao processar estorno.' });
+    } finally {
+        client.release();
     }
 });
 
@@ -553,17 +720,23 @@ app.post('/api/recuperar-senha-master', async (req, res) => {
     }
 });
 
-app.post('/api/delete-account', async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Identificação do usuário ausente." });
+app.post('/api/delete-account', verifyToken, async (req, res) => {
+    const userId = req.user.id;
+    if (!userId) return res.status(400).json({ error: "Usuário não autenticado." });
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN'); 
 
-        const emailFormatado = email.toLowerCase().trim();
+        const user = await client.query('SELECT email FROM usuarios WHERE id = $1', [userId]);
+        if (user.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const emailFormatado = user.rows[0].email;
         await client.query("DELETE FROM mensagens_suporte WHERE usuario = $1 OR sala_id = $1", [emailFormatado]);
-        const result = await client.query("DELETE FROM usuarios WHERE email = $1", [emailFormatado]);
+        const result = await client.query("DELETE FROM usuarios WHERE id = $1", [userId]);
 
         if (result.rowCount === 0) {
             await client.query('ROLLBACK');
