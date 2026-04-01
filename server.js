@@ -687,6 +687,83 @@ app.post('/api/refund', verifyToken, async (req, res) => {
     }
 });
 
+app.post('/api/withdraw', verifyToken, async (req, res) => {
+    const { amount } = req.body;
+    const valor = parseFloat(amount);
+    if (Number.isNaN(valor) || valor <= 0) return res.status(400).json({ error: 'Valor de saque inválido.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const user = await client.query('SELECT balance FROM usuarios WHERE id = $1 FOR UPDATE', [req.user.id]);
+        if (user.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const saldoAtual = parseFloat(user.rows[0].balance || 0);
+        if (saldoAtual < valor) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Saldo insuficiente para saque.' });
+        }
+
+        const novoSaldo = saldoAtual - valor;
+        await client.query('UPDATE usuarios SET balance = $1 WHERE id = $2', [novoSaldo, req.user.id]);
+
+        await client.query('INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6)',
+            [req.user.id, 'withdraw', -valor, 'completed', 'Saque via sistema', `withdraw-${Date.now()}`]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'Saque realizado com sucesso.', balance: novoSaldo.toFixed(2) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Erro /api/withdraw:', err.message);
+        res.status(500).json({ error: 'Erro ao processar saque.' });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/pix', verifyToken, async (req, res) => {
+    const { amount, pixKey } = req.body;
+    const valor = parseFloat(amount);
+    if (Number.isNaN(valor) || valor <= 0) return res.status(400).json({ error: 'Valor PIX inválido.' });
+    if (!pixKey || typeof pixKey !== 'string' || pixKey.trim().length === 0) return res.status(400).json({ error: 'Chave PIX obrigatória.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const user = await client.query('SELECT balance FROM usuarios WHERE id = $1 FOR UPDATE', [req.user.id]);
+        if (user.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const saldoAtual = parseFloat(user.rows[0].balance || 0);
+        if (saldoAtual < valor) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Saldo insuficiente para transferência PIX.' });
+        }
+
+        const novoSaldo = saldoAtual - valor;
+        await client.query('UPDATE usuarios SET balance = $1 WHERE id = $2', [novoSaldo, req.user.id]);
+
+        await client.query('INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6)',
+            [req.user.id, 'pix', -valor, 'completed', `PIX para ${pixKey}`, `pix-${Date.now()}`]);
+
+        await client.query('COMMIT');
+        res.json({ message: 'PIX realizado com sucesso.', balance: novoSaldo.toFixed(2) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Erro /api/pix:', err.message);
+        res.status(500).json({ error: 'Erro ao processar PIX.' });
+    } finally {
+        client.release();
+    }
+});
+
 app.post('/api/recuperar-senha-master', async (req, res) => {
     const { email } = req.body;
     const adminEmail = "gestaoinformacaodhs@gmail.com";
@@ -810,6 +887,10 @@ app.post('/api/reset-password', async (req, res) => {
 // --- ROTA DE NAVEGAÇÃO SIOPS ---
 app.get('/siops', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'siops.html'));
+});
+
+app.get('/wallet', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'wallet.html'));
 });
 
 // --- PROXY SIASUS PARA INTEGRAÇÃO NATIVA MESTRE ---

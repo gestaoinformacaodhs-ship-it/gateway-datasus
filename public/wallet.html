@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Carteira | Gateway DATASUS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        body { background: #020617; color: #cbd5e1; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.6); border: 1px solid #2d3748; backdrop-filter: blur(12px); }
+    </style>
+    <script>
+        if (!localStorage.getItem('token_jwt') || !localStorage.getItem('csrf_token')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</head>
+<body class="min-h-screen p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <nav class="flex justify-between items-center mb-4">
+            <h1 class="text-xl font-black text-blue-400">Carteira Financeira</h1>
+            <div class="space-x-2">
+                <a href="dashboard.html" class="text-sm text-slate-300 hover:text-white">Dashboard</a>
+                <a href="profile.html" class="text-sm text-slate-300 hover:text-white">Perfil</a>
+                <button id="btn-logout" class="px-3 py-1 text-xs font-bold bg-red-600 hover:bg-red-500 rounded text-white">Sair</button>
+            </div>
+        </nav>
+
+        <section class="glass rounded-2xl p-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-sm uppercase tracking-wider text-slate-400">Saldo disponível</h2>
+                    <p id="balance" class="text-4xl font-black text-emerald-400">R$ 0,00</p>
+                </div>
+                <div class="text-right text-slate-400">Usuário: <span id="user-name"></span></div>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="space-y-2">
+                    <label class="text-xs uppercase text-slate-300">Depósito</label>
+                    <input id="input-deposit" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Valor" />
+                    <button id="btn-deposit" class="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-sm font-bold">Depositar</button>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs uppercase text-slate-300">Saque</label>
+                    <input id="input-withdraw" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Valor" />
+                    <button id="btn-withdraw" class="w-full py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-sm font-bold">Sacar</button>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs uppercase text-slate-300">Transferência PIX</label>
+                    <input id="input-pix-key" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Chave PIX" />
+                    <input id="input-pix-amount" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Valor" />
+                    <button id="btn-pix" class="w-full py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-sm font-bold">Enviar PIX</button>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div id="message" class="text-xs text-emerald-300"></div>
+            </div>
+        </section>
+
+        <section class="glass rounded-2xl p-6 shadow-lg">
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-300 mb-3">Extrato recente</h3>
+            <div id="transactions" class="space-y-2"></div>
+            <div class="pt-4">
+                <button id="btn-refresh" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm">Atualizar</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token_jwt');
+        const csrf = localStorage.getItem('csrf_token');
+        const userName = localStorage.getItem('usuario');
+        document.getElementById('user-name').innerText = userName || '---';
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'x-csrf-token': csrf
+        };
+
+        const setMessage = (text, error=false) => {
+            const msg = document.getElementById('message');
+            msg.innerText = text;
+            msg.style.color = error ? '#f87171' : '#34d399';
+        };
+
+        const loadBalance = async () => {
+            try {
+                const res = await fetch('/api/balance', { headers });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erro ao carregar saldo');
+                document.getElementById('balance').innerText = `R$ ${Number(data.balance).toFixed(2)}`;
+            } catch (err) {
+                setMessage(err.message, true);
+            }
+        };
+
+        const loadTransactions = async () => {
+            try {
+                const res = await fetch('/api/transactions?limit=20', { headers });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erro ao carregar transações');
+
+                const container = document.getElementById('transactions');
+                container.innerHTML = '';
+
+                if (data.transactions.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-slate-400">Sem transações ainda.</p>';
+                    return;
+                }
+
+                data.transactions.forEach(tx => {
+                    const item = document.createElement('div');
+                    item.className = 'rounded-xl p-3 border border-slate-700 bg-slate-900/60';
+                    item.innerHTML = `<div class="flex justify-between items-center text-xs"><strong class="uppercase tracking-wide">${tx.tipo}</strong><span>${new Date(tx.criado_em).toLocaleString()}</span></div><div class="mt-1 text-sm">${tx.descricao || tx.referencia}</div><div class="mt-1 font-bold ${tx.valor >= 0 ? 'text-emerald-400' : 'text-red-400'}">R$ ${Number(tx.valor).toFixed(2)}</div>`;
+                    container.appendChild(item);
+                });
+            } catch (err) {
+                setMessage(err.message, true);
+            }
+        };
+
+        const runOperation = async (endpoint, body, successMsg) => {
+            try {
+                const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erro na operação');
+                setMessage(successMsg + ` Saldo: R$ ${Number(data.balance).toFixed(2)}`);
+                await loadBalance();
+                await loadTransactions();
+            } catch (err) {
+                setMessage(err.message, true);
+            }
+        };
+
+        document.getElementById('btn-deposit').addEventListener('click', () => {
+            const amount = parseFloat(document.getElementById('input-deposit').value);
+            if (!(amount > 0)) return setMessage('Informe um valor de depósito válido', true);
+            runOperation('/api/deposit', { amount }, 'Depósito concluído!');
+        });
+
+        document.getElementById('btn-withdraw').addEventListener('click', () => {
+            const amount = parseFloat(document.getElementById('input-withdraw').value);
+            if (!(amount > 0)) return setMessage('Informe um valor de saque válido', true);
+            runOperation('/api/withdraw', { amount }, 'Saque concluído!');
+        });
+
+        document.getElementById('btn-pix').addEventListener('click', () => {
+            const pixKey = document.getElementById('input-pix-key').value.trim();
+            const amount = parseFloat(document.getElementById('input-pix-amount').value);
+            if (!pixKey) return setMessage('Informe a chave PIX.', true);
+            if (!(amount > 0)) return setMessage('Informe um valor de PIX válido', true);
+            runOperation('/api/pix', { amount, pixKey }, 'PIX enviado com sucesso!');
+        });
+
+        document.getElementById('btn-refresh').addEventListener('click', () => {
+            loadBalance();
+            loadTransactions();
+            setMessage('Atualizado.');
+        });
+
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+
+        loadBalance();
+        loadTransactions();
+    </script>
+</body>
+</html>
