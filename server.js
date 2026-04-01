@@ -11,7 +11,32 @@ const Brevo = require('@getbrevo/brevo');
 const compression = require('compression');
 const http = require('http');
 const { Server } = require('socket.io');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const rateLimit = require('express-rate-limit');
+const emailValidator = require('email-validator');
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'gateway-datasus' },
+  transports: [
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' }),
+  ],
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
 
 const app = express();
 const server = http.createServer(app); 
@@ -21,9 +46,24 @@ const server = http.createServer(app);
 
 // --- COMPRESSÃO E PARSER ---
 app.use(compression()); 
-app.use(express.json({ limit: '50mb' })); 
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '25mb' })); 
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 app.use(express.static('public'));
+
+// --- RATE LIMITING ---
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: 'Too many authentication attempts, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const downloadLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10, // 10 downloads per hour
+    message: 'Too many downloads, please try again later.',
+});
 
 // --- CONFIGURAÇÃO SOCKET.IO ---
 const io = new Server(server, {
@@ -40,7 +80,7 @@ const io = new Server(server, {
 let apiInstance = new Brevo.TransactionalEmailsApi();
 if (process.env.BREVO_API_KEY) {
     apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
-    console.log("✔️ API Brevo configurada com sucesso.");
+    logger.info("✔️ API Brevo configurada com sucesso.");
 }
 
 // --- CONFIGURAÇÃO BANCO DE DADOS (PostgreSQL) ---
@@ -107,6 +147,7 @@ initDB();
 
 // --- CONTROLE DE SESSÕES ATIVAS ---
 const activeSessions = {}; // salaId -> { socketId, nomeAtendente }
+const geminiCache = new Map(); // Cache simples para respostas IA
 
 // --- FUNÇÃO IA INTELIGENTE (GEMINI) ---
 // --- FUNÇÃO IA INTELIGENTE (GEMINI REST v1) ---
@@ -115,6 +156,30 @@ async function processarIA(salaId, mensagemUsuario) {
     
     const key = process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '') : null;
     if (!key || activeSessions[salaId]) return;
+
+    const cacheKey = mensagemUsuario.toLowerCase().trim();
+    if (geminiCache.has(cacheKey)) {
+        const resposta = geminiCache.get(cacheKey);
+        console.log(`🤖 [IA] Resposta em cache encontrada.`);
+        
+        const msgAI = {
+            usuario: "IA Inteligente",
+            texto: resposta,
+            salaId: salaId,
+            timestamp: new Date(),
+            isAI: true
+        };
+
+        // Salva no banco
+        await pool.query(
+            "INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)",
+            [salaId, "IA Inteligente", resposta]
+        );
+
+        // Emite para a sala
+        io.to(salaId).emit('receber_mensagem', msgAI);
+        return;
+    }
 
     try {
         const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}`;
@@ -149,6 +214,13 @@ async function processarIA(salaId, mensagemUsuario) {
 
         const resposta = data.candidates[0].content.parts[0].text;
         console.log(`✔️ [IA] Resposta v1 gerada com sucesso.`);
+
+        // Cache a resposta
+        geminiCache.set(cacheKey, resposta);
+        if (geminiCache.size > 100) {
+            const firstKey = geminiCache.keys().next().value;
+            geminiCache.delete(firstKey);
+        }
 
         const msgAI = {
             usuario: "IA Inteligente",
@@ -342,17 +414,31 @@ async function enviarEmail(emailDestino, assunto, html) {
 }
 
 // --- HEALTH CHECK (usado pelo keep-alive interno) ---
-app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
+app.get('/health', async (req, res) => {
+    try {
+        if (pool) {
+            await pool.query('SELECT 1');
+        }
+        res.json({ status: 'ok', ts: Date.now() });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: 'DB not available', ts: Date.now() });
+    }
+});
 
 // --- ROTAS DE AUTENTICAÇÃO ---
 
-app.post('/api/registrar', async (req, res) => {
+app.post('/api/registrar', authLimiter, async (req, res) => {
     const { nome, email, senha, role } = req.body;
     console.log(`📝 [DEBUG] Iniciando registro para: ${email} (Role: ${role})`);
     
     if (!nome || !email || !senha) {
         console.warn("⚠️ [DEBUG] Campos obrigatórios ausentes");
         return res.status(400).json({ error: "Campos obrigatórios ausentes." });
+    }
+
+    if (!emailValidator.validate(email)) {
+        console.warn("⚠️ [DEBUG] E-mail inválido");
+        return res.status(400).json({ error: "E-mail inválido." });
     }
 
     const emailFormatado = email.toLowerCase().trim();
@@ -395,7 +481,7 @@ app.post('/api/registrar', async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
     const { email, senha } = req.body;
     if (!email || !senha) return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
 
@@ -839,7 +925,7 @@ app.all('/api/sihd-proxy', (req, res) => {
 // --- FIM DA INTERCEPTAÇÃO ESTATICA, O WILDCARD FARÁ O TRABALHO ---
 
 // --- DOWNLOAD DIRETO DE ARQUIVOS FTP DATASUS ---
-app.get('/api/ftp-download', async (req, res) => {
+app.get('/api/ftp-download', downloadLimiter, async (req, res) => {
     const ftpUrl = req.query.url;
     if (!ftpUrl || !ftpUrl.startsWith('ftp://')) {
         return res.status(400).send('URL FTP inválida.');
