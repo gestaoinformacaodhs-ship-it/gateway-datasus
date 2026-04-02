@@ -39,6 +39,9 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 }
 
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+const stripe = stripeSecretKey ? require('stripe')(stripeSecretKey) : null;
+
 const app = express();
 const server = http.createServer(app); 
 
@@ -588,6 +591,92 @@ app.get('/api/balance', verifyToken, async (req, res) => {
         console.error('Erro /api/balance:', err.message);
         res.status(500).json({ error: 'Erro ao consultar saldo.' });
     }
+});
+
+app.get('/api/stripe-config', verifyToken, async (req, res) => {
+    if (!stripe) return res.status(500).json({ error: 'Stripe não configurado (STRIPE_SECRET_KEY ausente).' });
+    res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '' });
+});
+
+app.post('/api/create-checkout-session', verifyToken, async (req, res) => {
+    if (!stripe) return res.status(500).json({ error: 'Stripe não configurado (STRIPE_SECRET_KEY ausente).' });
+
+    const { amount } = req.body;
+    const valor = parseFloat(amount);
+    if (Number.isNaN(valor) || valor <= 0) return res.status(400).json({ error: 'Valor inválido.' });
+
+    const baseUrl = process.env.BASE_URL || 'https://gateway-datasus.onrender.com';
+
+    const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+            price_data: {
+                currency: 'brl',
+                product_data: { name: 'Depósito de saldo Gateway DATASUS' },
+                unit_amount: Math.round(valor * 100)
+            },
+            quantity: 1
+        }],
+        mode: 'payment',
+        success_url: `${baseUrl}/wallet.html?payment=success`,
+        cancel_url: `${baseUrl}/wallet.html?payment=cancelled`,
+        metadata: {
+            user_id: req.user.id,
+            email: req.user.email,
+            transacao_tipo: 'deposit'
+        }
+    });
+
+    await pool.query(
+        'INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6)',
+        [req.user.id, 'deposit', valor, 'pending', 'Depósito via Stripe Checkout', `stripe-${session.id}`]
+    );
+
+    res.json({ sessionId: session.id });
+});
+
+app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!stripe) return res.status(500).send('Stripe não configurado');
+
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) return res.status(500).send('Webhook secret não configurado');
+
+    let event;
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+        console.error('Webhook Stripe inválido:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const userId = session.metadata?.user_id;
+        const email = session.metadata?.email;
+        const amount = session.amount_total / 100;
+
+        try {
+            const userRes = userId ? await pool.query('SELECT id, balance FROM usuarios WHERE id = $1', [userId]) : await pool.query('SELECT id, balance FROM usuarios WHERE email = $1', [email]);
+            if (userRes.rows.length === 0) return res.status(404).send('Usuário não encontrado');
+
+            const user = userRes.rows[0];
+            const txRes = await pool.query('SELECT id, status FROM transacoes WHERE referencia = $1', [`stripe-${session.id}`]);
+
+            if (txRes.rows.length > 0 && txRes.rows[0].status !== 'completed') {
+                const novoSaldo = parseFloat(user.balance || 0) + parseFloat(amount);
+                await pool.query('UPDATE usuarios SET balance = $1 WHERE id = $2', [novoSaldo, user.id]);
+                await pool.query('UPDATE transacoes SET status = $1 WHERE id = $2', ['completed', txRes.rows[0].id]);
+            }
+
+            await pool.query('INSERT INTO transacoes (usuario_id, tipo, valor, status, descricao, referencia) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING', [user.id, 'deposit', amount, 'completed', 'Depósito confirmado Stripe', `stripe-confirm-${session.id}`]);
+        } catch (err) {
+            console.error('Erro ao processar webhook stripe:', err.message);
+            return res.status(500).send('Erro interno');
+        }
+    }
+
+    res.json({ received: true });
 });
 
 app.post('/api/deposit', verifyToken, async (req, res) => {

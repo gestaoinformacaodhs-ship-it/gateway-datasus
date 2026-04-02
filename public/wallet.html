@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Carteira | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.stripe.com/v3/"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         body { background: #020617; color: #cbd5e1; font-family: 'Inter', sans-serif; }
@@ -53,6 +54,14 @@
                     <input id="input-pix-key" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Chave PIX" />
                     <input id="input-pix-amount" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Valor" />
                     <button id="btn-pix" class="w-full py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-sm font-bold">Enviar PIX</button>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h3 class="text-xs text-slate-300 uppercase font-black tracking-wider mb-2">Pagamento em Cartão (Stripe)</h3>
+                <div class="grid md:grid-cols-2 gap-3">
+                    <input id="input-card-amount" type="number" min="0.01" step="0.01" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700" placeholder="Valor para Checkout" />
+                    <button id="btn-card-deposit" class="w-full py-2 rounded-xl bg-violet-500 hover:bg-violet-400 text-sm font-bold">Pagar com Cartão</button>
                 </div>
             </div>
 
@@ -155,6 +164,34 @@
             if (!pixKey) return setMessage('Informe a chave PIX.', true);
             if (!(amount > 0)) return setMessage('Informe um valor de PIX válido', true);
             runOperation('/api/pix', { amount, pixKey }, 'PIX enviado com sucesso!');
+        });
+
+        document.getElementById('btn-card-deposit').addEventListener('click', async () => {
+            const amount = parseFloat(document.getElementById('input-card-amount').value);
+            if (!(amount > 0)) return setMessage('Informe um valor válido para checkout.', true);
+
+            try {
+                const configRes = await fetch('/api/stripe-config', { headers });
+                const config = await configRes.json();
+                if (!configRes.ok || !config.publishableKey) {
+                    throw new Error(config.error || 'Stripe não configurado.');
+                }
+
+                const stripe = Stripe(config.publishableKey);
+                const createRes = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ amount })
+                });
+
+                const data = await createRes.json();
+                if (!createRes.ok) throw new Error(data.error || 'Falha ao criar sessão de pagamento.');
+
+                const result = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+                if (result.error) throw new Error(result.error.message);
+            } catch (err) {
+                setMessage(err.message, true);
+            }
         });
 
         document.getElementById('btn-refresh').addEventListener('click', () => {
