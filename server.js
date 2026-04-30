@@ -223,7 +223,7 @@ async function processarIA(salaId, mensagemUsuario) {
     }
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
         
         const response = await fetch(url, {
             method: 'POST',
