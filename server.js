@@ -197,30 +197,46 @@ async function processarIA(salaId, mensagemUsuario) {
     console.log(`🤖 [IA] Verificando processamento direto (v1) para: ${salaId}`);
     
     const key = process.env.GOOGLE_API_KEY ? process.env.GOOGLE_API_KEY.replace(/['"\s]/g, '') : null;
-    if (!key || activeSessions[salaId]) return;
+    if (activeSessions[salaId]) return;
 
-    const cacheKey = mensagemUsuario.toLowerCase().trim();
-    if (geminiCache.has(cacheKey)) {
-        const resposta = geminiCache.get(cacheKey);
-        console.log(`🤖 [IA] Resposta em cache encontrada.`);
-        
-        const msgAI = {
-            usuario: "IA Inteligente",
-            texto: resposta,
+    // --- BOT DE REGRAS (SEM IA) ---
+    const msgLower = mensagemUsuario.toLowerCase();
+    let respostaAutomatica = null;
+
+    const regras = [
+        { keywords: ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite'], resposta: "Olá! Eu sou o assistente do Gateway DATASUS. Como posso ajudar você hoje?" },
+        { keywords: ['download', 'baixar', 'arquivos', 'arquivo'], resposta: "Para baixar arquivos, acesse o painel desejado (SIA, SIHD ou CNES) no Dashboard, escolha o estado e a competência, e clique no ícone de download." },
+        { keywords: ['sia', 'siasus', 'bpa'], resposta: "O módulo SIA permite baixar arquivos de produção ambulatorial. Você pode filtrar por tipo (PA, PS, etc.) no repositório." },
+        { keywords: ['sih', 'sihd'], resposta: "O módulo SIHD gerencia arquivos de internação hospitalar (RD). Eles estão disponíveis na seção Painel SIHD." },
+        { keywords: ['cnes'], resposta: "Os arquivos do CNES (Cadastro Nacional de Estabelecimentos de Saúde) são atualizados mensalmente e podem ser encontrados no botão CNES do Dashboard." },
+        { keywords: ['ajuda', 'suporte', 'atendente', 'humano'], resposta: "Entendi. Vou notificar um atendente humano para assumir este chamado. Por favor, aguarde um momento." },
+        { keywords: ['senha', 'login', 'acesso'], resposta: "Se você esqueceu sua senha, use a opção 'Esqueci minha senha' na tela de login. Para novas contas, solicite em 'Solicite uma conta'." }
+    ];
+
+    for (const regra of regras) {
+        if (regra.keywords.some(k => msgLower.includes(k))) {
+            respostaAutomatica = regra.resposta;
+            break;
+        }
+    }
+
+    if (respostaAutomatica) {
+        console.log(`🤖 [BOT] Resposta por regra encontrada.`);
+        const msgBot = {
+            usuario: "Assistente Virtual",
+            texto: respostaAutomatica,
             salaId: salaId,
             timestamp: new Date(),
             isAI: true
         };
-
-        // Salva no banco
-        await pool.query(
-            "INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)",
-            [salaId, "IA Inteligente", resposta]
-        );
-
-        // Emite para a sala
-        io.to(salaId).emit('receber_mensagem', msgAI);
+        await pool.query("INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)", [salaId, "Assistente Virtual", respostaAutomatica]);
+        io.to(salaId).emit('receber_mensagem', msgBot);
         return;
+    }
+
+    // Se não houver regra e não houver chave de IA, ou se o usuário preferir não usar IA
+    if (!key) {
+        return; 
     }
 
     try {
