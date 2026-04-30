@@ -43,6 +43,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 const stripe = stripeSecretKey ? require('stripe')(stripeSecretKey) : null;
 
 const app = express();
+app.set('trust proxy', 1); // Confia no proxy do Render para o express-rate-limit
 const server = http.createServer(app); 
 
 // --- CONFIGURAÇÃO IA (GEMINI) ---
