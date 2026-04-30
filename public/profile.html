@@ -18,6 +18,7 @@
 
         .glass-card {
             border: 1px solid rgba(255, 255, 255, 0.08);
+            -webkit-backdrop-filter: blur(12px);
             backdrop-filter: blur(12px);
             background: rgba(30, 41, 59, 0.5);
             box-shadow: 0 20px 50px rgba(0,0,0,0.3);
@@ -99,7 +100,7 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-600">
                             <i class="fa-solid fa-envelope text-sm"></i>
                         </span>
-                        <input type="email" id="email" readonly
+                        <input type="email" id="email" readonly title="Seu e-mail institucional (não alterável)"
                             class="w-full bg-slate-800/20 text-slate-500 rounded-xl pl-11 pr-4 py-3.5 border border-white/5 cursor-not-allowed italic">
                     </div>
                 </div>

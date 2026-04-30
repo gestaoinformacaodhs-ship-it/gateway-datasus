@@ -12,7 +12,7 @@
         body { background: #0f172a; color: #e2e8f0; height: 100vh; overflow: hidden; }
         .chat-container::-webkit-scrollbar { width: 6px; }
         .chat-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-        .glass-header { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); }
+        .glass-header { background: rgba(15, 23, 42, 0.9); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
         .user-item.active { background: rgba(59, 130, 246, 0.15); border-left: 4px solid #3b82f6; }
         
         .msg-bubble-admin {
@@ -42,7 +42,7 @@
     <header class="glass-header border-b border-white/10 p-4 sticky top-0 z-50">
         <div class="max-w-full mx-auto flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <button onclick="window.location.href='dashboard.html'" class="bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-all">
+                <button onclick="window.location.href='dashboard.html'" title="Voltar ao Painel" class="bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition-all">
                     <i class="fa-solid fa-arrow-left text-xs"></i>
                 </button>
                 <h1 class="text-lg font-black text-white italic tracking-tighter uppercase">Console <span class="text-blue-500">Suporte</span></h1>
@@ -102,8 +102,8 @@
             </div>
 
             <div class="p-4 bg-slate-900/80 border-t border-white/10 flex gap-3 items-center backdrop-blur-md">
-                <input type="file" id="file-input" class="hidden" onchange="processarArquivo(this)">
-                <button onclick="document.getElementById('file-input').click()" id="btn-file" disabled class="text-slate-500 hover:text-blue-400 transition-colors p-2 disabled:opacity-20">
+                <input type="file" id="file-input" class="hidden" title="Selecionar arquivo" onchange="processarArquivo(this)">
+                <button onclick="document.getElementById('file-input').click()" id="btn-file" disabled title="Anexar arquivo" class="text-slate-500 hover:text-blue-400 transition-colors p-2 disabled:opacity-20">
                     <i class="fa-solid fa-paperclip text-xl"></i>
                 </button>
 
@@ -127,7 +127,7 @@
                     <h3 class="text-lg font-black text-white italic tracking-tighter uppercase">Gestão de <span class="text-blue-500">Equipe de Suporte</span></h3>
                     <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Controle de acessos e atendentes</p>
                 </div>
-                <button onclick="fecharModalSuporte()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="fecharModalSuporte()" title="Fechar" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             
             <div class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/5">
