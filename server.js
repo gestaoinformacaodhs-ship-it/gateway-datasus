@@ -15,6 +15,7 @@ const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const emailValidator = require('email-validator');
 const winston = require('winston');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const logger = winston.createLogger({
   level: 'info',
@@ -223,38 +224,22 @@ async function processarIA(salaId, mensagemUsuario) {
     }
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+        const genAI = new GoogleGenerativeAI(key);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `
-                            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
-                            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
-                            Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis. 
-                            Se não souber a resposta, peça para o usuário aguardar um suporte humano.
-                            O usuário perguntou: "${mensagemUsuario}"
-                        `
-                    }]
-                }]
-            })
-        });
+        const prompt = `
+            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
+            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
+            Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis em português. 
+            Se não souber a resposta, peça para o usuário aguardar um suporte humano.
+            O usuário perguntou: "${mensagemUsuario}"
+        `;
 
-        const data = await response.json();
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const resposta = response.text();
         
-        if (data.error) {
-            throw new Error(`${data.error.message} (${data.error.status})`);
-        }
-
-        if (!data.candidates || !data.candidates[0].content) {
-             throw new Error("Resposta sem conteúdo válido.");
-        }
-
-        const resposta = data.candidates[0].content.parts[0].text;
-        console.log(`✔️ [IA] Resposta v1 gerada com sucesso.`);
+        if (!resposta) throw new Error("Resposta da IA veio vazia.");
 
         // Cache a resposta
         geminiCache.set(cacheKey, resposta);
@@ -280,10 +265,10 @@ async function processarIA(salaId, mensagemUsuario) {
         io.to(salaId).emit('receber_mensagem', msgAI);
 
     } catch (err) {
-        console.error("❌ [IA] Erro na Resposta REST:", err.message);
+        console.error("❌ [IA] Erro crítico com SDK:", err.message);
         io.to(salaId).emit('receber_mensagem', { 
             usuario: "Sistema", 
-            texto: `⚠️ Falha técnica na IA (v1/REST): ${err.message}.` 
+            texto: `⚠️ Falha técnica na IA: ${err.message}. Um suporte humano será necessário.` 
         });
     }
 }
