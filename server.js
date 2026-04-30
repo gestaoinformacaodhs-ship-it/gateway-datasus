@@ -166,10 +166,21 @@ async function initDB() {
             );
         `);
 
+        // --- GARANTIR USUÁRIO ADMIN ---
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash('admin', salt);
+        await pool.query(`
+            INSERT INTO usuarios (nome, email, senha, ativo) 
+            VALUES ('Administrador', 'admin', $1, 1) 
+            ON CONFLICT (email) DO NOTHING;
+        `, [hash]);
+
         client.release();
-        console.log("✔️ Banco de Dados pronto.");
+        console.log("✔️ Banco de Dados pronto e Usuário Admin verificado.");
     } catch (err) {
-        console.error("❌ Erro na criação das tabelas ou conexão:", err.message);
+        console.error("❌ Erro Crítico no Banco de Dados:");
+        console.error("Mensagem:", err.message);
+        console.error("Dica: Verifique se o projeto no Supabase não está PAUSADO.");
     }
 }
 initDB();
@@ -517,7 +528,15 @@ app.post('/api/login', authLimiter, async (req, res) => {
     try {
         const result = await pool.query(`SELECT id, nome, email, senha, ativo, role FROM usuarios WHERE email = $1`, [email.toLowerCase().trim()]);
         const user = result.rows[0];
-        if (!user || !(await bcrypt.compare(senha, user.senha))) {
+        
+        if (!user) {
+            console.log(`Tentativa de login falhou: Usuário ${email} não encontrado.`);
+            return res.status(401).json({ error: "Credenciais inválidas." });
+        }
+
+        const match = await bcrypt.compare(senha, user.senha);
+        if (!match) {
+            console.log(`Tentativa de login falhou: Senha incorreta para ${email}.`);
             return res.status(401).json({ error: "Credenciais inválidas." });
         }
 

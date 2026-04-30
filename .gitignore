@@ -1,5 +1,8 @@
-node_modules/
+node_modules
 .env
+database.sqlite
+database.db
+downloads
+data
 *.log
-test-*.js
-list-models.js
+firebase-debug.log
