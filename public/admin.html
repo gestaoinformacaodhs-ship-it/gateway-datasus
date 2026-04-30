@@ -285,7 +285,8 @@
                 const res = await fetch('/api/admin/atendentes');
                 const atendentes = await res.json();
                 
-                if (!atendentes || atendentes.length === 0) {
+                // Garantir que atendentes seja um array antes de processar
+                if (!Array.isArray(atendentes) || atendentes.length === 0) {
                     container.innerHTML = '<p class="text-[10px] text-slate-700 italic text-center py-10">Nenhum atendente cadastrado.</p>';
                     return;
                 }
@@ -302,7 +303,8 @@
                     </div>
                 `).join('');
             } catch (err) {
-                container.innerHTML = '<p class="text-[10px] text-red-500 text-center py-10">Erro ao carregar lista.</p>';
+                console.error("Erro ao carregar atendentes:", err);
+                container.innerHTML = `<p class="text-[10px] text-red-500 text-center py-10">Erro ao carregar lista. ${err.message || ''}</p>`;
             }
         }
 
@@ -310,7 +312,7 @@
             if (!confirm(`Deseja realmente remover o acesso de ${email}?`)) return;
 
             try {
-                const res = await fetch('/api/delete-account', {
+                const res = await fetch('/api/admin/deletar-atendente', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: email })

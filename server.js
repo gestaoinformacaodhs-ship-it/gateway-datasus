@@ -942,11 +942,35 @@ app.post('/api/delete-account', verifyToken, async (req, res) => {
 
 app.get('/api/admin/atendentes', async (req, res) => {
     try {
+        if (!pool) {
+            console.warn("⚠️ [DB] Tentativa de listar atendentes sem pool configurado.");
+            return res.json([]); // Retorna lista vazia se não houver banco
+        }
         const result = await pool.query("SELECT nome, email FROM usuarios WHERE role = 'support' ORDER BY nome ASC");
         res.json(result.rows);
     } catch (err) {
-        console.error("Erro ao listar atendentes:", err.message);
-        res.status(500).json({ error: "Erro ao carregar lista de atendentes." });
+        console.error("❌ Erro ao listar atendentes:", err.message);
+        res.status(500).json({ error: "Erro ao carregar lista de atendentes: " + err.message });
+    }
+});
+
+app.post('/api/admin/deletar-atendente', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "E-mail do atendente é obrigatório." });
+
+    try {
+        if (!pool) throw new Error("Banco de dados não configurado.");
+        
+        const result = await pool.query("DELETE FROM usuarios WHERE email = $1 AND role = 'support'", [email.toLowerCase().trim()]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Atendente não encontrado ou não possui permissão de suporte." });
+        }
+
+        res.json({ message: "Atendente removido com sucesso!" });
+    } catch (err) {
+        console.error("❌ Erro ao deletar atendente:", err.message);
+        res.status(500).json({ error: "Erro interno ao remover atendente." });
     }
 });
 
