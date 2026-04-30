@@ -224,12 +224,13 @@ async function processarIA(salaId, mensagemUsuario) {
     }
 
     try {
+        // Usar a versão 'v1' da API que é mais estável para alguns modelos/chaves
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: "v1" });
         
         const prompt = `
-            Você é o assistente virtual inteligente do "Gateway DATASUS", um sistema de integração e download de arquivos do DATASUS criado pelo Arpoador.
-            Seu objetivo é ajudar usuários com dúvidas sobre o sistema, downloads de arquivos (BPA, SIA, CNES, SIHD, etc.) e navegação nos painéis.
+            Você é o assistente virtual inteligente do "Gateway DATASUS".
+            Seu objetivo é ajudar usuários com dúvidas sobre o sistema e downloads de arquivos (BPA, SIA, CNES, SIHD, etc.).
             Mantenha suas respostas curtas (máximo 3 frases), profissionais e úteis em português. 
             Se não souber a resposta, peça para o usuário aguardar um suporte humano.
             O usuário perguntou: "${mensagemUsuario}"
