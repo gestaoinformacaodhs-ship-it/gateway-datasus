@@ -604,6 +604,23 @@ app.post('/api/update-profile', verifyToken, async (req, res) => {
     }
 });
 
+app.post('/api/delete-account', verifyToken, async (req, res) => {
+    const { email } = req.body;
+    const userEmail = req.user.email.toLowerCase().trim();
+
+    if (email.toLowerCase().trim() !== userEmail) {
+        return res.status(403).json({ error: "Você só pode excluir sua própria conta." });
+    }
+
+    try {
+        await pool.query("DELETE FROM usuarios WHERE email = $1", [userEmail]);
+        res.json({ message: "Conta excluída com sucesso." });
+    } catch (err) {
+        console.error("Erro ao excluir conta:", err.message);
+        res.status(500).json({ error: "Erro interno ao excluir conta." });
+    }
+});
+
 app.get('/api/balance', verifyToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT balance FROM usuarios WHERE id = $1', [req.user.id]);

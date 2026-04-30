@@ -250,9 +250,16 @@
             btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin mr-2"></i>`;
 
             try {
+                const token = localStorage.getItem('token_jwt');
+                const csrf = localStorage.getItem('csrf_token');
+
                 const res = await fetch('/api/update-profile', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'x-csrf-token': csrf
+                    },
                     body: JSON.stringify({ nome, email, novaSenha: senha || null })
                 });
 
@@ -280,9 +287,16 @@
                 const email = localStorage.getItem('email');
                 
                 try {
+                    const token = localStorage.getItem('token_jwt');
+                    const csrf = localStorage.getItem('csrf_token');
+
                     const res = await fetch('/api/delete-account', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                            'x-csrf-token': csrf
+                        },
                         body: JSON.stringify({ email })
                     });
 
