@@ -382,11 +382,11 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    localStorage.setItem('usuario', data.user);
-                    localStorage.setItem('email', data.email);
+                    localStorage.setItem('usuario', data.data.user);
+                    localStorage.setItem('email', data.data.email);
                     localStorage.setItem('token', 'sessao_ativa');
-                    localStorage.setItem('token_jwt', data.token);
-                    localStorage.setItem('csrf_token', data.csrfToken);
+                    localStorage.setItem('token_jwt', data.data.token);
+                    localStorage.setItem('csrf_token', data.data.csrfToken || 'not_implemented_yet');
                     window.location.href = 'dashboard.html';
                 } else { alert(data.error); }
             } catch (err) { alert("Servidor offline."); }
