@@ -34,20 +34,17 @@ const io = new Server(server, {
 // State Management
 const attendants = {}; // socketId -> { nome, rooms: [] }
 const roomAssignments = {}; // salaId -> { attendantSocketId, attendantName, userName }
-const userWaitList = new Set(); // salaId (users waiting for support)
+const userWaitList = new Set(); 
 
 const BOT_NAME = "Assistente Virtual";
 
 io.on('connection', (socket) => {
     logger.info(`New connection: ${socket.id}`);
 
-    // Admin/Attendant joins
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
         attendants[socket.id] = { nome: data.nome, rooms: [] };
-        logger.info(`Attendant online: ${data.nome}`);
-        
-        // Send current room assignments to the new admin
+        // Sync assignments with the new admin
         socket.emit('lista_usuarios_ocupados', roomAssignments);
     });
 
@@ -61,12 +58,9 @@ io.on('connection', (socket) => {
                 [salaId]
             );
             socket.emit('historico_mensagens', hist.rows);
-        } catch (err) {
-            if (!err.message.includes('Database')) logger.error('History error:', err);
-        }
+        } catch (err) {}
     });
 
-    // Event for admin to "take" a chat
     socket.on('assumir_chamado', (data) => {
         const { salaId, nomeAtendente, nomeUsuario } = data;
         
@@ -83,19 +77,19 @@ io.on('connection', (socket) => {
         if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
         userWaitList.delete(salaId);
 
-        // Notify the user they are being attended
-        io.to(salaId).emit('receber_mensagem', {
-            usuario: BOT_NAME,
-            texto: `Olá! O atendente ${nomeAtendente} assumiu seu chamado e já vai falar com você.`,
-            timestamp: new Date(),
-            isBot: true
-        });
-
-        // Sync with all admins
-        io.emit('usuario_ocupado', { 
+        // Notify all admins that this user is now taken
+        io.to('admins').emit('usuario_ocupado', { 
             salaId, 
             nomeAtendente, 
             atendenteSocketId: socket.id 
+        });
+
+        // Notify user
+        io.to(salaId).emit('receber_mensagem', {
+            usuario: BOT_NAME,
+            texto: `O atendente ${nomeAtendente} assumiu seu chamado.`,
+            timestamp: new Date(),
+            isBot: true
         });
 
         logger.info(`Attendant ${nomeAtendente} took chat ${salaId}`);
@@ -105,20 +99,17 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
-        // If it's a user message and no one is attending yet
-        if (!isAdmin && nome !== BOT_NAME && !roomAssignments[salaId]) {
-            if (!userWaitList.has(salaId)) {
-                userWaitList.add(salaId);
-                // Initial Bot Response
-                setTimeout(() => {
-                    io.to(salaId).emit('receber_mensagem', {
-                        usuario: BOT_NAME,
-                        texto: `Olá ${nome || 'Usuário'}! Recebemos sua mensagem. Um de nossos atendentes entrará em contato em breve. Por favor, aguarde.`,
-                        timestamp: new Date(),
-                        isBot: true
-                    });
-                }, 1000);
-            }
+        // BOT INITIAL RESPONSE (Only if no assignment)
+        if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
+            userWaitList.add(salaId);
+            setTimeout(() => {
+                io.to(salaId).emit('receber_mensagem', {
+                    usuario: BOT_NAME,
+                    texto: `Olá ${nome || 'Usuário'}! Um de nossos atendentes entrará em contato em breve.`,
+                    timestamp: new Date(),
+                    isBot: true
+                });
+            }, 1000);
         }
 
         try {
@@ -130,31 +121,28 @@ io.on('connection', (socket) => {
 
         const msgPayload = { ...data, usuario: nome || "Usuário", timestamp: new Date() };
         
+        // Broadcast to the room (User + Assigned Attendant)
         io.to(salaId).emit('receber_mensagem', msgPayload);
         
-        // Notify admins if user sent a message
-        if (!isAdmin) {
+        // IMPORTANT: Only broadcast to OTHER admins if the chat is NOT assigned
+        if (!isAdmin && !roomAssignments[salaId]) {
             io.to('admins').emit('receber_mensagem', msgPayload);
         }
     });
 
     socket.on('encerrar_chamado', async (salaId) => {
-        const assignment = roomAssignments[salaId];
-        
-        // 1. Clear database messages for this room
         try {
             await query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
-        } catch (err) {
-            logger.error('Error clearing chat DB:', err);
-        }
+        } catch (err) {}
 
-        // 2. Notify user and admin to clear UI
+        // Clear UI for user and assigned admin
         io.to(salaId).emit('limpar_chat_ui', { salaId });
         
-        // 3. Notify all admins that the user is free and chat ended
-        io.emit('chamado_encerrado', { salaId });
+        // Notify all admins to remove the user from their lists
+        io.to('admins').emit('chamado_encerrado', { salaId });
 
-        // 4. Cleanup state
+        // Cleanup state
+        const assignment = roomAssignments[salaId];
         if (assignment && attendants[assignment.attendantSocketId]) {
             attendants[assignment.attendantSocketId].rooms = attendants[assignment.attendantSocketId].rooms.filter(r => r !== salaId);
         }
@@ -169,10 +157,9 @@ io.on('connection', (socket) => {
             const admin = attendants[socket.id];
             admin.rooms.forEach(salaId => {
                 delete roomAssignments[salaId];
-                io.emit('usuario_livre', { salaId });
+                io.to('admins').emit('usuario_livre', { salaId });
             });
             delete attendants[socket.id];
-            logger.info(`Attendant disconnected: ${admin.nome}`);
         }
     });
 });
