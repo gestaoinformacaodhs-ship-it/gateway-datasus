@@ -120,8 +120,10 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
+        const isAttendant = isAdmin || !!attendants[socket.id];
+
         // PROTECTION: Only the assigned attendant can send messages in an assigned room
-        if (isAdmin && roomAssignments[salaId] && roomAssignments[salaId].attendantSocketId !== socket.id) {
+        if (isAttendant && roomAssignments[salaId] && roomAssignments[salaId].attendantSocketId !== socket.id) {
             return socket.emit('erro_chat', { mensagem: "Você não é o atendente responsável por este chamado." });
         }
 

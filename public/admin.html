@@ -617,7 +617,8 @@
             socket.emit('enviar_mensagem', {
                 nome: nomeAdmin,
                 mensagem: mensagem,
-                salaId: salaAtual
+                salaId: salaAtual,
+                isAdmin: true
             });
             input.value = "";
         }
@@ -628,12 +629,13 @@
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                socket.emit('enviar_mensagem', { // Unificado com enviar_mensagem para consistência
+                socket.emit('enviar_mensagem', { 
                     nome: nomeAdmin,
                     arquivo: e.target.result,
                     tipo_arquivo: file.type,
                     mensagem: `📎 Arquivo enviado: ${file.name}`,
-                    salaId: salaAtual
+                    salaId: salaAtual,
+                    isAdmin: true
                 });
             };
             reader.readAsDataURL(file);
