@@ -21,7 +21,7 @@ const server = http.createServer(app);
  * --- SEGURANÇA E MIDDLEWARES ---
  */
 app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for proxy compatibility
+    contentSecurityPolicy: false, 
     crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
@@ -40,7 +40,7 @@ app.use('/api', apiRoutes);
  */
 const io = new Server(server, {
     cors: {
-        origin: ["https://gateway-datasus.onrender.com", "http://localhost:10000", "http://localhost:3000"],
+        origin: "*", // Permissive for deployment stability
         methods: ["GET", "POST"],
         credentials: true
     },
@@ -51,9 +51,13 @@ const io = new Server(server, {
 const activeSessions = {};
 
 io.on('connection', (socket) => {
+    logger.info(`New client connected: ${socket.id}`);
+
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         socket.join(salaId);
+        logger.info(`Socket ${socket.id} joined room: ${salaId}`);
+        
         try {
             const hist = await query(
                 "SELECT usuario, texto, arquivo, tipo_arquivo as tipo, timestamp FROM mensagens_suporte WHERE sala_id = $1 ORDER BY timestamp ASC LIMIT 50", 
@@ -61,7 +65,10 @@ io.on('connection', (socket) => {
             );
             socket.emit('historico_mensagens', hist.rows);
         } catch (err) {
-            logger.error('Error fetching chat history:', err);
+            // Only log if it's not a "DB not initialized" error to avoid spamming
+            if (!err.message.includes('Database not initialized')) {
+                logger.error('Error fetching chat history:', err);
+            }
         }
     });
 
@@ -69,20 +76,33 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
+        logger.info(`Message in room ${salaId} from ${nome || 'Usuário'}`);
+
         try {
             await query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)", 
                 [salaId, nome || "Usuário", mensagem || null, data.arquivo || null, data.tipo_arquivo || null]
             );
         } catch (err) {
-            logger.error('Error saving message:', err);
+            if (!err.message.includes('Database not initialized')) {
+                logger.error('Error saving message:', err);
+            }
         }
 
-        io.to(salaId).emit('receber_mensagem', { ...data, usuario: nome || "Usuário", timestamp: new Date() });
+        // Broadcast to everyone in the room (including the sender)
+        io.to(salaId).emit('receber_mensagem', { 
+            ...data, 
+            usuario: nome || "Usuário", 
+            timestamp: new Date() 
+        });
         
         if (nome !== "IA Inteligente" && !activeSessions[salaId]) {
             AiService.processChat(salaId, mensagem, io);
         }
+    });
+
+    socket.on('disconnect', () => {
+        logger.info(`Client disconnected: ${socket.id}`);
     });
 });
 
@@ -90,7 +110,10 @@ io.on('connection', (socket) => {
  * --- INICIALIZAÇÃO DO BANCO ---
  */
 async function initDB() {
-    if (!pool) return;
+    if (!pool) {
+        logger.warn("⚠️ DATABASE_URL not defined. Using in-memory mode for chat (no persistence).");
+        return;
+    }
     
     try {
         await query(`
@@ -146,11 +169,8 @@ initDB().then(() => {
     server.listen(PORT, "0.0.0.0", () => {
         logger.info(`🚀 Gateway SUS Professional active on port ${PORT}`);
         
-        // Keep-alive for free tiers (like Render)
         setInterval(() => {
-            http.get(`http://127.0.0.1:${PORT}/api/health`, (res) => {
-                // Silently consume
-            }).on('error', (err) => logger.warn('Keep-alive ping failed'));
+            http.get(`http://127.0.0.1:${PORT}/api/health`, (res) => {}).on('error', () => {});
         }, 9 * 60 * 1000);
     });
 });
