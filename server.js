@@ -230,10 +230,14 @@ io.on('connection', (socket) => {
         }
         socket.leave(salaId);
 
-        // Notify room
+        // Notify room with details
+        const msgTexto = targetSocketId && attendants[targetSocketId] 
+            ? `Este atendimento foi transferido para ${attendants[targetSocketId].nome}. Por favor, aguarde.`
+            : `Este atendimento foi transferido para a fila geral. Por favor, aguarde um novo atendente.`;
+
         io.to(salaId).emit('receber_mensagem', {
             usuario: BOT_NAME,
-            texto: `Este atendimento foi transferido. Por favor, aguarde o novo atendente.`,
+            texto: msgTexto,
             timestamp: new Date(),
             isBot: true
         });
