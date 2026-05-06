@@ -44,11 +44,25 @@ io.on('connection', (socket) => {
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
         attendants[socket.id] = { nome: data.nome, rooms: [] };
-        socket.emit('lista_usuarios_ocupados', roomAssignments);
+        // Clean assignments for the client (send only names)
+        const assignmentsSync = {};
+        for (const id in roomAssignments) {
+            assignmentsSync[id] = roomAssignments[id].attendantName;
+        }
+        socket.emit('lista_usuarios_ocupados', assignmentsSync);
     });
 
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
+        
+        // SECURITY: Prevent joining a room that is already assigned to someone else
+        const assignment = roomAssignments[salaId];
+        const isAttendant = !!attendants[socket.id];
+        
+        if (isAttendant && assignment && assignment.attendantSocketId !== socket.id) {
+            return socket.emit('erro_chat', { mensagem: `Acesso negado: Este chamado está sendo atendido por ${assignment.attendantName}` });
+        }
+
         socket.join(salaId);
         
         try {
@@ -76,15 +90,16 @@ io.on('connection', (socket) => {
         if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
         userWaitList.delete(salaId);
 
+        // Notify admins with the attendant name
         io.to('admins').emit('usuario_ocupado', { 
             salaId, 
-            nomeAtendente, 
+            nomeAtendente: nomeAtendente, 
             atendenteSocketId: socket.id 
         });
 
         io.to(salaId).emit('receber_mensagem', {
             usuario: BOT_NAME,
-            texto: `O atendente ${nomeAtendente} assumiu seu chamado.`,
+            texto: `O atendente ${nomeAtendente} assumiu seu chamado e está pronto para ajudar.`,
             timestamp: new Date(),
             isBot: true
         });
@@ -96,34 +111,38 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
-        // BOT INITIAL RESPONSE
+        const nomeFinal = nome || data.usuario || "Usuário";
+
+        // BOT LOGIC
         if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
             userWaitList.add(salaId);
             setTimeout(() => {
                 io.to(salaId).emit('receber_mensagem', {
                     usuario: BOT_NAME,
-                    texto: `Olá ${nome || 'Usuário'}! Um de nossos atendentes entrará em contato em breve.`,
+                    texto: `Olá ${nomeFinal}! Eu sou o Assistente Virtual. Como posso ajudar? Caso precise falar com um atendente humano, basta aguardar um momento.`,
                     timestamp: new Date(),
                     isBot: true
                 });
-            }, 1000);
+            }, 800);
         }
 
         try {
             await query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)", 
-                [salaId, nome || "Usuário", mensagem || null, data.arquivo || null, data.tipo_arquivo || null]
+                [salaId, nomeFinal, mensagem || null, data.arquivo || null, data.tipo_arquivo || null]
             );
         } catch (err) {}
 
         const msgPayload = { 
             ...data, 
-            usuario: nome || data.usuario || "Usuário", 
+            usuario: nomeFinal, 
             timestamp: new Date() 
         };
         
+        // Send only to the specific room
         io.to(salaId).emit('receber_mensagem', msgPayload);
         
+        // Broadcast to admins ONLY if not assigned
         if (!isAdmin && !roomAssignments[salaId]) {
             io.to('admins').emit('receber_mensagem', msgPayload);
         }
@@ -135,7 +154,6 @@ io.on('connection', (socket) => {
         } catch (err) {}
 
         io.to(salaId).emit('limpar_chat_ui', { salaId });
-        io.to('admins').emit('chamado_encerrado', { salaId });
         io.to('admins').emit('remover_usuario_lista', { salaId });
 
         const assignment = roomAssignments[salaId];

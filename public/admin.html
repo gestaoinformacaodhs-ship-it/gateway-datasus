@@ -404,6 +404,8 @@
             document.getElementById('status-conexao').className = "text-[10px] text-red-500 font-bold uppercase block tracking-widest";
         });
 
+        const BOT_NAME = "Assistente Virtual";
+
         socket.on('receber_mensagem', (data) => {
             const salaId = data.salaId;
             const nomeUsuario = data.nome || data.usuario || "Usuário";
@@ -436,8 +438,6 @@
             }
         });
 
-        const BOT_NAME = "Assistente Virtual";
-        
         socket.on('limpar_chat_ui', (data) => {
             if (salaAtual === data.salaId) {
                 limparChatCentral();
