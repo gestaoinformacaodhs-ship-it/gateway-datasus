@@ -5,17 +5,44 @@ const logger = require('../config/logger');
 
 class AuthController {
     static async register(req, res, next) {
-        const { nome, email, senha } = req.body;
+        const { nome, email, senha, role } = req.body;
         try {
             const hash = await bcrypt.hash(senha, 10);
-            await query("INSERT INTO usuarios (nome, email, senha) VALUES ($1, $2, $3)", 
-                [nome, email.toLowerCase().trim(), hash]);
+            const userRole = role === 'support' ? 'support' : 'user';
+            
+            await query("INSERT INTO usuarios (nome, email, senha, role) VALUES ($1, $2, $3, $4)", 
+                [nome, email.toLowerCase().trim(), hash, userRole]);
             
             res.status(201).json({ success: true, message: "Usuário registrado com sucesso!" });
         } catch (err) {
             if (err.code === '23505') { // Unique violation
                 return res.status(400).json({ success: false, error: "E-mail já cadastrado." });
             }
+            next(err);
+        }
+    }
+
+    static async listAttendants(req, res, next) {
+        try {
+            const result = await query("SELECT nome, email, role FROM usuarios WHERE role = 'support' OR role = 'master' ORDER BY nome ASC");
+            res.json(result.rows);
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    static async deleteAttendant(req, res, next) {
+        const { email } = req.body;
+        try {
+            // Prevent deleting master
+            const check = await query("SELECT role FROM usuarios WHERE email = $1", [email]);
+            if (check.rows[0] && check.rows[0].role === 'master') {
+                return res.status(403).json({ success: false, error: "Não é possível remover o Administrador Master." });
+            }
+
+            await query("DELETE FROM usuarios WHERE email = $1", [email]);
+            res.json({ success: true, message: "Atendente removido com sucesso." });
+        } catch (err) {
             next(err);
         }
     }
