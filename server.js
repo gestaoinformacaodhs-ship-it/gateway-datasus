@@ -191,13 +191,40 @@ io.on('connection', (socket) => {
         const salaId = typeof data === 'string' ? data : data.salaId;
         const targetSocketId = data.targetSocketId;
         
+        if (!salaId) return;
+
         const assignment = roomAssignments[salaId];
         if (!assignment || assignment.attendantSocketId !== socket.id) return;
+
+        // Notify room with details FIRST
+        const targetName = (targetSocketId && attendants[targetSocketId]) ? attendants[targetSocketId].nome : null;
+        const msgTexto = targetName 
+            ? `Este atendimento foi transferido para ${targetName}. Por favor, aguarde.`
+            : `Este atendimento foi transferido para a fila geral. Por favor, aguarde um novo atendente.`;
+
+        // Emit real-time
+        const msgPayload = {
+            usuario: BOT_NAME,
+            texto: msgTexto,
+            timestamp: new Date(),
+            isBot: true,
+            salaId: salaId
+        };
+        io.to(salaId).emit('receber_mensagem', msgPayload);
+
+        // SAVE TO DATABASE so history is consistent
+        try {
+            await query(
+                "INSERT INTO mensagens_suporte (sala_id, usuario, texto, is_bot) VALUES ($1, $2, $3, $4)",
+                [salaId, BOT_NAME, msgTexto, true]
+            );
+        } catch (err) {
+            logger.error(`Error saving transfer message to DB: ${err.message}`);
+        }
 
         // Release or Reassign
         if (targetSocketId && attendants[targetSocketId]) {
             // TARGETED TRANSFER
-            const targetName = attendants[targetSocketId].nome;
             roomAssignments[salaId] = {
                 attendantSocketId: targetSocketId,
                 attendantName: targetName,
@@ -230,19 +257,7 @@ io.on('connection', (socket) => {
         }
         socket.leave(salaId);
 
-        // Notify room with details
-        const msgTexto = targetSocketId && attendants[targetSocketId] 
-            ? `Este atendimento foi transferido para ${attendants[targetSocketId].nome}. Por favor, aguarde.`
-            : `Este atendimento foi transferido para a fila geral. Por favor, aguarde um novo atendente.`;
-
-        io.to(salaId).emit('receber_mensagem', {
-            usuario: BOT_NAME,
-            texto: msgTexto,
-            timestamp: new Date(),
-            isBot: true
-        });
-
-        logger.info(`Chat ${salaId} was transferred by ${assignment.attendantName} to ${targetSocketId ? 'Target' : 'Queue'}`);
+        logger.info(`Chat ${salaId} was transferred by ${assignment.attendantName} to ${targetName || 'Queue'}`);
     });
 
     socket.on('disconnect', () => {
