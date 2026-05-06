@@ -121,13 +121,27 @@ io.on('connection', (socket) => {
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
         const isAttendant = isAdmin || !!attendants[socket.id];
+        const nomeFinal = sanitizarNome(nome || data.usuario || "Usuário");
+
+        // AUTO-ASSUME on first message if no one owns the room yet
+        if (isAttendant && !roomAssignments[salaId]) {
+            roomAssignments[salaId] = {
+                attendantSocketId: socket.id,
+                attendantName: nomeFinal,
+                userName: data.usuario || "Usuário"
+            };
+            if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
+            io.to('admins').emit('usuario_ocupado', { 
+                salaId, 
+                nomeAtendente: nomeFinal, 
+                atendenteSocketId: socket.id 
+            });
+        }
 
         // PROTECTION: Only the assigned attendant can send messages in an assigned room
         if (isAttendant && roomAssignments[salaId] && roomAssignments[salaId].attendantSocketId !== socket.id) {
             return socket.emit('erro_chat', { mensagem: "Você não é o atendente responsável por este chamado." });
         }
-
-        const nomeFinal = sanitizarNome(nome || data.usuario || "Usuário");
 
         if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
             userWaitList.add(salaId);

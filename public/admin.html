@@ -553,6 +553,15 @@
             document.getElementById('admin-input').focus();
 
             socket.emit('entrar_na_sala', salaId);
+            
+            // AUTO-ASSUME: Se o ticket estiver livre, assume automaticamente ao selecionar
+            if (!ticketsOcupados[salaId]) {
+                socket.emit('assumir_chamado', { 
+                    salaId: salaId, 
+                    nomeAtendente: nomeAdmin,
+                    nomeUsuario: nomeLimpo
+                });
+            }
 
             const idClean = formatarId(salaId);
             document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
