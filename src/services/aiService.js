@@ -12,7 +12,7 @@ class AiService {
 
         try {
             const genAI = new GoogleGenerativeAI(key);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }, { apiVersion: 'v1' });
             const prompt = `Você é o suporte do Gateway DATASUS. Responda em português, de forma útil e curta. Pergunta: "${mensagemUsuario}"`;
             
             const result = await model.generateContent(prompt);
@@ -37,7 +37,7 @@ class AiService {
                 io.to(salaId).emit('receber_mensagem', msg);
             }
         } catch (err) {
-            logger.error("IA Gemini Error:", err.message);
+            logger.error("IA Gemini Error:", err);
         }
     }
 }
