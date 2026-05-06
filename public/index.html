@@ -292,10 +292,17 @@
             }
         }
 
+        socket.on('limpar_chat_ui', (data) => {
+            if (emailSala === data.salaId) {
+                chatBox.innerHTML = "";
+                renderizarMensagemUser({ usuario: "Sistema", texto: "Seu atendimento foi finalizado. Como podemos ajudar novamente?" });
+            }
+        });
+
         socket.on('historico_mensagens', (mensagens) => {
             chatBox.innerHTML = ""; 
-            if (mensagens.length === 0) {
-                renderizarMensagemUser({ usuario: "Sistema", texto: "Olá! Como podemos ajudar você hoje?" });
+            if (!mensagens || mensagens.length === 0) {
+                renderizarMensagemUser({ usuario: "Assistente Virtual", texto: "Olá! Como podemos ajudar você hoje?", isBot: true });
             } else {
                 mensagens.forEach(data => renderizarMensagemUser(data));
             }
@@ -316,17 +323,19 @@
             const nomeAtual = localStorage.getItem('usuario') || "Visitante";
             const autor = data.usuario || data.nome || "Sistema";
             const souEu = (autor === nomeAtual || autor === "Você");
+            const isBot = data.isBot || autor === "Assistente Virtual" || autor === "Sistema";
             
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex flex-col ${souEu ? 'items-end' : 'items-start'} mb-1`;
             
             const bubble = document.createElement('div');
             bubble.className = `p-4 rounded-2xl max-w-[85%] shadow-sm ${
-                souEu ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800/80 text-slate-200 rounded-tl-none border border-white/5'
+                souEu ? 'bg-blue-600 text-white rounded-tr-none' : 
+                (isBot ? 'bg-slate-800/80 text-slate-200 rounded-tl-none border border-blue-500/30' : 'bg-slate-800/80 text-slate-200 rounded-tl-none border border-white/5')
             }`;
             
             const texto = data.texto || data.mensagem || "";
-            let conteudo = `<p class="text-[8px] font-black opacity-50 mb-1 uppercase tracking-widest">${souEu ? 'Você' : autor}</p>`;
+            let conteudo = `<p class="text-[8px] font-black opacity-50 mb-1 uppercase tracking-widest">${isBot ? '<i class="fa-solid fa-robot mr-1"></i> ' : ''}${souEu ? 'Você' : autor}</p>`;
             
             if (data.arquivo) {
                 if (data.tipo?.startsWith('image/')) {

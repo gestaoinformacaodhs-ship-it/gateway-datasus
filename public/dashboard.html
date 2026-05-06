@@ -280,6 +280,10 @@
         });
 
         socket.on('chamado_encerrado', (data) => {
+            // Already handled by limpar_chat_ui
+        });
+
+        socket.on('limpar_chat_ui', (data) => {
             document.getElementById('chat-messages').innerHTML = '';
             adicionarMensagemNaTela("Sistema", "Seu atendimento foi finalizado. Como podemos ajudar novamente?", null, null, false);
             adicionarBotaoAtendente();
@@ -287,7 +291,7 @@
 
         socket.on('receber_mensagem', (data) => {
             const souEu = (data.usuario === nomeUsuario || data.nome === nomeUsuario);
-            adicionarMensagemNaTela(data.usuario || data.nome, data.texto || data.mensagem, data.arquivo, data.tipo_arquivo || data.tipo, souEu, data.isAI);
+            adicionarMensagemNaTela(data.usuario || data.nome, data.texto || data.mensagem, data.arquivo, data.tipo_arquivo || data.tipo, souEu, data.isBot);
             if (!souEu) {
                 somNotificacao.play().catch(() => {});
                 if (!document.getElementById('chat-window').classList.contains('active')) {
@@ -346,14 +350,14 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu, isAI = false) {
+        function adicionarMensagemNaTela(autor, texto, arquivo, tipo, souEu, isBot = false) {
             const box = document.getElementById('chat-messages');
             const div = document.createElement('div');
             div.className = `flex flex-col ${souEu ? 'items-end' : 'items-start'} mb-1`;
             
-            const realIsAI = isAI || autor === "IA Inteligente";
+            const realIsBot = isBot || autor === "Assistente Virtual" || autor === "IA Inteligente";
             let colorClass = souEu ? 'text-slate-500' : 'text-blue-500';
-            if (realIsAI) colorClass = 'text-blue-400 flex items-center gap-1';
+            if (realIsBot) colorClass = 'text-blue-400 flex items-center gap-1';
 
             let corpoHTML = texto ? `<p class="leading-relaxed font-medium text-sm">${texto}</p>` : '';
             if (arquivo) {
@@ -365,11 +369,11 @@
             }
 
             let bubbleClass = `p-4 rounded-2xl max-w-[85%] shadow-sm ${souEu ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-white/5'}`;
-            if (realIsAI) bubbleClass = `msg-ia p-4 rounded-2xl max-w-[85%] text-slate-200 rounded-tl-none border border-blue-500/30`;
+            if (realIsBot) bubbleClass = `msg-ia p-4 rounded-2xl max-w-[85%] text-slate-200 rounded-tl-none border border-blue-500/30`;
 
             div.innerHTML = `
                 <span class="text-[9px] mb-1.5 font-black ${colorClass} uppercase tracking-widest">
-                    ${realIsAI ? '<i class="fa-solid fa-robot animate-bounce mr-1"></i> ' : ''}${souEu ? 'Você' : autor}
+                    ${realIsBot ? '<i class="fa-solid fa-robot animate-bounce mr-1"></i> ' : ''}${souEu ? 'Você' : autor}
                 </span>
                 <div class="${bubbleClass}">${corpoHTML}</div>`;
             box.appendChild(div);
@@ -383,7 +387,7 @@
                 document.getElementById('chat-badge').classList.add('hidden');
                 const chatBox = document.getElementById('chat-messages');
                 if (chatBox.children.length === 0) {
-                    adicionarMensagemNaTela("Suporte Arpoador", "Olá! Sou o assistente inteligente do Gateway DATASUS. Como posso ajudar você hoje?", null, null, false);
+                    adicionarMensagemNaTela("Assistente Virtual", "Olá! Recebemos sua solicitação de suporte. Como podemos ajudar você hoje?", null, null, false, true);
                     adicionarBotaoAtendente();
                 }
             }

@@ -310,8 +310,22 @@
             const chatBox = document.getElementById('admin-chat-box');
             chatBox.innerHTML = "";
             mensagensProcessadas.clear();
-            mensagens.forEach(data => renderizarMensagem(data, false));
-            chatBox.scrollTop = chatBox.scrollHeight;
+            if (mensagens && mensagens.length > 0) {
+                const emptyState = document.getElementById('empty-state');
+                if (emptyState) emptyState.style.display = 'none';
+                mensagens.forEach(data => renderizarMensagem(data, false));
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
+
+        socket.on('limpar_chat_ui', (data) => {
+            if (salaAtiva === data.salaId) {
+                limparTela();
+                document.getElementById('empty-state').style.display = 'flex';
+                document.getElementById('chat-title').innerText = "Selecione um usuário";
+                document.getElementById('status-badge').classList.add('hidden');
+                salaAtiva = "";
+            }
         });
 
         socket.on('chamado_encerrado', (data) => {
@@ -359,6 +373,14 @@
                 document.getElementById('chat-title').innerText = nome;
                 document.getElementById('admin-input').disabled = false;
                 document.getElementById('btnEnviar').disabled = false;
+                
+                // Emite assumir_chamado para o servidor
+                socket.emit('assumir_chamado', { 
+                    salaId: salaId, 
+                    nomeAtendente: nomeAdmin,
+                    nomeUsuario: nome 
+                });
+                
                 socket.emit('entrar_na_sala', salaId);
                 document.getElementById('admin-input').focus();
             }
@@ -378,8 +400,6 @@
             
             const dot = document.getElementById(`unread-${safeId}`);
             if(dot) dot.classList.add('hidden');
-
-            socket.emit('entrar_na_sala', salaId);
         }
 
         function encerrarAtendimento() {

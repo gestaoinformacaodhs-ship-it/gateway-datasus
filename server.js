@@ -12,57 +12,48 @@ const logger = require('./src/config/logger');
 const { pool, query } = require('./src/config/database');
 const apiRoutes = require('./src/routes/apiRoutes');
 const errorHandler = require('./src/middlewares/errorHandler');
-const AiService = require('./src/services/aiService');
 
 const app = express();
 const server = http.createServer(app);
 
-/**
- * --- SEGURANÇA E MIDDLEWARES ---
- */
-app.use(helmet({
-    contentSecurityPolicy: false, 
-    crossOriginEmbedderPolicy: false,
-}));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 app.use(express.static('public'));
 app.set('trust proxy', 1);
 
-/**
- * --- ROTAS ---
- */
 app.use('/api', apiRoutes);
 
-/**
- * --- SOCKET.IO ---
- */
 const io = new Server(server, {
-    cors: {
-        origin: "*", 
-        methods: ["GET", "POST"],
-        credentials: true
-    },
-    maxHttpBufferSize: 1e7, // 10MB
+    cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
+    maxHttpBufferSize: 1e7,
     transports: ['websocket', 'polling']
 });
 
-const activeSessions = {}; // salaId -> atendenteSocketId
+// State Management
+const attendants = {}; // socketId -> { nome, rooms: [] }
+const roomAssignments = {}; // salaId -> { attendantSocketId, attendantName, userName }
+const userWaitList = new Set(); // salaId (users waiting for support)
+
+const BOT_NAME = "Assistente Virtual";
 
 io.on('connection', (socket) => {
-    logger.info(`New client connected: ${socket.id}`);
+    logger.info(`New connection: ${socket.id}`);
 
-    // Admin specific event
+    // Admin/Attendant joins
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
-        logger.info(`Admin joined: ${data.nome} (${socket.id})`);
+        attendants[socket.id] = { nome: data.nome, rooms: [] };
+        logger.info(`Attendant online: ${data.nome}`);
+        
+        // Send current room assignments to the new admin
+        socket.emit('lista_usuarios_ocupados', roomAssignments);
     });
 
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         socket.join(salaId);
-        logger.info(`Socket ${socket.id} joined room: ${salaId}`);
         
         try {
             const hist = await query(
@@ -71,128 +62,151 @@ io.on('connection', (socket) => {
             );
             socket.emit('historico_mensagens', hist.rows);
         } catch (err) {
-            if (!err.message.includes('Database not initialized')) {
-                logger.error('Error fetching chat history:', err);
-            }
+            if (!err.message.includes('Database')) logger.error('History error:', err);
         }
     });
 
+    // Event for admin to "take" a chat
+    socket.on('assumir_chamado', (data) => {
+        const { salaId, nomeAtendente, nomeUsuario } = data;
+        
+        if (roomAssignments[salaId]) {
+            return socket.emit('erro_chat', { mensagem: `Este chamado já está sendo atendido por ${roomAssignments[salaId].attendantName}` });
+        }
+
+        roomAssignments[salaId] = { 
+            attendantSocketId: socket.id, 
+            attendantName: nomeAtendente,
+            userName: nomeUsuario
+        };
+        
+        if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
+        userWaitList.delete(salaId);
+
+        // Notify the user they are being attended
+        io.to(salaId).emit('receber_mensagem', {
+            usuario: BOT_NAME,
+            texto: `Olá! O atendente ${nomeAtendente} assumiu seu chamado e já vai falar com você.`,
+            timestamp: new Date(),
+            isBot: true
+        });
+
+        // Sync with all admins
+        io.emit('usuario_ocupado', { 
+            salaId, 
+            nomeAtendente, 
+            atendenteSocketId: socket.id 
+        });
+
+        logger.info(`Attendant ${nomeAtendente} took chat ${salaId}`);
+    });
+
     socket.on('enviar_mensagem', async (data) => {
-        const { mensagem, salaId, nome } = data;
+        const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
-        logger.info(`Message in room ${salaId} from ${nome || 'Usuário'}`);
+        // If it's a user message and no one is attending yet
+        if (!isAdmin && nome !== BOT_NAME && !roomAssignments[salaId]) {
+            if (!userWaitList.has(salaId)) {
+                userWaitList.add(salaId);
+                // Initial Bot Response
+                setTimeout(() => {
+                    io.to(salaId).emit('receber_mensagem', {
+                        usuario: BOT_NAME,
+                        texto: `Olá ${nome || 'Usuário'}! Recebemos sua mensagem. Um de nossos atendentes entrará em contato em breve. Por favor, aguarde.`,
+                        timestamp: new Date(),
+                        isBot: true
+                    });
+                }, 1000);
+            }
+        }
 
         try {
             await query(
                 "INSERT INTO mensagens_suporte (sala_id, usuario, texto, arquivo, tipo_arquivo) VALUES ($1, $2, $3, $4, $5)", 
                 [salaId, nome || "Usuário", mensagem || null, data.arquivo || null, data.tipo_arquivo || null]
             );
-        } catch (err) {
-            if (!err.message.includes('Database not initialized')) {
-                logger.error('Error saving message:', err);
-            }
-        }
+        } catch (err) {}
 
-        // Broadcast to the specific room
-        io.to(salaId).emit('receber_mensagem', { 
-            ...data, 
-            usuario: nome || "Usuário", 
-            timestamp: new Date() 
-        });
-
-        // Also broadcast to admins room if it's a message FROM a user
-        // (This allows admins to see new messages in the sidebar even if not in the room)
-        if (nome !== "IA Inteligente" && !salaId.includes('admin')) {
-             io.to('admins').emit('receber_mensagem', { 
-                ...data, 
-                usuario: nome || "Usuário", 
-                timestamp: new Date() 
-            });
-        }
+        const msgPayload = { ...data, usuario: nome || "Usuário", timestamp: new Date() };
         
-        // Trigger AI if not already handled and not from an admin/AI
-        if (nome !== "IA Inteligente" && !activeSessions[salaId] && !data.isAdmin) {
-            AiService.processChat(salaId, mensagem, io);
+        io.to(salaId).emit('receber_mensagem', msgPayload);
+        
+        // Notify admins if user sent a message
+        if (!isAdmin) {
+            io.to('admins').emit('receber_mensagem', msgPayload);
         }
     });
 
+    socket.on('encerrar_chamado', async (salaId) => {
+        const assignment = roomAssignments[salaId];
+        
+        // 1. Clear database messages for this room
+        try {
+            await query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
+        } catch (err) {
+            logger.error('Error clearing chat DB:', err);
+        }
+
+        // 2. Notify user and admin to clear UI
+        io.to(salaId).emit('limpar_chat_ui', { salaId });
+        
+        // 3. Notify all admins that the user is free and chat ended
+        io.emit('chamado_encerrado', { salaId });
+
+        // 4. Cleanup state
+        if (assignment && attendants[assignment.attendantSocketId]) {
+            attendants[assignment.attendantSocketId].rooms = attendants[assignment.attendantSocketId].rooms.filter(r => r !== salaId);
+        }
+        delete roomAssignments[salaId];
+        userWaitList.delete(salaId);
+
+        logger.info(`Chat ${salaId} ended and cleared.`);
+    });
+
     socket.on('disconnect', () => {
-        logger.info(`Client disconnected: ${socket.id}`);
-        // Cleanup active sessions if an admin disconnects
-        for (const salaId in activeSessions) {
-            if (activeSessions[salaId] === socket.id) {
-                delete activeSessions[salaId];
+        if (attendants[socket.id]) {
+            const admin = attendants[socket.id];
+            admin.rooms.forEach(salaId => {
+                delete roomAssignments[salaId];
                 io.emit('usuario_livre', { salaId });
-            }
+            });
+            delete attendants[socket.id];
+            logger.info(`Attendant disconnected: ${admin.nome}`);
         }
     });
 });
 
-/**
- * --- INICIALIZAÇÃO DO BANCO ---
- */
 async function initDB() {
-    if (!pool) {
-        logger.warn("⚠️ DATABASE_URL not defined. Using in-memory mode for chat.");
-        return;
-    }
-    
+    if (!pool) return;
     try {
         await query(`
             CREATE TABLE IF NOT EXISTS usuarios (
-                id SERIAL PRIMARY KEY,
-                nome TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                senha TEXT NOT NULL,
-                ativo INTEGER DEFAULT 1, 
-                role TEXT DEFAULT 'user',
-                reset_token TEXT,
-                reset_expiracao TIMESTAMP
+                id SERIAL PRIMARY KEY, nome TEXT NOT NULL, email TEXT UNIQUE NOT NULL, senha TEXT NOT NULL,
+                ativo INTEGER DEFAULT 1, role TEXT DEFAULT 'user', reset_token TEXT, reset_expiracao TIMESTAMP
             );
-            
             CREATE TABLE IF NOT EXISTS mensagens_suporte (
-                id SERIAL PRIMARY KEY,
-                sala_id TEXT NOT NULL, 
-                usuario TEXT NOT NULL,
-                texto TEXT,
-                arquivo TEXT, 
-                tipo_arquivo TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id SERIAL PRIMARY KEY, sala_id TEXT NOT NULL, usuario TEXT NOT NULL, texto TEXT,
+                arquivo TEXT, tipo_arquivo TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
         const adminEmail = (process.env.ADMIN_EMAIL || "admin").toLowerCase().trim();
-        const adminPass = process.env.ADMIN_PASSWORD || "admin";
-        const hash = await bcrypt.hash(adminPass, 10);
-        
+        const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "admin", 10);
         await query(`
             INSERT INTO usuarios (nome, email, senha, ativo, role) 
             VALUES ('Administrador Master', $1, $2, 1, 'master') 
             ON CONFLICT (email) DO UPDATE SET role = 'master';
         `, [adminEmail, hash]);
-
-        logger.info("✔️ Database initialized and stable.");
-    } catch (err) {
-        logger.error("❌ Critical database failure:", err);
-    }
+        logger.info("✔️ DB Stable.");
+    } catch (err) { logger.error("DB Error:", err); }
 }
 
-/**
- * --- ERROR HANDLING ---
- */
 app.use(errorHandler);
 
-/**
- * --- BOOTSTRAP ---
- */
 const PORT = process.env.PORT || 10000;
 initDB().then(() => {
     server.listen(PORT, "0.0.0.0", () => {
-        logger.info(`🚀 Gateway SUS Professional active on port ${PORT}`);
-        
-        setInterval(() => {
-            http.get(`http://127.0.0.1:${PORT}/api/health`, (res) => {}).on('error', () => {});
-        }, 9 * 60 * 1000);
+        logger.info(`🚀 Gateway SUS Queue System active on port ${PORT}`);
+        setInterval(() => { http.get(`http://127.0.0.1:${PORT}/api/health`, () => {}).on('error', () => {}); }, 9 * 60 * 1000);
     });
 });
