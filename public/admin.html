@@ -83,7 +83,10 @@
                     <button id="btn-encerrar" onclick="encerrarAtendimento()" class="hidden bg-red-600 hover:bg-red-700 text-white p-2 px-4 rounded-full transition-all text-[10px] font-black flex items-center gap-2 shadow-lg shadow-red-600/20">
                         <i class="fa-solid fa-circle-xmark"></i> FINALIZAR
                     </button>
-                    <span id="nome-atendimento" class="text-sm font-bold text-slate-400">Nenhum atendimento selecionado</span>
+                    <button id="btn-transferir" onclick="transferirAtendimento()" class="hidden bg-amber-600 hover:bg-amber-700 text-white p-2 px-4 rounded-full transition-all text-[10px] font-black flex items-center gap-2 shadow-lg shadow-amber-600/20 ml-2">
+                        <i class="fa-solid fa-shuffle"></i> TRANSFERIR
+                    </button>
+                    <span id="nome-atendimento" class="text-sm font-bold text-slate-400 ml-4">Nenhum atendimento selecionado</span>
                 </div>
                 <div id="badge-online" class="hidden flex items-center gap-2 text-[10px] font-black text-green-500 bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
                     <span class="relative flex h-2 w-2">
@@ -226,6 +229,7 @@
             document.getElementById('nome-atendimento').innerText = "Nenhum atendimento selecionado";
             document.getElementById('nome-atendimento').classList.replace('text-white', 'text-slate-400');
             document.getElementById('btn-encerrar').classList.add('hidden');
+            document.getElementById('btn-transferir').classList.add('hidden');
             document.getElementById('badge-online').classList.add('hidden');
             document.getElementById('admin-input').value = "";
             document.getElementById('admin-input').disabled = true;
@@ -489,6 +493,7 @@
             document.getElementById('nome-atendimento').innerText = nomeLimpo;
             document.getElementById('nome-atendimento').classList.replace('text-slate-400', 'text-white');
             document.getElementById('btn-encerrar').classList.remove('hidden');
+            document.getElementById('btn-transferir').classList.remove('hidden');
             document.getElementById('badge-online').classList.remove('hidden');
             
             document.getElementById('admin-input').disabled = false;
@@ -647,6 +652,14 @@
                 const salaParaEncerrar = salaAtual;
                 limparChatCentral();
                 socket.emit('encerrar_chamado', salaParaEncerrar);
+            }
+        }
+
+        function transferirAtendimento() {
+            if (confirm("Deseja transferir este atendimento? O chat ficará disponível para outros atendentes.")) {
+                const salaParaTransferir = salaAtual;
+                limparChatCentral();
+                socket.emit('transferir_chamado', salaParaTransferir);
             }
         }
 

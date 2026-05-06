@@ -177,6 +177,30 @@ io.on('connection', (socket) => {
         userWaitList.delete(salaId);
     });
 
+    socket.on('transferir_chamado', (salaId) => {
+        const assignment = roomAssignments[salaId];
+        if (!assignment || assignment.attendantSocketId !== socket.id) return;
+
+        // Release the room
+        delete roomAssignments[salaId];
+        if (attendants[socket.id]) {
+            attendants[socket.id].rooms = attendants[socket.id].rooms.filter(r => r !== salaId);
+        }
+
+        // Notify admins that user is free again
+        io.to('admins').emit('usuario_livre', { salaId });
+        
+        // Notify everyone in the room about the transfer
+        io.to(salaId).emit('receber_mensagem', {
+            usuario: BOT_NAME,
+            texto: `Este atendimento está sendo transferido para outro setor. Por favor, aguarde.`,
+            timestamp: new Date(),
+            isBot: true
+        });
+
+        logger.info(`Chat ${salaId} was transferred/released by ${assignment.attendantName}`);
+    });
+
     socket.on('disconnect', () => {
         if (attendants[socket.id]) {
             const admin = attendants[socket.id];
