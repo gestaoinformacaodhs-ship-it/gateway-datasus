@@ -44,7 +44,6 @@ io.on('connection', (socket) => {
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
         attendants[socket.id] = { nome: data.nome, rooms: [] };
-        // Sync assignments with the new admin
         socket.emit('lista_usuarios_ocupados', roomAssignments);
     });
 
@@ -71,20 +70,18 @@ io.on('connection', (socket) => {
         roomAssignments[salaId] = { 
             attendantSocketId: socket.id, 
             attendantName: nomeAtendente,
-            userName: nomeUsuario
+            userName: nomeUsuario || "Usuário"
         };
         
         if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
         userWaitList.delete(salaId);
 
-        // Notify all admins that this user is now taken
         io.to('admins').emit('usuario_ocupado', { 
             salaId, 
             nomeAtendente, 
             atendenteSocketId: socket.id 
         });
 
-        // Notify user
         io.to(salaId).emit('receber_mensagem', {
             usuario: BOT_NAME,
             texto: `O atendente ${nomeAtendente} assumiu seu chamado.`,
@@ -99,7 +96,7 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
-        // BOT INITIAL RESPONSE (Only if no assignment)
+        // BOT INITIAL RESPONSE
         if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
             userWaitList.add(salaId);
             setTimeout(() => {
@@ -119,12 +116,14 @@ io.on('connection', (socket) => {
             );
         } catch (err) {}
 
-        const msgPayload = { ...data, usuario: nome || "Usuário", timestamp: new Date() };
+        const msgPayload = { 
+            ...data, 
+            usuario: nome || data.usuario || "Usuário", 
+            timestamp: new Date() 
+        };
         
-        // Broadcast to the room (User + Assigned Attendant)
         io.to(salaId).emit('receber_mensagem', msgPayload);
         
-        // IMPORTANT: Only broadcast to OTHER admins if the chat is NOT assigned
         if (!isAdmin && !roomAssignments[salaId]) {
             io.to('admins').emit('receber_mensagem', msgPayload);
         }
@@ -135,21 +134,16 @@ io.on('connection', (socket) => {
             await query("DELETE FROM mensagens_suporte WHERE sala_id = $1", [salaId]);
         } catch (err) {}
 
-        // Clear UI for user and assigned admin
         io.to(salaId).emit('limpar_chat_ui', { salaId });
-        
-        // Notify all admins to remove the user from their lists
         io.to('admins').emit('chamado_encerrado', { salaId });
+        io.to('admins').emit('remover_usuario_lista', { salaId });
 
-        // Cleanup state
         const assignment = roomAssignments[salaId];
         if (assignment && attendants[assignment.attendantSocketId]) {
             attendants[assignment.attendantSocketId].rooms = attendants[assignment.attendantSocketId].rooms.filter(r => r !== salaId);
         }
         delete roomAssignments[salaId];
         userWaitList.delete(salaId);
-
-        logger.info(`Chat ${salaId} ended and cleared.`);
     });
 
     socket.on('disconnect', () => {
