@@ -101,6 +101,13 @@ class AuthController {
                 logger.info(`User login: ${user.email}`);
                 return res.json({ 
                     success: true,
+                    // Backward compatibility for aggressively cached index.html
+                    user: user.nome, 
+                    email: user.email, 
+                    role: user.role, 
+                    token: token,
+                    csrfToken: 'not_implemented_yet',
+                    // New structure
                     data: {
                         user: user.nome, 
                         email: user.email, 
