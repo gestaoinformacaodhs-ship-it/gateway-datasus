@@ -229,8 +229,8 @@ io.on('connection', (socket) => {
         // SAVE TO DATABASE so history is consistent
         try {
             await query(
-                "INSERT INTO mensagens_suporte (sala_id, usuario, texto, is_bot) VALUES ($1, $2, $3, $4)",
-                [salaId, BOT_NAME, msgTexto, true]
+                "INSERT INTO mensagens_suporte (sala_id, usuario, texto) VALUES ($1, $2, $3)",
+                [salaId, BOT_NAME, msgTexto]
             );
         } catch (err) {
             logger.error(`Error saving transfer message to DB: ${err.message}`);

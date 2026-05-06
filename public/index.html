@@ -253,7 +253,10 @@
         function atualizarSala() {
             const inputEmail = document.getElementById('l-email').value.trim().toLowerCase();
             const emailSalvo = localStorage.getItem('email');
-            let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socket.id);
+            
+            // Wait for socket to be ready if we need an ID
+            const socketIdToUse = socket.id || Math.random().toString(36).substring(2, 10);
+            let novaSala = emailSalvo || (inputEmail.includes('@') ? inputEmail : "visitante_" + socketIdToUse);
             
             if (novaSala && novaSala !== emailSala) {
                 emailSala = novaSala;
