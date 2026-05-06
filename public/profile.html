@@ -6,6 +6,7 @@
     <title>Meu Perfil | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="data:,">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
         
@@ -177,8 +178,12 @@
     <script>
         // Carregar dados iniciais
         window.onload = async () => {
-            const userNome = localStorage.getItem('usuario');
-            const userEmail = localStorage.getItem('email');
+            let userNome = localStorage.getItem('usuario');
+            let userEmail = localStorage.getItem('email');
+
+            // Sanitize "undefined" string edge case
+            if (userNome === 'undefined' || userNome === 'null') userNome = '';
+            if (userEmail === 'undefined' || userEmail === 'null') userEmail = '';
 
             if (userNome) document.getElementById('nome').value = userNome;
             if (userEmail) document.getElementById('email').value = userEmail;

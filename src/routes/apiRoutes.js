@@ -59,4 +59,8 @@ router.get('/download/:sistema/:arquivo', authenticate, downloadLimiter, FtpCont
 router.get('/admin/atendentes', authenticate, AuthController.listAttendants);
 router.post('/admin/deletar-atendente', authenticate, AuthController.deleteAttendant);
 
+// User Profile Management (Requires Authentication)
+router.post('/update-profile', authenticate, AuthController.updateProfile);
+router.post('/delete-account', authenticate, AuthController.deleteAccount);
+
 module.exports = router;

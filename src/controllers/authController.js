@@ -47,6 +47,39 @@ class AuthController {
         }
     }
 
+    static async updateProfile(req, res, next) {
+        const { nome, email, novaSenha } = req.body;
+        // The user's authenticated email is in req.user.email (from authenticate middleware)
+        const userEmail = req.user && req.user.email ? req.user.email : email;
+
+        try {
+            if (novaSenha && novaSenha.length >= 6) {
+                const hash = await bcrypt.hash(novaSenha, 10);
+                await query("UPDATE usuarios SET nome = $1, senha = $2 WHERE email = $3", [nome, hash, userEmail]);
+            } else {
+                await query("UPDATE usuarios SET nome = $1 WHERE email = $2", [nome, userEmail]);
+            }
+            res.json({ success: true, message: "Perfil atualizado com sucesso." });
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    static async deleteAccount(req, res, next) {
+        const userEmail = req.user && req.user.email ? req.user.email : req.body.email;
+        try {
+            const check = await query("SELECT role FROM usuarios WHERE email = $1", [userEmail]);
+            if (check.rows[0] && check.rows[0].role === 'master') {
+                return res.status(403).json({ success: false, error: "O Administrador Master não pode excluir sua própria conta por aqui." });
+            }
+
+            await query("DELETE FROM usuarios WHERE email = $1", [userEmail]);
+            res.json({ success: true, message: "Conta excluída com sucesso." });
+        } catch (err) {
+            next(err);
+        }
+    }
+
     static async login(req, res, next) {
         const { email, senha } = req.body;
         try {
