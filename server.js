@@ -40,7 +40,7 @@ app.use('/api', apiRoutes);
  */
 const io = new Server(server, {
     cors: {
-        origin: "*", // Permissive for deployment stability
+        origin: "*", 
         methods: ["GET", "POST"],
         credentials: true
     },
@@ -48,10 +48,16 @@ const io = new Server(server, {
     transports: ['websocket', 'polling']
 });
 
-const activeSessions = {};
+const activeSessions = {}; // salaId -> atendenteSocketId
 
 io.on('connection', (socket) => {
     logger.info(`New client connected: ${socket.id}`);
+
+    // Admin specific event
+    socket.on('admin_entrar', (data) => {
+        socket.join('admins');
+        logger.info(`Admin joined: ${data.nome} (${socket.id})`);
+    });
 
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
@@ -65,7 +71,6 @@ io.on('connection', (socket) => {
             );
             socket.emit('historico_mensagens', hist.rows);
         } catch (err) {
-            // Only log if it's not a "DB not initialized" error to avoid spamming
             if (!err.message.includes('Database not initialized')) {
                 logger.error('Error fetching chat history:', err);
             }
@@ -89,20 +94,38 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Broadcast to everyone in the room (including the sender)
+        // Broadcast to the specific room
         io.to(salaId).emit('receber_mensagem', { 
             ...data, 
             usuario: nome || "Usuário", 
             timestamp: new Date() 
         });
+
+        // Also broadcast to admins room if it's a message FROM a user
+        // (This allows admins to see new messages in the sidebar even if not in the room)
+        if (nome !== "IA Inteligente" && !salaId.includes('admin')) {
+             io.to('admins').emit('receber_mensagem', { 
+                ...data, 
+                usuario: nome || "Usuário", 
+                timestamp: new Date() 
+            });
+        }
         
-        if (nome !== "IA Inteligente" && !activeSessions[salaId]) {
+        // Trigger AI if not already handled and not from an admin/AI
+        if (nome !== "IA Inteligente" && !activeSessions[salaId] && !data.isAdmin) {
             AiService.processChat(salaId, mensagem, io);
         }
     });
 
     socket.on('disconnect', () => {
         logger.info(`Client disconnected: ${socket.id}`);
+        // Cleanup active sessions if an admin disconnects
+        for (const salaId in activeSessions) {
+            if (activeSessions[salaId] === socket.id) {
+                delete activeSessions[salaId];
+                io.emit('usuario_livre', { salaId });
+            }
+        }
     });
 });
 
@@ -111,7 +134,7 @@ io.on('connection', (socket) => {
  */
 async function initDB() {
     if (!pool) {
-        logger.warn("⚠️ DATABASE_URL not defined. Using in-memory mode for chat (no persistence).");
+        logger.warn("⚠️ DATABASE_URL not defined. Using in-memory mode for chat.");
         return;
     }
     
@@ -139,7 +162,6 @@ async function initDB() {
             );
         `);
 
-        // Admin Master setup
         const adminEmail = (process.env.ADMIN_EMAIL || "admin").toLowerCase().trim();
         const adminPass = process.env.ADMIN_PASSWORD || "admin";
         const hash = await bcrypt.hash(adminPass, 10);
