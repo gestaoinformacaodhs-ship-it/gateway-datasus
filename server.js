@@ -97,6 +97,9 @@ io.on('connection', (socket) => {
             atendenteSocketId: socket.id 
         });
 
+        // FORCE OTHER ADMINS TO LEAVE THIS ROOM
+        socket.to('admins').emit('forçar_saida_sala', { salaId });
+
         io.to(salaId).emit('receber_mensagem', {
             usuario: BOT_NAME,
             texto: `O atendente ${nomeAtendente} assumiu seu chamado e está pronto para ajudar.`,
@@ -111,7 +114,7 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
-        const nomeFinal = nome || data.usuario || "Usuário";
+        const nomeFinal = sanitizarNome(nome || data.usuario || "Usuário");
 
         // BOT LOGIC
         if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
@@ -175,6 +178,13 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+function sanitizarNome(nome) {
+    if (!nome || String(nome).toLowerCase() === 'undefined' || String(nome).toLowerCase() === 'null') {
+        return "Usuário";
+    }
+    return String(nome);
+}
 
 async function initDB() {
     if (!pool) return;

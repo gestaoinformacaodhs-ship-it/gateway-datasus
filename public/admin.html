@@ -404,11 +404,25 @@
             document.getElementById('status-conexao').className = "text-[10px] text-red-500 font-bold uppercase block tracking-widest";
         });
 
+        function sanitizarNome(nome) {
+            if (!nome || String(nome).toLowerCase() === 'undefined' || String(nome).toLowerCase() === 'null') {
+                return "Usuário";
+            }
+            return String(nome);
+        }
+
+        socket.on('forçar_saida_sala', (data) => {
+            if (salaAtual === data.salaId) {
+                alert(`Este chamado foi assumido por outro atendente.`);
+                limparChatCentral();
+            }
+        });
+
         const BOT_NAME = "Assistente Virtual";
 
         socket.on('receber_mensagem', (data) => {
             const salaId = data.salaId;
-            const nomeUsuario = data.nome || data.usuario || "Usuário";
+            const nomeUsuario = sanitizarNome(data.nome || data.usuario || "Usuário");
 
             // Ignore bot messages for the user list and only add if not already known
             if (!data.isBot && nomeUsuario !== BOT_NAME && nomeUsuario !== "IA Inteligente" && nomeUsuario !== nomeAdmin) {
@@ -452,17 +466,19 @@
                 container.innerHTML = '<div class="text-center text-slate-700 text-[10px] font-bold uppercase py-10 opacity-30">Início da transmissão</div>';
             } else {
                 mensagens.forEach(msg => {
-                    adicionarNaTela(msg.usuario || msg.nome, msg.texto || msg.mensagem, msg.arquivo, msg.tipo || msg.tipo_arquivo);
+                    const nomeMsg = sanitizarNome(msg.usuario || msg.nome);
+                    adicionarNaTela(nomeMsg, msg.texto || msg.mensagem, msg.arquivo, msg.tipo || msg.tipo_arquivo);
                 });
             }
         });
 
         function selecionarUsuario(nome, salaId) {
+            const nomeLimpo = sanitizarNome(nome);
             if (salaAtual === salaId) return;
             
             // Verificação de Trava
             if (ticketsOcupados[salaId] && ticketsOcupados[salaId].toUpperCase() !== nomeAdmin.toUpperCase()) {
-                alert(`⚠️ Atenção: ${nome} já está sendo atendido por ${ticketsOcupados[salaId]}.`);
+                alert(`⚠️ Atenção: ${nomeLimpo} já está sendo atendido por ${ticketsOcupados[salaId]}.`);
                 return;
             }
 
@@ -470,7 +486,7 @@
             const container = document.getElementById('admin-chat');
             container.innerHTML = '<div class="m-auto flex items-center gap-2 text-slate-500"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando dados...</div>';
             
-            document.getElementById('nome-atendimento').innerText = nome;
+            document.getElementById('nome-atendimento').innerText = nomeLimpo;
             document.getElementById('nome-atendimento').classList.replace('text-slate-400', 'text-white');
             document.getElementById('btn-encerrar').classList.remove('hidden');
             document.getElementById('badge-online').classList.remove('hidden');
@@ -492,6 +508,7 @@
         }
 
         function adicionarUsuarioLista(nome, salaId) {
+            const nomeLimpo = sanitizarNome(nome);
             if (usuariosConhecidos.has(salaId)) return;
 
             usuariosConhecidos.add(salaId);
@@ -503,10 +520,10 @@
             const div = document.createElement('div');
             div.id = `user-${idClean}`;
             div.className = "user-item p-4 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all flex justify-between items-center group";
-            div.onclick = () => selecionarUsuario(nome, salaId);
+            div.onclick = () => selecionarUsuario(nomeLimpo, salaId);
             div.innerHTML = `
                 <div class="flex flex-col overflow-hidden">
-                    <span class="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">${nome}</span>
+                    <span class="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">${nomeLimpo}</span>
                     <span id="status-${idClean}" class="text-[9px] text-slate-500 font-mono truncate uppercase">${salaId.substring(0, 15)}...</span>
                 </div>
                 <div class="flex items-center gap-2">
