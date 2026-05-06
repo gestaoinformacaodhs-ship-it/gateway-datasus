@@ -177,28 +177,68 @@ io.on('connection', (socket) => {
         userWaitList.delete(salaId);
     });
 
-    socket.on('transferir_chamado', (salaId) => {
+    socket.on('obter_atendentes_online', () => {
+        const list = [];
+        for (const id in attendants) {
+            if (id !== socket.id) {
+                list.push({ id, nome: attendants[id].nome });
+            }
+        }
+        socket.emit('lista_atendentes_online', list);
+    });
+
+    socket.on('transferir_chamado', async (data) => {
+        const salaId = typeof data === 'string' ? data : data.salaId;
+        const targetSocketId = data.targetSocketId;
+        
         const assignment = roomAssignments[salaId];
         if (!assignment || assignment.attendantSocketId !== socket.id) return;
 
-        // Release the room
-        delete roomAssignments[salaId];
+        // Release or Reassign
+        if (targetSocketId && attendants[targetSocketId]) {
+            // TARGETED TRANSFER
+            const targetName = attendants[targetSocketId].nome;
+            roomAssignments[salaId] = {
+                attendantSocketId: targetSocketId,
+                attendantName: targetName,
+                userName: assignment.userName
+            };
+            attendants[targetSocketId].rooms.push(salaId);
+            
+            // Notify target specifically
+            io.to(targetSocketId).emit('chamado_transferido_alerta', { 
+                salaId, 
+                doNome: assignment.attendantName,
+                userName: assignment.userName
+            });
+            
+            // Notify all admins about the change of ownership
+            io.to('admins').emit('usuario_ocupado', { 
+                salaId, 
+                nomeAtendente: targetName, 
+                atendenteSocketId: targetSocketId 
+            });
+        } else {
+            // GENERAL RELEASE (Back to queue)
+            delete roomAssignments[salaId];
+            io.to('admins').emit('usuario_livre', { salaId });
+        }
+
+        // Cleanup original owner
         if (attendants[socket.id]) {
             attendants[socket.id].rooms = attendants[socket.id].rooms.filter(r => r !== salaId);
         }
+        socket.leave(salaId);
 
-        // Notify admins that user is free again
-        io.to('admins').emit('usuario_livre', { salaId });
-        
-        // Notify everyone in the room about the transfer
+        // Notify room
         io.to(salaId).emit('receber_mensagem', {
             usuario: BOT_NAME,
-            texto: `Este atendimento está sendo transferido para outro setor. Por favor, aguarde.`,
+            texto: `Este atendimento foi transferido. Por favor, aguarde o novo atendente.`,
             timestamp: new Date(),
             isBot: true
         });
 
-        logger.info(`Chat ${salaId} was transferred/released by ${assignment.attendantName}`);
+        logger.info(`Chat ${salaId} was transferred by ${assignment.attendantName} to ${targetSocketId ? 'Target' : 'Queue'}`);
     });
 
     socket.on('disconnect', () => {

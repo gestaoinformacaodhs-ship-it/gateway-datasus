@@ -122,6 +122,29 @@
         </main>
     </div>
 
+    <!-- Modal para Transferência -->
+    <div id="modal-transferir" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-[#0f172a] border border-white/10 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+            <div class="p-6 border-b border-white/5 bg-amber-600/5 flex justify-between items-center">
+                <div>
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Transferir Chamado</h3>
+                    <p class="text-[9px] text-slate-500 uppercase font-bold">Selecione um atendente online</p>
+                </div>
+                <button onclick="fecharModalTransferir()" class="text-slate-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-4 bg-black/20">
+                <div id="lista-online-transferencia" class="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    <p class="text-[10px] text-slate-600 italic text-center py-6">Buscando atendentes online...</p>
+                </div>
+                <div class="mt-4 border-t border-white/5 pt-4">
+                    <button onclick="executarTransferenciaGeral()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-black py-3 rounded-xl transition-all uppercase tracking-widest">
+                        Liberar para Fila Geral
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal para Gestão de Suporte -->
     <div id="modal-suporte" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div class="bg-[#0f172a] border border-white/10 w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-300">
@@ -164,9 +187,7 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <script>
         // Função para Gerar Som Sintético (Evita Erros 404 e Dependências Externas)
         function tocarAlerta() {
             try {
@@ -456,6 +477,34 @@
             }
         });
 
+        socket.on('chamado_transferido_alerta', (data) => {
+            tocarAlerta();
+            alert(`🔔 NOVO CHAMADO TRANSFERIDO!\n${data.doNome} transferiu o atendimento de ${data.userName} para você.`);
+            // Adiciona na lista se não estiver
+            adicionarUsuarioLista(data.userName, data.salaId);
+            // Atualiza visual como ocupado por mim
+            ticketsOcupados[data.salaId] = nomeAdmin;
+            atualizarVisualOcupado(data.salaId, nomeAdmin);
+        });
+
+        socket.on('lista_atendentes_online', (atendentes) => {
+            const container = document.getElementById('lista-online-transferencia');
+            if (!atendentes || atendentes.length === 0) {
+                container.innerHTML = '<p class="text-[10px] text-slate-700 italic text-center py-6">Nenhum outro atendente online no momento.</p>';
+                return;
+            }
+
+            container.innerHTML = atendentes.map(at => `
+                <button onclick="executarTransferenciaDireta('${at.id}', '${at.nome}')" class="w-full bg-white/5 hover:bg-blue-600/20 p-4 rounded-xl border border-white/5 flex justify-between items-center group transition-all">
+                    <div class="text-left">
+                        <span class="text-xs font-bold text-white block">${at.nome}</span>
+                        <span class="text-[8px] text-slate-500 uppercase font-black">Disponível para transferência</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-slate-700 group-hover:text-blue-500 transition-colors"></i>
+                </button>
+            `).join('');
+        });
+
         socket.on('limpar_chat_ui', (data) => {
             if (salaAtual === data.salaId) {
                 limparChatCentral();
@@ -656,10 +705,29 @@
         }
 
         function transferirAtendimento() {
-            if (confirm("Deseja transferir este atendimento? O chat ficará disponível para outros atendentes.")) {
-                const salaParaTransferir = salaAtual;
+            if (!salaAtual) return;
+            document.getElementById('modal-transferir').classList.remove('hidden');
+            document.getElementById('lista-online-transferencia').innerHTML = '<p class="text-[10px] text-slate-600 italic text-center py-6">Buscando atendentes online...</p>';
+            socket.emit('obter_atendentes_online');
+        }
+
+        function fecharModalTransferir() {
+            document.getElementById('modal-transferir').classList.add('hidden');
+        }
+
+        function executarTransferenciaDireta(targetId, targetNome) {
+            if (confirm(`Confirmar transferência para ${targetNome}?`)) {
+                socket.emit('transferir_chamado', { salaId: salaAtual, targetSocketId: targetId });
                 limparChatCentral();
-                socket.emit('transferir_chamado', salaParaTransferir);
+                fecharModalTransferir();
+            }
+        }
+
+        function executarTransferenciaGeral() {
+            if (confirm("Confirmar liberação para a fila geral? Qualquer atendente poderá assumir.")) {
+                socket.emit('transferir_chamado', { salaId: salaAtual });
+                limparChatCentral();
+                fecharModalTransferir();
             }
         }
 
