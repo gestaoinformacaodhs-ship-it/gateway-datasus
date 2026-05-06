@@ -3,89 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acesso Restrito | Suporte Arpoador</title>
+    <title>Acesso Restrito | Console Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="index.css">
     <style>
-        body { background: #0f172a; }
-        .glass { 
-            background: rgba(30, 41, 59, 0.7); 
-            backdrop-filter: blur(10px); 
-            border: 1px solid rgba(255,255,255,0.05); 
+        body { 
+            background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
-        /* Efeito de foco suave no input */
-        input:focus {
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+
+        .security-scan {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, var(--primary), transparent);
+            animation: scanning 3s infinite linear;
+            opacity: 0.5;
+        }
+
+        @keyframes scanning {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        .admin-card {
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .admin-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="p-6">
 
-    <div class="glass w-full max-w-md p-8 rounded-3xl shadow-2xl transition-all">
-        <div class="text-center mb-8">
-            <div class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
-                <i class="fa-solid fa-shield-halved text-white text-2xl"></i>
+    <div class="glass admin-card w-full max-w-md p-12 rounded-[2.5rem] shadow-2xl animate-scale-up">
+        <div class="security-scan"></div>
+        
+        <div class="text-center mb-12">
+            <div class="bg-blue-600/10 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-lg shadow-blue-500/10">
+                <i class="fa-solid fa-shield-halved text-blue-500 text-4xl"></i>
             </div>
-            <h1 class="text-2xl font-black text-white italic tracking-tighter">CONSOLE <span class="text-blue-500">ADMIN</span></h1>
-            <p class="text-slate-400 text-sm mt-2 font-medium">Área exclusiva para suporte técnico</p>
+            <h1 class="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">CONSOLE <span class="text-blue-500">ADMIN</span></h1>
+            <p class="text-slate-500 text-xs font-black uppercase tracking-[0.3em]">Protocolo de Segurança Ativo</p>
         </div>
 
-        <div id="login-form" class="space-y-6">
-            <div>
-                <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-2 ml-1">Chave de Segurança</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                        <i class="fa-solid fa-key text-sm"></i>
+        <div id="login-form" class="space-y-8 animate-fade-in">
+            <div class="space-y-3">
+                <label class="block text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 ml-2">Chave de Acesso Master</label>
+                <div class="relative group">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                        <i class="fa-solid fa-key"></i>
                     </span>
                     <input type="password" id="admin-pass" 
-                        class="w-full bg-slate-900/50 border border-slate-700 p-4 pl-11 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-700" 
-                        placeholder="Insira a senha master">
+                        class="w-full bg-slate-900/50 border border-slate-800 p-5 pl-12 rounded-2xl text-white outline-none transition-all placeholder:text-slate-800 font-bold" 
+                        placeholder="••••••••••••">
                 </div>
             </div>
 
-            <button onclick="verificarAcesso()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">
-                ENTRAR NO CONSOLE
+            <button onclick="verificarAcesso()" class="btn-primary w-full py-5 rounded-2xl flex items-center justify-center gap-3 uppercase text-xs tracking-widest">
+                <span>Autenticar Console</span>
+                <i class="fa-solid fa-fingerprint text-lg"></i>
             </button>
 
-            <button onclick="mostrarRecuperar()" class="w-full text-slate-500 hover:text-blue-400 text-[10px] font-bold uppercase tracking-widest transition-colors">
-                Esqueceu a senha master?
+            <button onclick="mostrarRecuperar()" class="w-full text-slate-600 hover:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] transition-colors">
+                Solicitar Reset de Credenciais
             </button>
         </div>
 
-        <div id="recovery-form" class="hidden space-y-6 animate-in fade-in duration-300">
-            <p class="text-slate-400 text-sm text-center px-4">Insira o e-mail administrativo para receber as instruções de acesso.</p>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
-                    <i class="fa-solid fa-envelope text-sm"></i>
+        <div id="recovery-form" class="hidden space-y-8 animate-fade-in">
+            <p class="text-slate-400 text-sm text-center px-6 leading-relaxed">Insira o e-mail administrativo para receber os protocolos de recuperação.</p>
+            <div class="relative group">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                    <i class="fa-solid fa-envelope"></i>
                 </span>
                 <input type="email" id="recovery-email" 
-                    class="w-full bg-slate-900/50 border border-slate-700 p-4 pl-11 rounded-xl text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-700" 
+                    class="w-full bg-slate-900/50 border border-slate-800 p-5 pl-12 rounded-2xl text-white outline-none transition-all placeholder:text-slate-800" 
                     placeholder="suporte@gateway.com">
             </div>
             
-            <button id="btn-enviar-codigo" onclick="enviarCodigo()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-all flex justify-center items-center gap-2">
-                SOLICITAR ACESSO
+            <button id="btn-enviar-codigo" onclick="enviarCodigo()" class="btn-primary w-full py-5 rounded-2xl flex justify-center items-center gap-3 uppercase text-xs tracking-widest">
+                <span>Enviar Protocolo</span>
             </button>
             
-            <button onclick="voltarLogin()" class="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors">
-                <i class="fa-solid fa-chevron-left mr-1"></i> Voltar ao Login
+            <button onclick="voltarLogin()" class="w-full text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white transition-colors">
+                <i class="fa-solid fa-chevron-left mr-2"></i> Voltar ao Acesso
             </button>
+        </div>
+        
+        <div class="mt-12 pt-8 border-t border-white/5 flex items-center justify-center gap-4 grayscale opacity-30">
+            <i class="fa-solid fa-lock text-xl"></i>
+            <i class="fa-solid fa-user-shield text-xl"></i>
+            <i class="fa-solid fa-server text-xl"></i>
         </div>
     </div>
 
     <script>
-        // Verificação de acesso (mantenha a lógica de segurança no servidor se possível)
         function verificarAcesso() {
             const senha = document.getElementById('admin-pass').value;
-            
-            // Sugestão: No futuro, valide isso via API para não deixar a senha no front-end
             if (senha === "2024") { 
                 sessionStorage.setItem('admin_autenticado', 'true');
                 sessionStorage.setItem('admin_role', 'master');
                 sessionStorage.setItem('admin_nome', 'Administrador Master');
                 window.location.href = 'admin.html';
             } else {
-                alert("⚠️ Acesso Negado: Senha administrativa inválida.");
+                alert("⚠️ Acesso Negado: Assinatura digital inválida.");
                 document.getElementById('admin-pass').value = "";
                 document.getElementById('admin-pass').focus();
             }
@@ -109,10 +146,9 @@
             if(!email) return alert("Por favor, digite o e-mail administrativo.");
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ENVIANDO...';
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> PROCESSANDO...';
 
             try {
-                // Certifique-se que esta rota existe no seu server.js
                 const response = await fetch('/api/recuperar-senha', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -122,21 +158,19 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    alert("✅ Se o e-mail administrativo for válido, você receberá a chave em breve.");
+                    alert("✅ Protocolo enviado. Verifique a caixa de entrada administrativa.");
                     voltarLogin();
                 } else {
-                    alert("❌ Erro: " + (result.error || "Não foi possível processar."));
+                    alert("❌ Falha: " + (result.error || "Não foi possível processar o pedido."));
                 }
             } catch (err) {
-                console.error("Erro na recuperação:", err);
-                alert("❌ Erro ao conectar com o servidor.");
+                alert("❌ Erro crítico de comunicação com o servidor.");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = 'SOLICITAR ACESSO';
+                btn.innerHTML = 'Enviar Protocolo';
             }
         }
 
-        // Atalho de teclado
         document.getElementById('admin-pass').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') verificarAcesso();
         });

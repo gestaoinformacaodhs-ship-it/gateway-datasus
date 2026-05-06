@@ -6,69 +6,106 @@
     <title>Acesso Atendente | Gateway DATASUS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="index.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-        body { background: #0b1120; font-family: 'Inter', sans-serif; }
-        .glass { 
-            background: rgba(30, 41, 59, 0.5); 
-            backdrop-filter: blur(16px); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        body { 
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
-        input:focus { border-color: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); }
-        .btn-premium {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.03;
+            background-image: radial-gradient(#3b82f6 1px, transparent 1px);
+            background-size: 30px 30px;
         }
-        .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4); }
-        .floating-circles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; pointer-events: none; }
-        .circle { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%); }
+
+        .floating-orb {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: -1;
+            filter: blur(40px);
+            animation: moveOrb 20s infinite alternate ease-in-out;
+        }
+
+        @keyframes moveOrb {
+            0% { transform: translate(-100px, -100px); }
+            100% { transform: translate(100px, 100px); }
+        }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-6">
+<body class="p-6">
 
-    <div class="floating-circles">
-        <div class="circle w-96 h-96 -top-20 -left-20"></div>
-        <div class="circle w-[500px] h-[500px] -bottom-40 -right-20"></div>
-    </div>
+    <div class="bg-pattern"></div>
+    <div class="floating-orb"></div>
 
-    <div class="glass w-full max-w-md p-10 rounded-[2.5rem] animate-in fade-in zoom-in duration-500">
-        <div class="text-center mb-10">
-            <div class="bg-blue-600/10 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-2xl">
-                <i class="fa-solid fa-user-tie text-blue-500 text-3xl"></i>
+    <div class="glass w-full max-w-md p-12 rounded-[3rem] animate-scale-up border-white/5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-right from-blue-500/0 via-blue-500/50 to-blue-500/0"></div>
+        
+        <div class="text-center mb-12">
+            <div class="bg-blue-600/10 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-blue-500/20 shadow-2xl relative group">
+                <div class="absolute inset-0 bg-blue-500/10 rounded-[2rem] animate-ping opacity-20"></div>
+                <i class="fa-solid fa-user-tie text-blue-500 text-4xl group-hover:scale-110 transition-transform"></i>
             </div>
-            <h1 class="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Login <span class="text-blue-500">Atendente</span></h1>
-            <p class="text-slate-400 text-sm font-medium tracking-wide">Área exclusiva para equipe de suporte</p>
+            <h1 class="text-4xl font-black text-white italic tracking-tighter uppercase mb-2">Login <span class="text-blue-500">Atendente</span></h1>
+            <p class="text-slate-500 text-xs font-black uppercase tracking-[0.4em] mb-4">Suporte de Operações</p>
+            <div class="h-1 w-12 bg-blue-600/30 mx-auto rounded-full"></div>
         </div>
 
-        <div class="space-y-6">
-            <div class="space-y-2">
-                <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">E-mail de Acesso</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+        <div class="space-y-8 animate-fade-in">
+            <div class="space-y-3">
+                <label class="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 ml-2">E-mail Operacional</label>
+                <div class="relative group">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <i class="fa-solid fa-envelope text-sm"></i>
                     </span>
                     <input type="email" id="email" 
-                        class="w-full bg-slate-900/40 border border-white/5 p-4 pl-12 rounded-2xl text-white outline-none transition-all placeholder:text-slate-700 text-sm" 
+                        class="w-full bg-slate-900/40 border border-white/5 p-5 pl-14 rounded-2xl text-white outline-none transition-all placeholder:text-slate-800 text-sm font-medium" 
                         placeholder="nome@empresa.com">
                 </div>
             </div>
 
-            <div class="space-y-2">
-                <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Senha</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+            <div class="space-y-3">
+                <label class="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 ml-2">Senha de Segurança</label>
+                <div class="relative group">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-5 text-slate-500 group-focus-within:text-blue-500 transition-colors">
                         <i class="fa-solid fa-lock text-sm"></i>
                     </span>
                     <input type="password" id="senha" 
-                        class="w-full bg-slate-900/40 border border-white/5 p-4 pl-12 rounded-2xl text-white outline-none transition-all placeholder:text-slate-700 text-sm" 
+                        class="w-full bg-slate-900/40 border border-white/5 p-5 pl-14 rounded-2xl text-white outline-none transition-all placeholder:text-slate-800 text-sm font-medium" 
                         placeholder="••••••••">
                 </div>
             </div>
 
-            <button onclick="loginSupport()" id="btn-login" class="btn-premium w-full text-white font-black py-5 rounded-2xl shadow-xl active:scale-[0.98] uppercase text-xs tracking-[0.1em] mt-4">
-                Entrar no Sistema
-            </button>
+            <div class="pt-4">
+                <button onclick="loginSupport()" id="btn-login" class="btn-primary w-full py-5 rounded-2xl flex items-center justify-center gap-3 uppercase text-xs font-black tracking-widest group">
+                    <span>Entrar no Sistema</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] group-hover:translate-x-1 transition-transform"></i>
+                </button>
+            </div>
+            
+            <div class="text-center mt-6">
+                <a href="index.html" class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:text-white transition-colors">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Voltar ao Portal Público
+                </a>
+            </div>
+        </div>
+        
+        <div class="mt-12 flex justify-center gap-2 grayscale opacity-20 pointer-events-none">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/20"></div>
+            <div class="w-8 h-8 rounded-lg bg-blue-500/20"></div>
+            <div class="w-8 h-8 rounded-lg bg-blue-500/20"></div>
         </div>
     </div>
 
@@ -78,7 +115,7 @@
             const senha = document.getElementById('senha').value.trim();
             const btn = document.getElementById('btn-login');
 
-            if (!email || !senha) return alert("Por favor, preencha todos os campos.");
+            if (!email || !senha) return alert("Por favor, preencha todos os campos operacionais.");
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> AUTENTICANDO...';
@@ -94,13 +131,12 @@
 
                 if (res.ok) {
                     if (data.role !== 'support') {
-                        alert("⚠️ Acesso permitido apenas para Atendentes.");
+                        alert("⚠️ Acesso permitido apenas para Atendentes Autorizados.");
                         btn.disabled = false;
                         btn.innerText = "Entrar no Sistema";
                         return;
                     }
 
-                    // Define as variáveis de sessão para o admin.html reconhecer
                     sessionStorage.setItem('admin_autenticado', 'true');
                     sessionStorage.setItem('admin_role', 'support');
                     sessionStorage.setItem('admin_nome', data.user);
@@ -108,18 +144,17 @@
                     
                     window.location.href = 'admin.html';
                 } else {
-                    alert(data.error || "E-mail ou senha incorretos.");
+                    alert(data.error || "Credenciais operacionais incorretas.");
                     btn.disabled = false;
                     btn.innerText = "Entrar no Sistema";
                 }
             } catch (err) {
-                alert("Erro ao conectar com o servidor.");
+                alert("Erro crítico de conexão com a central.");
                 btn.disabled = false;
                 btn.innerText = "Entrar no Sistema";
             }
         }
 
-        // Atalho Enter
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loginSupport();
         });
