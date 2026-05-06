@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Instala dependências do sistema necessárias para compilação e conexões de rede
 # Adicionado 'libc6-compat' e 'tzdata' para garantir estabilidade com módulos nativos
