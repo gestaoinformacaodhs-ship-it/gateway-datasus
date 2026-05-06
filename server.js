@@ -44,7 +44,6 @@ io.on('connection', (socket) => {
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
         attendants[socket.id] = { nome: data.nome, rooms: [] };
-        // Clean assignments for the client (send only names)
         const assignmentsSync = {};
         for (const id in roomAssignments) {
             assignmentsSync[id] = roomAssignments[id].attendantName;
@@ -55,7 +54,6 @@ io.on('connection', (socket) => {
     socket.on('entrar_na_sala', async (salaId) => {
         if (!salaId) return;
         
-        // SECURITY: Prevent joining a room that is already assigned to someone else
         const assignment = roomAssignments[salaId];
         const isAttendant = !!attendants[socket.id];
         
@@ -74,7 +72,11 @@ io.on('connection', (socket) => {
         } catch (err) {}
     });
 
-    socket.on('assumir_chamado', (data) => {
+    socket.on('sair_da_sala', (salaId) => {
+        socket.leave(salaId);
+    });
+
+    socket.on('assumir_chamado', async (data) => {
         const { salaId, nomeAtendente, nomeUsuario } = data;
         
         if (roomAssignments[salaId]) {
@@ -90,14 +92,18 @@ io.on('connection', (socket) => {
         if (attendants[socket.id]) attendants[socket.id].rooms.push(salaId);
         userWaitList.delete(salaId);
 
-        // Notify admins with the attendant name
         io.to('admins').emit('usuario_ocupado', { 
             salaId, 
             nomeAtendente: nomeAtendente, 
             atendenteSocketId: socket.id 
         });
 
-        // FORCE OTHER ADMINS TO LEAVE THIS ROOM
+        // Hard Ejection: Make all other admins leave this room immediately
+        const sockets = await io.in('admins').fetchSockets();
+        sockets.forEach(s => {
+            if (s.id !== socket.id) s.leave(salaId);
+        });
+
         socket.to('admins').emit('forçar_saida_sala', { salaId });
 
         io.to(salaId).emit('receber_mensagem', {
@@ -114,9 +120,13 @@ io.on('connection', (socket) => {
         const { mensagem, salaId, nome, isAdmin } = data;
         if (!salaId || (!mensagem && !data.arquivo)) return;
 
+        // PROTECTION: Only the assigned attendant can send messages in an assigned room
+        if (isAdmin && roomAssignments[salaId] && roomAssignments[salaId].attendantSocketId !== socket.id) {
+            return socket.emit('erro_chat', { mensagem: "Você não é o atendente responsável por este chamado." });
+        }
+
         const nomeFinal = sanitizarNome(nome || data.usuario || "Usuário");
 
-        // BOT LOGIC
         if (!isAdmin && !roomAssignments[salaId] && !userWaitList.has(salaId)) {
             userWaitList.add(salaId);
             setTimeout(() => {
@@ -142,10 +152,8 @@ io.on('connection', (socket) => {
             timestamp: new Date() 
         };
         
-        // Send only to the specific room
         io.to(salaId).emit('receber_mensagem', msgPayload);
         
-        // Broadcast to admins ONLY if not assigned
         if (!isAdmin && !roomAssignments[salaId]) {
             io.to('admins').emit('receber_mensagem', msgPayload);
         }
