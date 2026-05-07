@@ -47,9 +47,10 @@ router.post('/login',
     AuthController.login
 );
 
-// Proxy Routes (Authenticated)
-router.all('/sia-proxy', authenticate, ProxyController.handleProxy);
-router.all('/sihd-proxy', authenticate, ProxyController.handleProxy);
+// Proxy Routes (Public - iframes cannot send Authorization headers)
+// Access control is enforced at the frontend page level (requires localStorage token to navigate here)
+router.all('/sia-proxy', ProxyController.handleProxy);
+router.all('/sihd-proxy', ProxyController.handleProxy);
 
 // FTP Routes (Authenticated)
 router.get('/list/:sistema', authenticate, FtpController.list);
