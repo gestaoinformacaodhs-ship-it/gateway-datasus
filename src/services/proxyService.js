@@ -11,17 +11,47 @@ class ProxyService {
     }
 
     /**
+     * Extracts the directory base URL from an absolute URL.
+     * e.g. http://sia.datasus.gov.br/versao/versao.php → http://sia.datasus.gov.br/versao/
+     */
+    static getBaseDir(absoluteUrl) {
+        try {
+            const u = new URL(absoluteUrl);
+            const pathParts = u.pathname.split('/');
+            pathParts.pop(); // remove filename
+            u.pathname = pathParts.join('/') + '/';
+            return u.href;
+        } catch (e) {
+            return absoluteUrl;
+        }
+    }
+
+    /**
      * Injects modern CSS and scripts into the DATASUS HTML,
      * and rewrites all internal links/assets to go through our proxy.
      * 
+     * Strategy:
+     *   1. Inject <base href> pointing to the DATASUS domain so ALL relative
+     *      resources (images, CSS backgrounds, JS) auto-resolve without 404.
+     *   2. Override <a href> navigation links to go through our proxy.
+     *   3. Override <form action> to go through our proxy.
+     *   4. Override FTP links to use our /api/ftp-proxy endpoint so files
+     *      download directly in Chrome without needing Edge.
+     * 
      * @param {string} html - Raw HTML from DATASUS server
      * @param {string} proxyRoute - e.g. /api/sia-proxy or /api/sihd-proxy
-     * @param {string} targetBaseUrl - Full absolute URL of the proxied page (e.g. http://sia.datasus.gov.br/versao/versao.php)
+     * @param {string} targetBaseUrl - Full absolute URL of the proxied page
      */
     static injectCustomAssets(html, proxyRoute, targetBaseUrl) {
         const $ = cheerio.load(html);
 
-        // Inject modern dark theme styles
+        // --- Step 1: Inject <base href> to fix ALL relative resource loading ---
+        // This makes imagens/btn.gif, funcoes/funcoesGerais.js, etc. 
+        // resolve directly from the DATASUS server (no CORS issues for passive resources).
+        const baseDir = ProxyService.getBaseDir(targetBaseUrl);
+        $('head').prepend(`<base href="${baseDir}">`);
+
+        // --- Step 2: Inject modern dark theme styles ---
         $('head').append(`
             <style id="gateway-styles">
                 :root {
@@ -58,29 +88,36 @@ class ProxyService {
             </style>
         `);
 
-        // Prepend a banner to indicate it's via Gateway
+        // --- Step 3: Banner ---
         $('body').prepend('<div class="gateway-banner">Acesso via Gateway DATASUS Profissional</div>');
 
-        // Rewrite links and resources to route through our proxy
-        $('a, img, script, link, form').each((i, el) => {
-            const attr = el.name === 'form' ? 'action' : (el.name === 'link' || el.name === 'a' ? 'href' : 'src');
+        // --- Step 4: Rewrite <a href> navigation and <form action> through proxy ---
+        // (Static resources like <img>, <script>, <link> are handled by <base href>)
+        $('a[href], form[action]').each((i, el) => {
+            const attr = el.name === 'form' ? 'action' : 'href';
             const val = $(el).attr(attr);
 
-            // Skip empty, anchors, data URIs, javascript and mailto links
             if (!val || val.startsWith('javascript:') || val.startsWith('#') || val.startsWith('data:') || val.startsWith('mailto:')) return;
 
-            // FTP links — keep as-is (browsers can't proxy FTP natively)
-            if (val.startsWith('ftp://')) return;
+            // FTP links → route through our server-side FTP proxy so Chrome can download
+            if (val.startsWith('ftp://')) {
+                $(el).attr(attr, `/api/ftp-proxy?url=${encodeURIComponent(val)}`);
+                $(el).attr('download', '');
+                return;
+            }
 
             try {
-                // Resolve against the FULL absolute URL of the proxied page so that
-                // relative paths like "funcoes/funcoesGerais.js" become
-                // "http://sia.datasus.gov.br/versao/funcoes/funcoesGerais.js"
                 const absoluteUrl = new URL(val, targetBaseUrl).href;
-
-                // Only rewrite DATASUS / Ministério da Saúde resources
+                // Route DATASUS navigation through our proxy
                 if (absoluteUrl.includes('datasus.gov.br') || absoluteUrl.includes('saude.gov.br')) {
-                    $(el).attr(attr, `${proxyRoute}?url=${encodeURIComponent(absoluteUrl)}`);
+                    // If it's a PHP page (navigation), proxy through iframe proxy
+                    if (!ProxyService.isStaticResource(absoluteUrl)) {
+                        $(el).attr(attr, `${proxyRoute}?url=${encodeURIComponent(absoluteUrl)}`);
+                    }
+                    // If it's a file link (pdf, zip, etc.) route through proxy for direct download
+                    else {
+                        $(el).attr(attr, `${proxyRoute}?url=${encodeURIComponent(absoluteUrl)}`);
+                    }
                 }
             } catch (e) {
                 // Ignore invalid URLs silently

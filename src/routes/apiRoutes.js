@@ -52,6 +52,9 @@ router.post('/login',
 router.all('/sia-proxy', ProxyController.handleProxy);
 router.all('/sihd-proxy', ProxyController.handleProxy);
 
+// FTP Proxy - streams FTP files directly to Chrome (avoids browser delegating to Edge)
+router.get('/ftp-proxy', ProxyController.handleFtpProxy);
+
 // FTP Routes (Authenticated)
 router.get('/list/:sistema', authenticate, FtpController.list);
 router.get('/download/:sistema/:arquivo', authenticate, downloadLimiter, FtpController.download);

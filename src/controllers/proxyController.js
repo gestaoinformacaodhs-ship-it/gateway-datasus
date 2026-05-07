@@ -1,5 +1,8 @@
 const ProxyService = require('../services/proxyService');
 const logger = require('../config/logger');
+const ftp = require('basic-ftp');
+const { PassThrough } = require('stream');
+
 
 class ProxyController {
     static async handleProxy(req, res, next) {
@@ -59,6 +62,53 @@ class ProxyController {
         } catch (err) {
             logger.error(`Proxy Error for ${target}:`, err);
             res.status(500).send("Proxy error: " + err.message);
+        }
+    }
+    /**
+     * Downloads a file from an FTP URL server-side and streams it to the browser.
+     * This bypasses Chrome's lack of native FTP support (which delegates to Edge).
+     * Usage: GET /api/ftp-proxy?url=ftp://arpoador.datasus.gov.br/siasus/fpo/FPO_Leiame.txt
+     */
+    static async handleFtpProxy(req, res) {
+        const rawUrl = req.query.url;
+        if (!rawUrl || !rawUrl.startsWith('ftp://')) {
+            return res.status(400).json({ success: false, error: 'FTP URL inválida ou ausente.' });
+        }
+
+        let ftpUrl;
+        try {
+            ftpUrl = new URL(rawUrl);
+        } catch (e) {
+            return res.status(400).json({ success: false, error: 'URL FTP malformada.' });
+        }
+
+        const host = ftpUrl.hostname;
+        const remotePath = decodeURIComponent(ftpUrl.pathname); // e.g. /siasus/fpo/FPO_Leiame.txt
+        const filename = remotePath.split('/').pop() || 'download';
+
+        const client = new ftp.Client(60000);
+        client.ftp.verbose = false;
+
+        try {
+            await client.access({ host, user: 'anonymous', password: 'guest' });
+
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', 'application/octet-stream');
+
+            const pt = new PassThrough();
+            pt.pipe(res);
+
+            await client.downloadTo(pt, remotePath);
+            logger.info(`FTP Proxy download: ${rawUrl}`);
+        } catch (err) {
+            logger.error(`FTP Proxy Error for ${rawUrl}:`, err);
+            if (!res.headersSent) {
+                res.status(500).json({ success: false, error: 'Erro ao baixar arquivo FTP: ' + err.message });
+            } else {
+                res.end();
+            }
+        } finally {
+            client.close();
         }
     }
 }
