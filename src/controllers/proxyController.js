@@ -6,8 +6,15 @@ class ProxyController {
         const target = req.query.url;
         if (!target) return res.status(400).json({ success: false, error: "URL missing" });
 
-        const domain = target.includes('sihd') ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
-        const proxyRoute = target.includes('sihd') ? '/api/sihd-proxy' : '/api/sia-proxy';
+        const isSihd = target.includes('sihd');
+        const domain = isSihd ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        const proxyRoute = isSihd ? '/api/sihd-proxy' : '/api/sia-proxy';
+
+        // Build full absolute URL — target may be a relative path like /principal/index.php
+        let fullUrl = target;
+        if (target.startsWith('/') || !target.startsWith('http')) {
+            fullUrl = `http://${domain}${target.startsWith('/') ? '' : '/'}${target}`;
+        }
 
         try {
             const options = {
@@ -24,7 +31,7 @@ class ProxyController {
                 options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
             }
 
-            const response = await fetch(target, options);
+            const response = await fetch(fullUrl, options);
             const contentType = response.headers.get('content-type') || '';
             
             // Forward cookies
