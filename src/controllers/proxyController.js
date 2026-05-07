@@ -53,7 +53,7 @@ class ProxyController {
             
             // Try to detect encoding or default to latin1 (common in old government sites)
             const html = buffer.toString('latin1');
-            const processedHtml = ProxyService.injectCustomAssets(html, proxyRoute, target);
+            const processedHtml = ProxyService.injectCustomAssets(html, proxyRoute, fullUrl);
             
             res.send(processedHtml);
         } catch (err) {

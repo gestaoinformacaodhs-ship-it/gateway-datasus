@@ -11,7 +11,12 @@ class ProxyService {
     }
 
     /**
-     * Injects modern CSS and scripts into the DATASUS HTML.
+     * Injects modern CSS and scripts into the DATASUS HTML,
+     * and rewrites all internal links/assets to go through our proxy.
+     * 
+     * @param {string} html - Raw HTML from DATASUS server
+     * @param {string} proxyRoute - e.g. /api/sia-proxy or /api/sihd-proxy
+     * @param {string} targetBaseUrl - Full absolute URL of the proxied page (e.g. http://sia.datasus.gov.br/versao/versao.php)
      */
     static injectCustomAssets(html, proxyRoute, targetBaseUrl) {
         const $ = cheerio.load(html);
@@ -56,25 +61,29 @@ class ProxyService {
         // Prepend a banner to indicate it's via Gateway
         $('body').prepend('<div class="gateway-banner">Acesso via Gateway DATASUS Profissional</div>');
 
-        // Rewrite links and resources
+        // Rewrite links and resources to route through our proxy
         $('a, img, script, link, form').each((i, el) => {
             const attr = el.name === 'form' ? 'action' : (el.name === 'link' || el.name === 'a' ? 'href' : 'src');
-            let val = $(el).attr(attr);
+            const val = $(el).attr(attr);
 
-            if (!val || val.startsWith('javascript:') || val.startsWith('#') || val.startsWith('data:')) return;
+            // Skip empty, anchors, data URIs, javascript and mailto links
+            if (!val || val.startsWith('javascript:') || val.startsWith('#') || val.startsWith('data:') || val.startsWith('mailto:')) return;
 
-            if (val.startsWith('ftp://')) {
-                $(el).attr('href', `/api/ftp-download?url=${encodeURIComponent(val)}`);
-                return;
-            }
+            // FTP links — keep as-is (browsers can't proxy FTP natively)
+            if (val.startsWith('ftp://')) return;
 
             try {
+                // Resolve against the FULL absolute URL of the proxied page so that
+                // relative paths like "funcoes/funcoesGerais.js" become
+                // "http://sia.datasus.gov.br/versao/funcoes/funcoesGerais.js"
                 const absoluteUrl = new URL(val, targetBaseUrl).href;
-                if (absoluteUrl.includes('datasus.gov.br')) {
+
+                // Only rewrite DATASUS / Ministério da Saúde resources
+                if (absoluteUrl.includes('datasus.gov.br') || absoluteUrl.includes('saude.gov.br')) {
                     $(el).attr(attr, `${proxyRoute}?url=${encodeURIComponent(absoluteUrl)}`);
                 }
             } catch (e) {
-                // Ignore invalid URLs
+                // Ignore invalid URLs silently
             }
         });
 
