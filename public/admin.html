@@ -308,8 +308,25 @@
 
         async function carregarAtendentes() {
             const container = document.getElementById('lista-atendentes');
+            // Tenta obter o token JWT de qualquer storage disponível
+            const token = localStorage.getItem('token_jwt') || sessionStorage.getItem('token_jwt');
+            
+            if (!token) {
+                container.innerHTML = '<p class="text-[10px] text-amber-500 italic text-center py-10">⚠️ Token de sessão não encontrado. Faça login novamente no sistema principal para carregar esta lista.</p>';
+                return;
+            }
+            
             try {
-                const res = await fetch('/api/admin/atendentes');
+                container.innerHTML = '<p class="text-[10px] text-slate-600 italic text-center py-10">Carregando equipe...</p>';
+                const res = await fetch('/api/admin/atendentes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.status === 401 || res.status === 403) {
+                    container.innerHTML = '<p class="text-[10px] text-amber-500 italic text-center py-10">⚠️ Sessão expirada. Faça login novamente no sistema principal.</p>';
+                    return;
+                }
+                
                 const atendentes = await res.json();
                 
                 // Garantir que atendentes seja um array antes de processar
@@ -338,10 +355,15 @@
         async function excluirAtendente(email) {
             if (!confirm(`Deseja realmente remover o acesso de ${email}?`)) return;
 
+            const token = localStorage.getItem('token_jwt') || sessionStorage.getItem('token_jwt');
+
             try {
                 const res = await fetch('/api/admin/deletar-atendente', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ email: email })
                 });
 
@@ -349,7 +371,7 @@
                     alert("Atendente removido com sucesso!");
                     carregarAtendentes();
                 } else {
-                    const data = await res.json();
+                    const data = await res.json().catch(() => ({}));
                     alert(data.error || "Erro ao excluir.");
                 }
             } catch (err) {
