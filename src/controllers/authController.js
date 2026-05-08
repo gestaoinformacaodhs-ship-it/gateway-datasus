@@ -121,6 +121,42 @@ class AuthController {
             next(err);
         }
     }
+
+    static async loginMaster(req, res, next) {
+        const { key } = req.body;
+        const MASTER_KEY = "2024"; // Matching the existing frontend logic
+
+        try {
+            if (key === MASTER_KEY) {
+                const secret = process.env.JWT_SECRET;
+                
+                // Fetch the actual master user from DB to get its ID and email
+                const result = await query("SELECT id, email, nome FROM usuarios WHERE role = 'master' LIMIT 1");
+                const masterUser = result.rows[0] || { id: 0, email: 'admin@gateway.local', nome: 'Administrador Master' };
+
+                const token = jwt.sign(
+                    { id: masterUser.id, email: masterUser.email, role: 'master' }, 
+                    secret || 'secret', 
+                    { expiresIn: '12h' }
+                );
+
+                logger.info(`Master Console accessed via security key`);
+                return res.json({ 
+                    success: true, 
+                    token,
+                    data: {
+                        user: masterUser.nome,
+                        email: masterUser.email,
+                        role: 'master',
+                        token
+                    }
+                });
+            }
+            res.status(403).json({ success: false, error: "Chave de acesso inválida." });
+        } catch (err) {
+            next(err);
+        }
+    }
 }
 
 module.exports = AuthController;

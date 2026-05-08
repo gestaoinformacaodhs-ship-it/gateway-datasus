@@ -47,6 +47,8 @@ router.post('/login',
     AuthController.login
 );
 
+router.post('/admin/login-master', AuthController.loginMaster);
+
 // Proxy Routes (Public - iframes cannot send Authorization headers)
 // Access control is enforced at the frontend page level (requires localStorage token to navigate here)
 router.all('/sia-proxy', ProxyController.handleProxy);

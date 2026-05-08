@@ -114,17 +114,45 @@
     </div>
 
     <script>
-        function verificarAcesso() {
+        async function verificarAcesso() {
             const senha = document.getElementById('admin-pass').value;
-            if (senha === "2024") { 
-                sessionStorage.setItem('admin_autenticado', 'true');
-                sessionStorage.setItem('admin_role', 'master');
-                sessionStorage.setItem('admin_nome', 'Administrador Master');
-                window.location.href = 'admin.html';
-            } else {
-                alert("⚠️ Acesso Negado: Assinatura digital inválida.");
-                document.getElementById('admin-pass').value = "";
-                document.getElementById('admin-pass').focus();
+            const btn = document.querySelector('button[onclick="verificarAcesso()"]');
+            
+            if (!senha) return alert("Por favor, insira a chave de acesso.");
+
+            btn.disabled = true;
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> AUTENTICANDO...';
+
+            try {
+                const response = await fetch('/api/admin/login-master', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: senha })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    sessionStorage.setItem('admin_autenticado', 'true');
+                    sessionStorage.setItem('admin_role', data.data.role);
+                    sessionStorage.setItem('admin_nome', data.data.user);
+                    
+                    // Crucial: Store the JWT token for API calls in admin.html
+                    localStorage.setItem('token_jwt', data.data.token);
+                    sessionStorage.setItem('token_jwt', data.data.token);
+                    
+                    window.location.href = 'admin.html';
+                } else {
+                    alert("⚠️ Acesso Negado: " + (data.error || "Chave inválida."));
+                    document.getElementById('admin-pass').value = "";
+                    document.getElementById('admin-pass').focus();
+                }
+            } catch (err) {
+                alert("❌ Erro de conexão com o servidor de segurança.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
             }
         }
 

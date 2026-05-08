@@ -323,7 +323,15 @@
                 });
                 
                 if (res.status === 401 || res.status === 403) {
-                    container.innerHTML = '<p class="text-[10px] text-amber-500 italic text-center py-10">⚠️ Sessão expirada. Faça login novamente no sistema principal.</p>';
+                    console.warn("Token inválido ou expirado na API de admin.");
+                    container.innerHTML = `
+                        <div class="text-center py-10 px-4">
+                            <p class="text-[10px] text-amber-500 italic mb-4">⚠️ Sessão expirada ou acesso negado.</p>
+                            <button onclick="window.location.href='admin-login.html'" class="text-[9px] bg-amber-600/20 hover:bg-amber-600/40 text-amber-500 px-4 py-2 rounded-lg font-black transition-all">
+                                REAUTENTICAR CONSOLE
+                            </button>
+                        </div>
+                    `;
                     return;
                 }
                 
