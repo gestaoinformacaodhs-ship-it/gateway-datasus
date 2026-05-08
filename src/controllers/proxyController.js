@@ -10,13 +10,23 @@ class ProxyController {
         if (!target) return res.status(400).json({ success: false, error: "URL missing" });
 
         const isSihd = target.includes('sihd');
-        const domain = isSihd ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        const isMsBbs = target.includes('msbbs');
+        
+        let domain = isSihd ? 'sihd.datasus.gov.br' : 'sia.datasus.gov.br';
+        if (isMsBbs) domain = 'msbbs.datasus.gov.br';
+
         const proxyRoute = isSihd ? '/api/sihd-proxy' : '/api/sia-proxy';
 
-        // Build full absolute URL — target may be a relative path like /principal/index.php
+        // Build full absolute URL
         let fullUrl = target;
         if (target.startsWith('/') || !target.startsWith('http')) {
             fullUrl = `http://${domain}${target.startsWith('/') ? '' : '/'}${target}`;
+        } else {
+            // If it's a full URL, extract the actual domain for headers
+            try {
+                const urlObj = new URL(target);
+                domain = urlObj.hostname;
+            } catch (e) {}
         }
 
         try {

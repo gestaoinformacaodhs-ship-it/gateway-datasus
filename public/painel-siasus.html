@@ -87,7 +87,7 @@
             <button onclick="carregarModulo(this, '/principal/index.php')" class="nav-btn active flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-house mb-0.5 text-blue-500"></i> Principal
             </button>
-            <button onclick="carregarModulo(this, '', 'consulta')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
+            <button onclick="carregarModulo(this, '/remessa/remessa.php', 'consulta')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
                 <i class="fa-solid fa-magnifying-glass mb-0.5 text-blue-500"></i> Consulta
             </button>
             <button onclick="carregarModulo(this, '/versao/versao.php', 'versao')" class="nav-btn flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold shadow-lg">
@@ -261,11 +261,6 @@
                         smConsulta.classList.add('opacity-100', 'translate-y-0');
                     }, 50);
                 }, 300);
-                
-                const frame = document.getElementById('sia-frame');
-                frame.src = 'about:blank';
-                frame.contentDocument.write('<body style="background:#111827;color:#cbd5e1;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h3>Selecione uma opção de Consulta acima</h3><p style="opacity:0.6;font-size:12px;">Módulo Desacoplado Nativamente</p></div></body>');
-                return;
             } else if (tipo === 'versao') {
                 resetSubmenus();
                 setTimeout(() => {
