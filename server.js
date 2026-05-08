@@ -41,6 +41,41 @@ const BOT_NAME = "Assistente Virtual";
 io.on('connection', (socket) => {
     logger.info(`New connection: ${socket.id}`);
 
+    const syncFila = () => {
+        const assignmentsSync = {};
+        for (const id in roomAssignments) {
+            assignmentsSync[id] = roomAssignments[id].attendantName;
+        }
+        
+        // Build a complete list of active tickets (waiting + assigned)
+        const completeQueue = [];
+        
+        // Add assigned
+        for (const id in roomAssignments) {
+            completeQueue.push({
+                salaId: id,
+                nome: roomAssignments[id].userName || "Usuário",
+                atendente: roomAssignments[id].attendantName
+            });
+        }
+        
+        // Add waiting (not assigned)
+        userWaitList.forEach(salaId => {
+            if (!roomAssignments[salaId]) {
+                completeQueue.push({
+                    salaId: salaId,
+                    nome: "Usuário", // We'll try to find the name if possible, or just "Usuário"
+                    atendente: null
+                });
+            }
+        });
+
+        io.to('admins').emit('sincronizacao_fila_completa', {
+            assignments: assignmentsSync,
+            queue: completeQueue
+        });
+    };
+
     socket.on('admin_entrar', (data) => {
         socket.join('admins');
         attendants[socket.id] = { nome: data.nome, rooms: [] };
@@ -183,15 +218,15 @@ io.on('connection', (socket) => {
         io.to(salaId).emit('limpar_chat_ui', { salaId });
         io.to('admins').emit('remover_usuario_lista', { salaId });
         
-        // Notify all admins to refresh their state to avoid sync bugs
-        io.to('admins').emit('atualizar_fila_global');
-
         const assignment = roomAssignments[salaId];
         if (assignment && attendants[assignment.attendantSocketId]) {
             attendants[assignment.attendantSocketId].rooms = attendants[assignment.attendantSocketId].rooms.filter(r => r !== salaId);
         }
         delete roomAssignments[salaId];
         userWaitList.delete(salaId);
+
+        // Notify all admins to refresh their state
+        syncFila();
     });
 
     socket.on('obter_atendentes_online', () => {
@@ -256,6 +291,10 @@ io.on('connection', (socket) => {
                 userName: assignment.userName
             });
             
+            // Force target socket to join the room immediately to receive messages
+            const targetSocket = io.sockets.sockets.get(targetSocketId);
+            if (targetSocket) targetSocket.join(salaId);
+
             // Notify all admins about the change of ownership
             io.to('admins').emit('usuario_ocupado', { 
                 salaId, 
@@ -264,12 +303,13 @@ io.on('connection', (socket) => {
             });
 
             // Force global refresh to ensure the ticket appears for the target
-            io.to('admins').emit('atualizar_fila_global');
+            syncFila();
         } else {
             // GENERAL RELEASE (Back to queue)
             delete roomAssignments[salaId];
+            userWaitList.add(salaId); // Put back in waitlist
             io.to('admins').emit('usuario_livre', { salaId });
-            io.to('admins').emit('atualizar_fila_global');
+            syncFila();
         }
 
         // Cleanup original owner
@@ -282,15 +322,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('solicitar_ressync', () => {
-        const assignmentsSync = {};
-        for (const id in roomAssignments) {
-            assignmentsSync[id] = roomAssignments[id].attendantName;
-        }
-        socket.emit('lista_usuarios_ocupados', assignmentsSync);
-        
-        // Re-emit current active queue to the admin
-        // Note: The waitlist is internal, we should probably send it too
-        // For now, theReceberMensagem logic will refill the list if users are active
+        syncFila();
     });
 
     socket.on('disconnect', () => {

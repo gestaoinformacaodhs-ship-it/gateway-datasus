@@ -461,24 +461,25 @@
             document.getElementById('status-conexao').className = "text-[10px] text-red-500 font-bold uppercase block tracking-widest";
         });
 
-        // Evento de Sincronização Global solicitado pelo usuário
-        socket.on('atualizar_fila_global', () => {
-            console.log("Sincronização global solicitada pelo servidor...");
+        // Sincronização Completa da Fila (Evita chamados perdidos)
+        socket.on('sincronizacao_fila_completa', (data) => {
+            console.log("Recebendo sincronização completa da fila...");
+            ticketsOcupados = data.assignments;
             
-            // Se o usuário não estiver em um atendimento ativo, podemos recarregar a página para garantir limpeza total
-            // Se estiver em atendimento, apenas limpamos a lista e re-sincronizamos
-            if (!salaAtual) {
-                location.reload();
-            } else {
-                usuariosConhecidos.clear();
-                document.getElementById('lista-usuarios').innerHTML = `
-                    <div id="empty-list" class="p-10 text-center text-xs text-slate-600 italic">
-                        <i class="fa-solid fa-sync fa-spin mb-3 text-2xl opacity-10 block"></i>
-                        Sincronizando fila...
-                    </div>
-                `;
-                socket.emit('solicitar_ressync');
-            }
+            // Reconstruir lista lateral
+            const lista = document.getElementById('lista-usuarios');
+            
+            // Manter registro do que já existe para não duplicar, mas atualizar status
+            data.queue.forEach(ticket => {
+                // Adiciona se não existe
+                if (!usuariosConhecidos.has(ticket.salaId)) {
+                    adicionarUsuarioLista(ticket.nome, ticket.salaId);
+                }
+                // Atualiza visual (se ocupado ou livre)
+                atualizarVisualOcupado(ticket.salaId, ticket.atendente);
+            });
+            
+            verificarListaVazia();
         });
 
         function sanitizarNome(nome) {
