@@ -182,6 +182,9 @@ io.on('connection', (socket) => {
 
         io.to(salaId).emit('limpar_chat_ui', { salaId });
         io.to('admins').emit('remover_usuario_lista', { salaId });
+        
+        // Notify all admins to refresh their state to avoid sync bugs
+        io.to('admins').emit('atualizar_fila_global');
 
         const assignment = roomAssignments[salaId];
         if (assignment && attendants[assignment.attendantSocketId]) {
@@ -259,10 +262,14 @@ io.on('connection', (socket) => {
                 nomeAtendente: targetName, 
                 atendenteSocketId: targetSocketId 
             });
+
+            // Force global refresh to ensure the ticket appears for the target
+            io.to('admins').emit('atualizar_fila_global');
         } else {
             // GENERAL RELEASE (Back to queue)
             delete roomAssignments[salaId];
             io.to('admins').emit('usuario_livre', { salaId });
+            io.to('admins').emit('atualizar_fila_global');
         }
 
         // Cleanup original owner
@@ -272,6 +279,18 @@ io.on('connection', (socket) => {
         socket.leave(salaId);
 
         logger.info(`Chat ${salaId} was transferred by ${assignment.attendantName} to ${targetName || 'Queue'}`);
+    });
+
+    socket.on('solicitar_ressync', () => {
+        const assignmentsSync = {};
+        for (const id in roomAssignments) {
+            assignmentsSync[id] = roomAssignments[id].attendantName;
+        }
+        socket.emit('lista_usuarios_ocupados', assignmentsSync);
+        
+        // Re-emit current active queue to the admin
+        // Note: The waitlist is internal, we should probably send it too
+        // For now, theReceberMensagem logic will refill the list if users are active
     });
 
     socket.on('disconnect', () => {

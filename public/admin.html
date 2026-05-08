@@ -461,6 +461,26 @@
             document.getElementById('status-conexao').className = "text-[10px] text-red-500 font-bold uppercase block tracking-widest";
         });
 
+        // Evento de Sincronização Global solicitado pelo usuário
+        socket.on('atualizar_fila_global', () => {
+            console.log("Sincronização global solicitada pelo servidor...");
+            
+            // Se o usuário não estiver em um atendimento ativo, podemos recarregar a página para garantir limpeza total
+            // Se estiver em atendimento, apenas limpamos a lista e re-sincronizamos
+            if (!salaAtual) {
+                location.reload();
+            } else {
+                usuariosConhecidos.clear();
+                document.getElementById('lista-usuarios').innerHTML = `
+                    <div id="empty-list" class="p-10 text-center text-xs text-slate-600 italic">
+                        <i class="fa-solid fa-sync fa-spin mb-3 text-2xl opacity-10 block"></i>
+                        Sincronizando fila...
+                    </div>
+                `;
+                socket.emit('solicitar_ressync');
+            }
+        });
+
         function sanitizarNome(nome) {
             if (!nome || String(nome).toLowerCase() === 'undefined' || String(nome).toLowerCase() === 'null') {
                 return "Usuário";
@@ -644,12 +664,17 @@
             if (!card) return;
 
             if (nomeAtendente) {
+                const meuNome = nomeAdmin.trim().toUpperCase();
+                const nomeAt = nomeAtendente.trim().toUpperCase();
+
                 // Se o atendente for OUTRO administrador, esconde o card para evitar confusão
-                if (nomeAtendente.toUpperCase() !== nomeAdmin.toUpperCase()) {
+                if (nomeAt !== meuNome) {
                     card.classList.add('hidden');
                 } else {
+                    // Se for EU, garanto que o card esteja visível e destacado
                     card.classList.remove('hidden');
-                    card.classList.add('opacity-50');
+                    card.classList.remove('opacity-50'); // Remove opacidade para destacar que é meu
+                    card.classList.add('active'); // Garante que Lucas veja que o ticket é dele
                 }
                 
                 if (statusText) {
@@ -660,6 +685,7 @@
             } else {
                 card.classList.remove('hidden');
                 card.classList.remove('opacity-50');
+                card.classList.remove('active');
                 if (statusText) {
                     statusText.innerText = salaId.substring(0, 15) + "...";
                     statusText.classList.replace('text-red-400', 'text-slate-500');
